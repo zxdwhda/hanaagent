@@ -1,5 +1,9 @@
 # Community Plugin Development Guide
 
+[Documentation](../README.md) · [中文](PLUGINS.md)
+
+This guide now lives under development documentation. Commands and source paths below are relative to the repository root.
+
 > This document is for community developers who want to build user-installable plugins.
 > System plugins (built-in features) use the same plugin format, placed in the project's `plugins/` directory and bundled with the app.
 

@@ -71,8 +71,8 @@ Behavior:
 
 ## Workflow
 
-1. Find the Hana repo root. Prefer the current workspace if it contains `PLUGIN_SDK.md`, `PLUGINS.md`, and `packages/plugin-runtime`.
-2. Read `PLUGIN_SDK.md` and the relevant sections of `PLUGINS.md` before changing plugin code. For React UI, also read `packages/plugin-sdk/README.md` and `packages/plugin-components/README.md`.
+1. Find the Hana repo root. Prefer the current workspace if it contains `docs/development/PLUGIN_SDK.md`, `docs/development/PLUGINS.md`, and `packages/plugin-runtime`.
+2. Read `docs/development/PLUGIN_SDK.md` and the relevant sections of `docs/development/PLUGINS.md` before changing plugin code. For React UI, also read `packages/plugin-sdk/README.md` and `packages/plugin-components/README.md`.
 3. Pick a template:
    - `direct`: no npm install, no build step, best for a beginner's first runnable plugin.
    - `guided-react`: React/Vite/SDK starter with shared Hana components and a gentler README.

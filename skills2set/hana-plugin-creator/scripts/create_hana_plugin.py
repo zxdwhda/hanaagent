@@ -55,7 +55,7 @@ def find_hana_root(*starts: Path) -> Path | None:
             if candidate in seen:
                 continue
             seen.add(candidate)
-            if (candidate / "PLUGIN_SDK.md").exists() and (candidate / "packages" / "plugin-runtime").exists():
+            if (candidate / "docs" / "development" / "PLUGIN_SDK.md").exists() and (candidate / "packages" / "plugin-runtime").exists():
                 return candidate
     return None
 

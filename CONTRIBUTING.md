@@ -6,7 +6,7 @@
 
 ### 前置条件
 
-- Node.js >= 24.12 (see package.json engines)
+- Node.js >= 24.12 且 < 25（参考版本 24.15.0，见 package.json engines）
 - npm (latest compatible with your Node.js version)
 - C/C++ 编译工具链（编译 `better-sqlite3` native module 需要）：
   - **macOS**：`xcode-select --install`（安装 Command Line Tools）
@@ -20,7 +20,7 @@
 npm ci
 
 # 启动 Electron（自动构建前端）
-npm start
+HANA_HOME="$HOME/.hanaagent-dev" npm start
 
 # 或者用 Vite HMR 开发前端
 npm run dev:renderer
@@ -36,7 +36,11 @@ npm run start:vite
 | `npm run start:vite` | Vite HMR 模式启动 |
 | `npm test` | 运行测试（Vitest） |
 | `npm run typecheck` | TypeScript 类型检查 |
+| `npm run lint` | ESLint 检查 |
+| `npm run server` | 仅启动开发服务端 |
+| `npm run cli` | server-first CLI |
 | `npm run build:renderer` | 单独构建前端 |
+| `npm run build:packages` | 构建插件 SDK 包 |
 
 ### Native Module 注意事项
 
@@ -53,6 +57,8 @@ Server 以独立 Node.js 进程运行（`spawn`，非 `fork`），不在 Electro
 - 安全漏洞按 [SECURITY.md](SECURITY.md) 私密报告，不在公开 Issue 中贴凭据或可利用细节。
 
 当前主要验证 macOS Apple Silicon。Windows/Linux 的代码仍在，但贡献跨平台改动时请提供目标平台验证结果。
+
+完整文档见[文档导航](docs/README.md)，首次配置与 Windows PowerShell 的环境变量设置见[运行指南](docs/usage/quick-start.md)。打包、安装、更新与回退见[本地版本管理](docs/maintenance/LOCAL_RELEASES.md)。
 
 ## 项目结构
 

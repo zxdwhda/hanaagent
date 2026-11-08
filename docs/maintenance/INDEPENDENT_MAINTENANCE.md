@@ -1,6 +1,8 @@
 # hanaagent 独立维护说明
 
-本项目由 [zxdwhda](https://github.com/zxdwhda) 独立维护，代码源自 [liliMozi/openhanako](https://github.com/liliMozi/openhanako) 的公开源码。感谢原作者和贡献者。README保留上游的产品介绍和原作者叙述；这不代表本维护者原创了这些功能。
+[文档导航](../README.md) · [来源基线](FORK_BASELINE.md) · [版本管理](LOCAL_RELEASES.md)
+
+本项目由 [zxdwhda](https://github.com/zxdwhda) 独立维护，代码源自 [liliMozi/openhanako](https://github.com/liliMozi/openhanako) 的公开源码。感谢原作者和贡献者。项目功能说明沿用上游实现，并改为独立维护视角；上游功能不作为本维护者的原创成果。
 
 ## 来源与版本
 
@@ -29,8 +31,8 @@
 
 这些结果不代表所有模型、插件、平台或使用场景均已验证。当前CI以macOS为主；Windows/Linux源码保留，尚不承诺独立发行可用性。尚未发布本方公开安装包，也没有本方Apple Developer签名、公证或线上更新服务。个人迁移数据、密钥、会话和实际备份均不在源码仓库中。
 
-上游锁定依赖的安全更新、图标/素材与第三方许可的进一步审核、其他平台验证仍是后续维护工作。保留[Apache-2.0许可证](LICENSE)、上游归属和内置第三方许可；来源信息见 [FORK_BASELINE.md](FORK_BASELINE.md)。
+上游锁定依赖的安全更新、图标/素材与第三方许可的进一步审核、其他平台验证仍是后续维护工作。保留[Apache-2.0许可证](../../LICENSE)、上游归属和内置第三方许可；来源信息见 [FORK_BASELINE.md](FORK_BASELINE.md)。
 
 ## 协作与发行
 
-欢迎Issue与PR，见 [CONTRIBUTING.md](CONTRIBUTING.md)。不自动关闭外部PR，不要求用户先让某个Agent排查。安装包发布与源码公开分开，本次不创建Release；源代码中的原有发行流程仅作维护参考，默认不触发公开发行，不镜像到作者账号。独立更新/回退使用 [LOCAL_RELEASES.md](LOCAL_RELEASES.md)。
+欢迎Issue与PR，见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。不自动关闭外部PR，不要求用户先让某个Agent排查。安装包发布与源码公开分开，本次不创建Release；源代码中的原有发行流程仅作维护参考，默认不触发公开发行，不镜像到作者账号。独立更新/回退使用 [LOCAL_RELEASES.md](LOCAL_RELEASES.md)。

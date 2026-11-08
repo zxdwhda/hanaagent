@@ -42,8 +42,8 @@ describe("plugin SDK examples and docs", () => {
     // instant once the interpreter is up.
   }, 30000);
 
-  it("documents the SDK package map in a top-level guide", () => {
-    const guide = fs.readFileSync(path.join(root, "PLUGIN_SDK.md"), "utf-8");
+  it("documents the SDK package map in the development guide", () => {
+    const guide = fs.readFileSync(path.join(root, "docs/development/PLUGIN_SDK.md"), "utf-8");
 
     expect(guide).toContain("@hana/plugin-protocol");
     expect(guide).toContain("@hana/plugin-sdk");
@@ -56,9 +56,9 @@ describe("plugin SDK examples and docs", () => {
   });
 
   it("documents ResourceIO access for user resources in plugin guides and Hana Plugin Creator", () => {
-    const sdkGuide = fs.readFileSync(path.join(root, "PLUGIN_SDK.md"), "utf-8");
-    const zhGuide = fs.readFileSync(path.join(root, "PLUGINS.md"), "utf-8");
-    const enGuide = fs.readFileSync(path.join(root, "PLUGINS_EN.md"), "utf-8");
+    const sdkGuide = fs.readFileSync(path.join(root, "docs/development/PLUGIN_SDK.md"), "utf-8");
+    const zhGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS.md"), "utf-8");
+    const enGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS_EN.md"), "utf-8");
     const creatorSkill = fs.readFileSync(path.join(root, "skills2set", "hana-plugin-creator", "SKILL.md"), "utf-8");
 
     for (const doc of [sdkGuide, zhGuide, enGuide, creatorSkill]) {
@@ -73,9 +73,9 @@ describe("plugin SDK examples and docs", () => {
   });
 
   it("documents plugin tool sessionPermission metadata in SDK guides and Hana Plugin Creator", () => {
-    const sdkGuide = fs.readFileSync(path.join(root, "PLUGIN_SDK.md"), "utf-8");
-    const zhGuide = fs.readFileSync(path.join(root, "PLUGINS.md"), "utf-8");
-    const enGuide = fs.readFileSync(path.join(root, "PLUGINS_EN.md"), "utf-8");
+    const sdkGuide = fs.readFileSync(path.join(root, "docs/development/PLUGIN_SDK.md"), "utf-8");
+    const zhGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS.md"), "utf-8");
+    const enGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS_EN.md"), "utf-8");
     const creatorSkill = fs.readFileSync(path.join(root, "skills2set", "hana-plugin-creator", "SKILL.md"), "utf-8");
 
     for (const doc of [sdkGuide, zhGuide, enGuide, creatorSkill]) {

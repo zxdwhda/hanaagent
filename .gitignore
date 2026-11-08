@@ -101,3 +101,6 @@ reviews/
 # Local operation/migration records (not product source)
 /TaskFlowDocs/
 /build/.cli-closure-*
+
+# Local isolated working copies
+/.worktrees/

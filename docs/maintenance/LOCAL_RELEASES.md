@@ -1,5 +1,9 @@
 # 本地构建与版本管理
 
+[文档导航](../README.md) · [目录说明](directories.md)
+
+下文命令在源码仓库根目录执行；源码根、应用数据与发行管理目录分别维护。
+
 当前公开源码没有配套安装包。沿用Node24.15.0/npm与package-lock.json；先 `npm ci`，开发启动为 `npm start`，常规验证为 `npm run typecheck`、`npm run lint`、`npm test`。完整打包涉及服务端签名seed、平台helper与Electron输出，不能用客户端编译通过代替打包验收。
 
 ## 本地打包

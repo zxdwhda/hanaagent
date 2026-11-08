@@ -1,5 +1,9 @@
 # Hana Plugin SDK
 
+[Documentation](../README.md) · [Plugin guide](PLUGINS_EN.md)
+
+Commands and source paths below are relative to the repository root.
+
 Hana's plugin SDK is split into small packages so plugin authors can choose only the layer they need.
 
 | Package | Runs In | Purpose |
