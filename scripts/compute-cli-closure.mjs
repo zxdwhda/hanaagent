@@ -23,7 +23,7 @@
  *   2. declared dynamic process/build roots -- server/index.ts (the server
  *      bootstrap cli/server-runner.ts spawns by path in source mode, and
  *      the build entry scripts/build-server.mjs feeds to
- *      vite.config.server.js) and server/bootstrap.ts (the packaged-mode
+ *      config/vite.config.server.js) and server/bootstrap.ts (the packaged-mode
  *      spawn target scripts/build-server.mjs copies verbatim) -- each root
  *      gets its own source module graph too;
  *   3. @vercel/nft traces of the compiled bundles for the CLI and server
@@ -139,7 +139,7 @@ export const CLOSURE_ROOTS = Object.freeze([
       + "cli/server-runner.ts's resolveServerSpawnSpec() source mode, "
       + "scripts/launch.js, scripts/dev-web.js, and desktop/main.cjs's dev "
       + "HANA_SERVER_ENTRY all target server/main-full.ts instead, and "
-      + "vite.config.server.js's build.lib.entry (which scripts/build-server.mjs feeds "
+      + "config/vite.config.server.js's build.lib.entry (which scripts/build-server.mjs feeds "
       + "into the packaged bundle) does too. main-full.ts is a thin closed entry that "
       + "statically imports this file's startServer() export plus "
       + "composition/full-root.ts's registerClosedRoutes hook and calls one with the "
@@ -188,7 +188,7 @@ export const CLOSURE_ROOTS = Object.freeze([
       + "closed-product route files (see the server-bootstrap root's reason above), so "
       + "this trace no longer pulls in their npm dependencies either -- narrower, and "
       + "more accurate, than before the split. The packaged product bundle "
-      + "(vite.config.server.js's build.lib.entry) is compiled from "
+      + "(config/vite.config.server.js's build.lib.entry) is compiled from "
       + "server/main-full.ts instead, which statically includes this file plus the "
       + "closed-product routes; that closed bundle is out of scope for this "
       + "open-closure trace by design. Same nft usage pattern as the server build's "
@@ -1067,7 +1067,7 @@ export const CLOSED_PRODUCT_PATTERNS = Object.freeze([
   },
   // core/desktop-session-submit.ts and core/current-turn-native-media.ts
   // were reclassified redistributable 2026-07-17 (both listed in
-  // export-manifest.json). The earlier notes here guessed "desktop UI
+  // build/export-manifest.json). The earlier notes here guessed "desktop UI
   // product surface" from the file names, but the evidence says host
   // plumbing: the open chat/sessions routes and the open engine import
   // them unconditionally (an open server could not submit a message
@@ -1076,7 +1076,7 @@ export const CLOSED_PRODUCT_PATTERNS = Object.freeze([
   // kind, not the desktop renderer.
   { pattern: /^lib\/character-cards\//, note: "Implements the closed-source character-card content system." },
   // lib/desk/ was reclassified redistributable 2026-07-17 (all files listed
-  // in export-manifest.json). It is the automation machinery -- cron
+  // in build/export-manifest.json). It is the automation machinery -- cron
   // store/scheduler, heartbeat, automation executors/normalizer, activity
   // log, permission stub -- which runs headless under the CLI, has long
   // been published in this repository, and is imported unconditionally by
@@ -1104,7 +1104,7 @@ export const EVIDENCE_NEEDED_PATTERNS = Object.freeze([
   // server/suggestion-blocks.ts was resolved 2026-07-17: it is a plain
   // wire-format builder for automation suggestion blocks with no product
   // logic of its own, so it is classified redistributable (listed in
-  // export-manifest.json). The desk automation behavior behind those
+  // build/export-manifest.json). The desk automation behavior behind those
   // blocks remains closed.
 ]);
 
@@ -1118,7 +1118,7 @@ export const PROVISIONAL_PATTERNS = Object.freeze([
     // 2026-07-17: the registry is a low-sensitivity manifest of theme ids,
     // background colors and i18n keys plus its lookup logic, needed by the
     // redistributable settings tool for validation, so both are classified
-    // redistributable (listed in export-manifest.json). The theme CSS
+    // redistributable (listed in build/export-manifest.json). The theme CSS
     // itself lives under desktop/src/themes/ and stays closed.
     pattern: /^desktop\/src\/shared\/(?!theme-registry\.cjs$|theme-registry-data\.json$)/,
     note: "Shared desktop-shell code mixing generic startup/update/error/preload plumbing with product-specific behavior; needs a dedicated pass to separate the two before it can be classified.",

@@ -19,7 +19,7 @@
  *   npm run build:renderer && npm run build:theme
  * （顺序不能颠倒：build:theme 的产物写进 dist-renderer/lib/theme.js，
  * 必须在 build:renderer 的 emptyOutDir 清空该目录之后才落地——见
- * vite.config.theme.js 文件头注释）。
+ * config/vite.config.theme.js 文件头注释）。
  *
  * 用法：node scripts/pack-renderer-box.mjs
  * 输出：dist-renderer-artifact/renderer-<version>.tar.gz

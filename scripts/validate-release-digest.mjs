@@ -10,7 +10,7 @@ import {
 
 function parseArgs(argv = process.argv.slice(2), env = process.env) {
   const args = {
-    file: DIGEST_ASSET_NAME,
+    file: `build/releases/${DIGEST_ASSET_NAME}`,
     tag: env.GITHUB_REF_NAME || null,
   };
 
@@ -30,7 +30,7 @@ function parseArgs(argv = process.argv.slice(2), env = process.env) {
 }
 
 function printHelp() {
-  console.log(`Usage: node scripts/validate-release-digest.mjs --tag v0.0.0 [--file ${DIGEST_ASSET_NAME}]
+  console.log(`Usage: node scripts/validate-release-digest.mjs --tag v0.0.0 [--file build/releases/${DIGEST_ASSET_NAME}]
 
 Validates the committed release digest before CI uploads it as a release asset.
 `);

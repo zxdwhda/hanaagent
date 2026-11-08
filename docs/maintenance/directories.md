@@ -11,9 +11,10 @@
 | `core/`、`lib/`、`server/`、`hub/`、`desktop/`、`shared/`、`cli/` | 产品源码，按现有模块维护 |
 | `packages/`、`plugins/`、`skills2set/`、`examples/` | SDK 包、内置插件/技能与示例；模块 README 就近保留 |
 | `scripts/`、`tools/`、`tests/` | 构建、开发工具与测试 |
+| `config/` | Vite、Vitest、ESLint 和辅助 TypeScript 配置；根 tsconfig.json 保留 IDE 与 SDK 包继承入口 |
 | `docs/` | 公开的使用、开发和维护文档 |
 | `build/` | 包含受版本控制的构建资源与契约清单，不能把整个目录当作临时产物删除 |
-| `export-manifest.json`、`release-digest.v*.json` | 受版本控制的导出清单和发行摘要，沿用现有路径 |
+| `build/export-manifest.json`、`build/releases/release-digest.v*.json` | 受版本控制的导出清单和发行摘要，按构建脚本和打包清单维护 |
 | `TaskFlowDocs/` | 本地任务计划、决策与验收记录，不公开提交 |
 | `.local/` | 私有迁移试验、数据副本、备份与验收证据，不公开提交 |
 | `.cache/`、`node_modules/`、`dist*`、`desktop/dist-*` | 依赖、缓存和构建输出，沿用构建脚本的现有路径；不公开提交 |

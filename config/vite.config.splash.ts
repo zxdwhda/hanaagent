@@ -1,10 +1,14 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
+
 import { injectCsp } from './vite.csp-profiles';
 
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
 /**
- * vite.config.splash.ts — 双 artifact 管线：splash 独立构建
+ * config/vite.config.splash.ts — 双 artifact 管线：splash 独立构建
  *
  * splash 是壳自持表面："The shell never serves UI
  * from Resources directly; splash remains the only shell-owned surface"）：
@@ -15,7 +19,7 @@ import { injectCsp } from './vite.csp-profiles';
  *
  * 只构建 splash.html 这一个入口，输出到 desktop/dist-splash/（跟主配置的
  * ../dist-renderer 同级）。dev 模式完全不用这份配置——`vite dev` 走
- * vite.config.ts 的 dev server，按目录直接服务 splash.html，不依赖任何
+ * config/vite.config.ts 的 dev server，按目录直接服务 splash.html，不依赖任何
  * rollupOptions.input 列表（entry 列表只在 `vite build` 时起作用）。
  */
 function copySplashRuntimeAssets(): Plugin {
@@ -28,9 +32,9 @@ function copySplashRuntimeAssets(): Plugin {
       // esbuild 打包阶段去处理这条依赖链——两条路径都该能工作，但
       // closeBundle 里跑等价于直接 `node scripts/splash-assets.mjs`，
       // 是这个仓库里已经验证过的执行环境，行为最可预期。
-      const { copySplashAssets } = await import('./scripts/splash-assets.mjs');
-      const srcDir = path.resolve(__dirname, 'desktop/src');
-      const outDir = path.resolve(__dirname, 'desktop/dist-splash');
+      const { copySplashAssets } = await import('../scripts/splash-assets.mjs');
+      const srcDir = path.resolve(repoRoot, 'desktop/src');
+      const outDir = path.resolve(repoRoot, 'desktop/dist-splash');
       copySplashAssets({ srcDir, outDir });
     },
   };
@@ -45,7 +49,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        splash: path.resolve(__dirname, 'desktop/src/splash.html'),
+        splash: path.resolve(repoRoot, 'desktop/src/splash.html'),
       },
     },
   },

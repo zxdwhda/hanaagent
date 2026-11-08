@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * export-open-tree.mjs — materializes export-manifest.json's whitelist
+ * export-open-tree.mjs — materializes build/export-manifest.json's whitelist
  * (plus EXPORT_SKELETON's build infrastructure) into a clean, standalone
  * directory tree: a local rehearsal of what the redistributable open-source
  * repository will contain after the actual cutover.
@@ -12,14 +12,14 @@
  * scripts are dead in the exported tree as input for the real cutover's
  * cleanup, it does not try to hide or fix that here.
  *
- * export-manifest.json remains the sole classification authority for
+ * build/export-manifest.json remains the sole classification authority for
  * *source* files — this script never edits it and never adds a source path
  * to EXPORT_SKELETON. EXPORT_SKELETON is strictly already-public build
  * machinery (package.json's sibling lockfile/config files, and the
  * scripts/*.mjs the build:server:open chain itself imports/execs) with no
  * business logic, each entry carrying its own one-line reason.
  *
- * Path semantics (mirrors export-manifest.json's own "note" field, and
+ * Path semantics (mirrors build/export-manifest.json's own "note" field, and
  * scripts/lint-open-boundary.mjs's expandManifestPaths, which this script
  * intentionally does NOT reuse — see below):
  *   - an entry ending in "/" is an exact directory; only its *git-tracked*
@@ -39,7 +39,7 @@
  *     semantics as a trailing-"/" entry, regardless of the literal
  *     trailing-slash spelling. This is an interpretation of an ambiguous
  *     manifest entry for *copy* purposes, not a modification of the
- *     manifest's path list itself (export-manifest.json is byte-for-byte
+ *     manifest's path list itself (build/export-manifest.json is byte-for-byte
  *     untouched). lint-open-boundary.mjs's expandManifestPaths cannot be
  *     reused as-is here because it deliberately does the opposite for
  *     scanning purposes (treats a non-"/" directory entry as one opaque,
@@ -70,7 +70,7 @@ export const DEFAULT_EXPORT_DIR_NAME = "dist-open-export";
 /**
  * Build infrastructure the open-source composition build chain
  * (`npm ci` → `npm run build:server:open` → `npm run smoke:server:open`)
- * needs beyond export-manifest.json's whitelist (package.json itself is
+ * needs beyond build/export-manifest.json's whitelist (package.json itself is
  * already a manifest entry, not listed again here). Each entry is a single
  * already-public file with no closed-source content, carrying its own
  * reason. Finding a *source* file (business logic, not build tooling) that
@@ -83,12 +83,12 @@ export const EXPORT_SKELETON = [
     reason: "packages/plugin-protocol and plugin-sdk (whitelisted) carry tsconfig.json files that `extends \"../../tsconfig.json\"`; vite's esbuild transform resolves that chain while bundling their sources, so the root compiler config (pure build settings, no business logic) must exist in the export tree.",
   },
   {
-    path: "tsconfig.base.json",
-    reason: "The root tsconfig.json itself `extends ./tsconfig.base.json`; same chain, same build-settings-only content.",
+    path: "config/tsconfig.base.json",
+    reason: "The root tsconfig.json itself `extends ./config/tsconfig.base.json`; same chain, same build-settings-only content.",
   },
   {
-    path: "export-manifest.json",
-    reason: "scripts/build-server-open.mjs's own assertOpenBuildInputsWhitelisted() reads export-manifest.json from its build root at build time (self-check that the build didn't read anything unwhitelisted); without a copy in the export tree the open build cannot even run its own gate. This ships the manifest itself, not a rewrite of it.",
+    path: "build/export-manifest.json",
+    reason: "scripts/build-server-open.mjs's own assertOpenBuildInputsWhitelisted() reads build/export-manifest.json from its build root at build time (self-check that the build didn't read anything unwhitelisted); without a copy in the export tree the open build cannot even run its own gate. This ships the manifest itself, not a rewrite of it.",
   },
   {
     path: "package-lock.json",
@@ -99,8 +99,8 @@ export const EXPORT_SKELETON = [
     reason: "reproduces the repo's supply-chain install policy (save-exact, min-release-age, audit) so the rehearsal's npm behavior matches a real contributor's install; content is generic install policy, not project business logic.",
   },
   {
-    path: "vite.config.server.js",
-    reason: "scripts/build-server-phases.mjs's buildViteServerBundle runs `npx vite build --config vite.config.server.js`; without this file the server bundle step has no entry/output/external config at all.",
+    path: "config/vite.config.server.js",
+    reason: "scripts/build-server-phases.mjs's buildViteServerBundle runs `npx vite build --config config/vite.config.server.js`; without this file the server bundle step has no entry/output/external config at all.",
   },
   {
     path: "scripts/build-server-open.mjs",

@@ -1,7 +1,7 @@
 /**
  * theme.ts — 共享主题系统（IIFE 打包入口）
  *
- * 由 vite.config.theme.js 打包成 desktop/dist-renderer/lib/theme.js，
+ * 由 config/vite.config.theme.js 打包成 desktop/dist-renderer/lib/theme.js，
  * 被 4 个 HTML（index / onboarding / settings / browser-viewer）通过
  * <script src="lib/theme.js"> 引入。执行时序与原 lib/theme.js 一致。
  *

@@ -58,7 +58,7 @@ Server 以独立 Node.js 进程运行（`spawn`，非 `fork`），不在 Electro
 
 当前主要验证 macOS Apple Silicon。Windows/Linux 的代码仍在，但贡献跨平台改动时请提供目标平台验证结果。
 
-完整文档见[文档导航](docs/README.md)，首次配置与 Windows PowerShell 的环境变量设置见[运行指南](docs/usage/quick-start.md)。打包、安装、更新与回退见[本地版本管理](docs/maintenance/LOCAL_RELEASES.md)。
+完整文档见[文档导航](../docs/README.md)，首次配置与 Windows PowerShell 的环境变量设置见[运行指南](../docs/usage/quick-start.md)。打包、安装、更新与回退见[本地版本管理](../docs/maintenance/LOCAL_RELEASES.md)。
 
 ## 项目结构
 
@@ -77,4 +77,4 @@ tests/          # Vitest 测试
 
 ## License
 
-提交贡献即表示你同意你的代码以 [Apache License 2.0](LICENSE) 授权。
+提交贡献即表示你同意你的代码以 [Apache License 2.0](../LICENSE) 授权。

@@ -8,8 +8,8 @@ import type { Plugin } from 'vite';
  *
  * 修改 CSP 时只改这里，然后同步更新 HTML 源文件。
  *
- * 这个文件原先内联在 vite.config.ts；splash 启用独立构建后，
- * 拥有自己独立的构建配置（vite.config.splash.ts，产出 desktop/dist-splash/，
+ * 这个文件原先内联在 config/vite.config.ts；splash 启用独立构建后，
+ * 拥有自己独立的构建配置（config/vite.config.splash.ts，产出 desktop/dist-splash/，
  * 不再随 dist-renderer 打包进 asar），splash.html 的 CSP profile 需要被两份
  * 构建配置共享，不能只活在主配置文件里。
  */

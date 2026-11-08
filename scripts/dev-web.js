@@ -91,7 +91,7 @@ function spawnVite(clientConfig, serverInfo) {
 
   viteProcess = spawn(viteBin, [
     "--config",
-    path.join(rootDir, "vite.config.ts"),
+    path.join(rootDir, "config/vite.config.ts"),
     "--host",
     "127.0.0.1",
   ], {

@@ -18,6 +18,7 @@ export default [
       'desktop/dist-*/**',
       'desktop/native/**/.build/**',
       '.claude/**',
+      '.worktrees/**',
       '.cache/**',
       // Local validation homes contain generated state and Electron caches.
       '.local/**',
@@ -56,7 +57,6 @@ export default [
       'cli/**/*.{js,ts}',
       'core/**/*.{js,ts}',
       'hub/**/*.{js,ts}',
-      'index.js',
       'lib/**/*.{js,ts}',
       'plugins/**/*.{js,ts}',
       'scripts/**/*.{js,mjs,ts}',

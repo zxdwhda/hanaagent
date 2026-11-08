@@ -28,7 +28,7 @@ jobs:
 
       # 顺序不能颠倒：build:theme 的产物写进 dist-renderer/lib/theme.js，
       # 必须在 build:renderer 的 emptyOutDir 清空该目录之后才落地
-      # （见 vite.config.theme.js 文件头注释）。
+      # （见 config/vite.config.theme.js 文件头注释）。
       - name: Build renderer bundle
         run: npm run build:renderer
 
@@ -392,7 +392,7 @@ jobs:
         run: |
           node scripts/validate-release-digest.mjs \
             --tag "${{ github.ref_name }}" \
-            --file release-digest.v1.json
+            --file build/releases/release-digest.v1.json
 
       # 单点上传所有 release assets（dmg/zip/exe/AppImage/deb/yml），blockmap 不上传
       - name: Upload release assets
@@ -454,7 +454,7 @@ jobs:
           gh release upload "${{ github.ref_name }}" latest-mac.yml --clobber
 
           echo "=== Uploading release digest ==="
-          gh release upload "${{ github.ref_name }}" release-digest.v1.json --clobber
+          gh release upload "${{ github.ref_name }}" build/releases/release-digest.v1.json --clobber
 
           echo "=== Uploading latest-linux.yml ==="
           LINUX_YML=$(find artifacts -name 'latest-linux.yml' | head -1)

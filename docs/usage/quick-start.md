@@ -6,7 +6,7 @@
 
 ## 从源码运行
 
-先安装 Node.js 24（参考版本 24.15.0）、npm、Git，以及[贡献指南](../../CONTRIBUTING.md)要求的平台编译工具。在仓库根目录执行：
+先安装 Node.js 24（参考版本 24.15.0）、npm、Git，以及[贡献指南](../../.github/CONTRIBUTING.md)要求的平台编译工具。在仓库根目录执行：
 
 ```sh
 npm ci
@@ -25,5 +25,5 @@ HANA_HOME="$HOME/.hanaagent-dev" npm start
 ## 后续操作
 
 - 功能入口见[功能概览](features.md)。
-- 开发命令与本地调试见[贡献指南](../../CONTRIBUTING.md)。
+- 开发命令与本地调试见[贡献指南](../../.github/CONTRIBUTING.md)。
 - 打包、安装、更新和回退见[本地版本管理](../maintenance/LOCAL_RELEASES.md)。

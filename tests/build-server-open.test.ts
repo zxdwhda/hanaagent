@@ -30,7 +30,7 @@ function stripComments(source) {
 }
 
 describe("build-server-open: whitelist assertion (unit-level, no real build)", () => {
-  it("passes for the real declared open build input list against the committed export-manifest.json", () => {
+  it("passes for the real declared open build input list against the committed build/export-manifest.json", () => {
     expect(() => assertOpenBuildInputsWhitelisted({
       rootDir: ROOT,
       declaredPaths: declaredOpenBuildInputPaths(),
@@ -63,8 +63,9 @@ describe("build-server-open: whitelist assertion (unit-level, no real build)", (
   it("accepts a fixture manifest + fixture runtime-asset list without touching the real repo", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-open-whitelist-fixture-"));
     try {
+      fs.mkdirSync(path.join(tempDir, "build"), { recursive: true });
       fs.writeFileSync(
-        path.join(tempDir, "export-manifest.json"),
+        path.join(tempDir, "build/export-manifest.json"),
         JSON.stringify({ version: 1, paths: ["only/whitelisted.ts"] }),
       );
       expect(() => assertOpenBuildInputsWhitelisted({
@@ -134,8 +135,8 @@ describe("server/main-open.ts: open composition entry (static check)", () => {
     expect(code).not.toMatch(/full-root/);
   });
 
-  it("is listed in export-manifest.json's whitelist", () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "export-manifest.json"), "utf-8"));
+  it("is listed in build/export-manifest.json's whitelist", () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "build/export-manifest.json"), "utf-8"));
     expect(manifest.paths).toContain("server/main-open.ts");
   });
 

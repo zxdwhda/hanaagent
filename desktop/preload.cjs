@@ -6,7 +6,7 @@
  */
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 // ⚠️ 这是 preload 的"源文件"，不是 Electron 实际加载的。
-// Vite (vite.config.preload.js) 会把这个文件和其依赖 bundle 成
+// Vite (config/vite.config.preload.js) 会把这个文件和其依赖 bundle 成
 // desktop/preload.bundle.cjs —— main.cjs 里 BrowserWindow 的
 // webPreferences.preload 指向 bundle 产物。
 // 可以放心 require 任何相对路径 / node_modules，bundler 会内联。

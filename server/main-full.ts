@@ -5,7 +5,7 @@
  * product server: `scripts/launch.js` (`npm run server`),
  * `scripts/dev-web.js` (`npm run dev:web`), `cli/server-runner.ts`'s
  * source-mode spawn, `desktop/main.cjs`'s dev-mode `HANA_SERVER_ENTRY`, and
- * `vite.config.server.js`'s build entry (packaged `bundle/index.js`, which
+ * `config/vite.config.server.js`'s build entry (packaged `bundle/index.js`, which
  * `server/bootstrap.ts` imports at runtime).
  *
  * Normal boot statically pairs the open composition root's `startServer`

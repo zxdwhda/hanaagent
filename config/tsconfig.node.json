@@ -6,18 +6,18 @@
     "strictNullChecks": false,
     "strictPropertyInitialization": false,
     "useUnknownInCatchVariables": false,
-    "baseUrl": "."
+    "baseUrl": ".."
   },
   "include": [
-    "core/**/*.ts",
-    "lib/**/*.ts",
-    "server/**/*.ts",
-    "shared/**/*.ts",
-    "hub/**/*.ts",
-    "cli/**/*.ts",
-    "plugins/**/*.ts"
+    "../core/**/*.ts",
+    "../lib/**/*.ts",
+    "../server/**/*.ts",
+    "../shared/**/*.ts",
+    "../hub/**/*.ts",
+    "../cli/**/*.ts",
+    "../plugins/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "../node_modules"
   ]
 }

@@ -41,7 +41,7 @@
  * - `HANA_SIGN_KEYSET=<path>` 是构建期输入：替换"打进当次构建"的 keyset
  *   文件（默认 repo 的 shared/artifact-core/pinned-keyset.json）。这不是
  *   运行期校验旁路——运行时永远读被打包进 bundle 的 keyset
- *  （vite.config.main.js 在 bundle 期做同一替换）。正式发版不设置此变量。
+ *  （config/vite.config.main.js 在 bundle 期做同一替换）。正式发版不设置此变量。
  * - 签名后立即用"将被打包的 keyset"做一次 verify：构建期就证明这颗 seed
  *   能被最终产物验证通过，密钥/keyset 不匹配在构建机上炸，不留到用户首启。
  */

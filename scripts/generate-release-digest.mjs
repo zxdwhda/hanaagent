@@ -23,13 +23,13 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     ref: env.GITHUB_SHA || "HEAD",
     owner: null,
     repo: null,
-    out: DIGEST_ASSET_NAME,
+    out: `build/releases/${DIGEST_ASSET_NAME}`,
     sourceOut: null,
     releaseNotesFile: null,
     releaseUrl: "",
     noLlm: false,
     appendHistory: false,
-    historyFile: DIGEST_HISTORY_ASSET_NAME,
+    historyFile: `build/releases/${DIGEST_HISTORY_ASSET_NAME}`,
     model: env.OPENAI_MODEL || DEFAULT_MODEL,
   };
 
@@ -72,7 +72,7 @@ Options:
   --ref <git-ref>            Git ref to summarize before the tag exists. Default: HEAD
   --owner <owner>           GitHub owner. Default: GITHUB_REPOSITORY owner
   --repo <repo>             GitHub repo. Default: GITHUB_REPOSITORY repo
-  --out <path>              Digest JSON output. Default: ${DIGEST_ASSET_NAME}
+  --out <path>              Digest JSON output. Default: build/releases/${DIGEST_ASSET_NAME}
   --source-out <path>       Write the LLM source packet for audit/debugging
   --release-notes-file <p>   Optional local release notes file
   --release-url <url>        Optional release URL embedded into digest source
@@ -80,7 +80,7 @@ Options:
   --no-llm                  Only collect/write the source packet; do not call OpenAI
   --append-history          Append the digest at --out into the v2 rolling history, then exit
                             (no git, no LLM; the hand-written digest workflow's second step)
-  --history-file <path>     v2 rolling history JSON path. Default: ${DIGEST_HISTORY_ASSET_NAME}
+  --history-file <path>     v2 rolling history JSON path. Default: build/releases/${DIGEST_HISTORY_ASSET_NAME}
 `);
 }
 

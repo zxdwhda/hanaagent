@@ -11,7 +11,7 @@
  *
  * This file's own job is narrow:
  *   - hold the ONE static `require("./artifact-ota-dev-bypass.cjs")`
- *     specifier — `vite.config.main.js`'s alias plugin keys off this exact
+ *     specifier — `config/vite.config.main.js`'s alias plugin keys off this exact
  *     literal to swap in the production stub for every `main.bundle.cjs`
  *     build, so the real override can never reach a shipped shell; the
  *     shared core is never allowed to hold this require itself (see
@@ -34,7 +34,7 @@ const artifactBoot = require("./artifact-boot.cjs");
 const otaCore = require("../../../shared/artifact-core/ota-core.cjs");
 const distributionPolicy = require("../../../shared/distribution-policy.cjs");
 // Static specifier on purpose — see artifact-ota-dev-bypass.cjs's header
-// comment; vite.config.main.js's alias keys off this exact literal.
+// comment; config/vite.config.main.js's alias keys off this exact literal.
 const devBypass = require("./artifact-ota-dev-bypass.cjs");
 
 const { SEED_CHANNEL } = artifactBoot;

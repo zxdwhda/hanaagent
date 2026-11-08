@@ -8,7 +8,7 @@
  * ⚠️ 扩展名必须是 .cjs：根 package.json 有 "type": "module"，.js 会被 Node
  * 当成 ESM，module.exports 失效。同 path-to-file-url.cjs / auto-updater.cjs。
  *
- * 关键文件 + external 包列表与打包入口、vite.config.server.js 的 external 字段同步维护：
+ * 关键文件 + external 包列表与打包入口、config/vite.config.server.js 的 external 字段同步维护：
  * 那边的 string 类型 external 在 build-server.mjs 构建期已强制校验装入
  * server/node_modules，运行时这里只挑最关键的几个做"文件竞态"判定。
  * 维护原则：宁可少列，不要多列。误判"少包"会让用户白白多等几秒。

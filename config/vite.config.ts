@@ -1,9 +1,13 @@
 import { defineConfig, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
+
 import fs from 'fs';
 import crypto from 'crypto';
 import { injectCsp } from './vite.csp-profiles';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 interface DevWebClientConfig {
   serverPort: string;
@@ -157,7 +161,7 @@ function browserCjsDefaultInterop(): Plugin {
       if (!filePath.endsWith('.cjs')) return null;
       if (filePath.includes('/node_modules/')) return null;
       if (/\brequire\s*\(/.test(code)) {
-        const rel = path.relative(__dirname, filePath);
+        const rel = path.relative(repoRoot, filePath);
         throw new Error(
           `[hana-browser-cjs-default-interop] ${rel} is imported into the browser graph but uses require(); ` +
           `browser-graph .cjs must be pure — move constants to JSON or split Node-only logic out.`,
@@ -174,7 +178,7 @@ function browserCjsDefaultInterop(): Plugin {
 }
 
 function serveMobilePwaStaticFiles(): Plugin {
-  const srcDir = path.resolve(__dirname, 'desktop/src');
+  const srcDir = path.resolve(repoRoot, 'desktop/src');
   const filesByUrl = new Map<string, { file: string; contentType: string }>([
     ['/sw.js', { file: path.join(srcDir, 'mobile-sw.js'), contentType: 'application/javascript; charset=utf-8' }],
     ['/manifest.webmanifest', { file: path.join(srcDir, 'mobile-manifest.webmanifest'), contentType: 'application/manifest+json; charset=utf-8' }],
@@ -263,8 +267,8 @@ function copyLegacyFiles(): Plugin {
   return {
     name: 'hana-copy-legacy-files',
     closeBundle() {
-      const srcDir = path.resolve(__dirname, 'desktop/src');
-      const outDir = path.resolve(__dirname, 'desktop/dist-renderer');
+      const srcDir = path.resolve(repoRoot, 'desktop/src');
+      const outDir = path.resolve(repoRoot, 'desktop/dist-renderer');
 
       const dirs = ['lib', 'modules', 'themes', 'assets', 'locales'];
       const files = ['styles.css', 'animations.css', 'mobile-manifest.webmanifest', 'mobile-sw.js', 'icon.png'];
@@ -309,11 +313,11 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@hana/plugin-protocol': path.resolve(__dirname, 'packages/plugin-protocol/src/index.ts'),
-      '@hana/plugin-sdk': path.resolve(__dirname, 'packages/plugin-sdk/src/index.ts'),
-      '@hana/plugin-runtime': path.resolve(__dirname, 'packages/plugin-runtime/src/index.ts'),
-      '@hana/plugin-components': path.resolve(__dirname, 'packages/plugin-components/src/index.ts'),
-      '@': path.resolve(__dirname, 'desktop/src/react'),
+      '@hana/plugin-protocol': path.resolve(repoRoot, 'packages/plugin-protocol/src/index.ts'),
+      '@hana/plugin-sdk': path.resolve(repoRoot, 'packages/plugin-sdk/src/index.ts'),
+      '@hana/plugin-runtime': path.resolve(repoRoot, 'packages/plugin-runtime/src/index.ts'),
+      '@hana/plugin-components': path.resolve(repoRoot, 'packages/plugin-components/src/index.ts'),
+      '@': path.resolve(repoRoot, 'desktop/src/react'),
     },
   },
   css: {
@@ -333,18 +337,18 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'desktop/src/index.html'),
-        mobile: path.resolve(__dirname, 'desktop/src/mobile.html'),
-        settings: path.resolve(__dirname, 'desktop/src/settings.html'),
-        'quick-chat': path.resolve(__dirname, 'desktop/src/quick-chat.html'),
-        onboarding: path.resolve(__dirname, 'desktop/src/onboarding.html'),
+        main: path.resolve(repoRoot, 'desktop/src/index.html'),
+        mobile: path.resolve(repoRoot, 'desktop/src/mobile.html'),
+        settings: path.resolve(repoRoot, 'desktop/src/settings.html'),
+        'quick-chat': path.resolve(repoRoot, 'desktop/src/quick-chat.html'),
+        onboarding: path.resolve(repoRoot, 'desktop/src/onboarding.html'),
         // splash 不在这里：启用双 artifact 管线后它是壳自持表面，独立构建进
-        // desktop/dist-splash/（见 vite.config.splash.ts），不随 dist-renderer
+        // desktop/dist-splash/（见 config/vite.config.splash.ts），不随 dist-renderer
         // 打包进 asar，也不随 renderer artifact 一起走首启解压/OTA 那条路。
         // dev 模式不受影响——vite dev server 按目录直接服务 splash.html，
         // 不依赖这份 rollupOptions.input 列表。
-        'browser-viewer': path.resolve(__dirname, 'desktop/src/browser-viewer.html'),
-        'viewer-window': path.resolve(__dirname, 'desktop/src/viewer-window.html'),
+        'browser-viewer': path.resolve(repoRoot, 'desktop/src/browser-viewer.html'),
+        'viewer-window': path.resolve(repoRoot, 'desktop/src/viewer-window.html'),
       },
     },
   },
@@ -354,6 +358,6 @@ export default defineConfig({
     proxy: createDevWebProxy(),
   },
   test: {
-    root: path.resolve(__dirname),
+    root: path.resolve(repoRoot),
   },
 });

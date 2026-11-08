@@ -227,7 +227,7 @@ describe("compute-cli-closure: open/closed classification", () => {
   it("treats the resolved theme-registry and suggestion-blocks rulings as redistributable", () => {
     // Resolved 2026-07-17: the theme registry manifest + lookup logic and
     // the automation suggestion wire-format builder carry no closed
-    // product logic; both are listed in export-manifest.json.
+    // product logic; both are listed in build/export-manifest.json.
     expect(classifyRepoPath("desktop/src/shared/theme-registry.cjs")).toBeNull();
     expect(classifyRepoPath("desktop/src/shared/theme-registry-data.json")).toBeNull();
     expect(classifyRepoPath("server/suggestion-blocks.ts")).toBeNull();

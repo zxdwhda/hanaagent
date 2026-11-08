@@ -194,6 +194,6 @@ describe("appendDigestFileToHistoryFile（手写工作流：追加一节进 v2 �
   it("--append-history 模式不要求 --tag（append 路径不接触 git/LLM）", () => {
     const args = parseArgs(["--append-history"], {});
     expect(args.appendHistory).toBe(true);
-    expect(args.historyFile).toBe("release-digest.v2.json");
+    expect(args.historyFile).toBe("build/releases/release-digest.v2.json");
   });
 });

@@ -12,7 +12,7 @@
  * against whatever bytes this module returns.
  *
  * THIS FILE IS ALIAS-SWAPPED to `artifact-ota-dev-bypass.prod-stub.cjs` by
- * every `vite build --config vite.config.main.js` run (see the
+ * every `vite build --config config/vite.config.main.js` run (see the
  * unconditional alias entry there) — the string "HANA_ARTIFACT_MANIFEST"
  * therefore never appears in `desktop/main.bundle.cjs`, regardless of
  * whether that build used a real or test signing keyset. The override is

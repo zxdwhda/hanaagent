@@ -952,7 +952,7 @@ const artifactGc = require("./src/shared/artifact-gc.cjs");
 // "修复组件"逃生门：托盘菜单 + `--repair-artifacts`
 // 旗标共用同一份清理实现，只清 artifacts/ 下的已知子路径，保留 rollout-id。
 const artifactRepair = require("./src/shared/artifact-repair.cjs");
-// pinned keyset 随主进程 bundle 内联（vite.config.main.js 负责
+// pinned keyset 随主进程 bundle 内联（config/vite.config.main.js 负责
 // HANA_SIGN_KEYSET 的构建期替换），运行时没有旁路。
 const { loadPinnedKeyset } = require("../shared/artifact-core/keyset.cjs");
 const { resolveStaleServerInfoDisposition } = require("./src/shared/stale-server-info.cjs");
@@ -2373,7 +2373,7 @@ function computePendingAnnouncement() {
   try {
     const readJson = (name) => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), name), "utf-8"));
+        return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), "build", "releases", name), "utf-8"));
       } catch {
         return null;
       }
@@ -2727,7 +2727,7 @@ function broadcastToAllWindows(channel, payload) {
  * 后台网络请求）；唯一的例外是显式配置了 `HANA_ARTIFACT_MANIFEST` 排练
  * 开关时——`hasDevOverrideConfigured()` 是间接读取（本文件永远不直接引用
  * 那个环境变量名，读取逻辑只活在唯一一处 artifact-ota-dev-bypass.cjs，
- * 该文件在生产 bundle 里被 vite.config.main.js 无条件替换成恒返回 false
+ * 该文件在生产 bundle 里被 config/vite.config.main.js 无条件替换成恒返回 false
  * 的桩，因此这一行判断在真实分发给用户的 main.bundle.cjs 里恒等于
  * `app.isPackaged`，不会给生产用户开任何口子）。
  */
@@ -5141,7 +5141,7 @@ function readBundledUpdateDigestHistory() {
   try {
     const readJson = (name) => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), name), "utf-8"));
+        return JSON.parse(fs.readFileSync(path.join(app.getAppPath(), "build", "releases", name), "utf-8"));
       } catch {
         return null;
       }

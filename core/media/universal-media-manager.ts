@@ -351,7 +351,7 @@ export class UniversalMediaManager {
 
   _registerBuiltinAdapters() {
     // Adapter implementations are closed-content (core/media-adapters/, not
-    // in export-manifest.json) and are injected by the composition root via
+    // in build/export-manifest.json) and are injected by the composition root via
     // the `builtinAdapters` constructor option -- this module never imports
     // them itself. No import-on-empty fallback: an open composition that
     // doesn't supply any adapters ends up with a media runtime that has

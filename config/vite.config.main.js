@@ -6,9 +6,9 @@ import { defineConfig } from "vite";
 import { builtinModules } from "module";
 
 // This file is a real ES module ("type": "module" in package.json) — no
-// ambient __dirname, unlike vite.config.ts (CJS-transpiled by vite's own
-// config loader). Derive it explicitly, same as vitest.config.js does.
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// ambient __dirname. Resolve the repository root explicitly so moving this
+// config does not change source aliases or output locations.
+const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
 

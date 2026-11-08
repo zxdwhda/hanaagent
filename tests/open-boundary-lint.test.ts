@@ -27,6 +27,7 @@ afterEach(() => {
 function makeFixtureRepo(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-boundary-lint-"));
   tempDirs.push(root);
+  fs.mkdirSync(path.join(root, "build"), { recursive: true });
   for (const [relPath, contents] of Object.entries(files)) {
     const absPath = path.join(root, relPath);
     fs.mkdirSync(path.dirname(absPath), { recursive: true });
@@ -39,18 +40,18 @@ describe("lint-open-boundary: manifest loading", () => {
   it("rejects a negation-pattern entry", () => {
     const manifest = { version: 1, paths: ["!node_modules/**"] };
     const root = makeFixtureRepo({});
-    fs.writeFileSync(path.join(root, "export-manifest.json"), JSON.stringify(manifest));
+    fs.writeFileSync(path.join(root, "build/export-manifest.json"), JSON.stringify(manifest));
     expect(() => readExportManifest({ rootDir: root })).toThrow(/negation pattern/);
   });
 
   it("throws when a manifest file entry does not exist on disk", () => {
-    const root = makeFixtureRepo({ "export-manifest.json": JSON.stringify({ version: 1, paths: ["missing.ts"] }) });
+    const root = makeFixtureRepo({ "build/export-manifest.json": JSON.stringify({ version: 1, paths: ["missing.ts"] }) });
     const manifest = readExportManifest({ rootDir: root });
     expect(() => expandManifestPaths({ rootDir: root, manifest })).toThrow(/does not exist/);
   });
 
   it("throws when a manifest directory entry does not exist on disk", () => {
-    const root = makeFixtureRepo({ "export-manifest.json": JSON.stringify({ version: 1, paths: ["missing-dir/"] }) });
+    const root = makeFixtureRepo({ "build/export-manifest.json": JSON.stringify({ version: 1, paths: ["missing-dir/"] }) });
     const manifest = readExportManifest({ rootDir: root });
     expect(() => expandManifestPaths({ rootDir: root, manifest })).toThrow(/directory entry does not exist/);
   });
@@ -163,7 +164,7 @@ describe("lint-open-boundary: ratchet check", () => {
 });
 
 describe("lint-open-boundary: real repo state (smoke)", () => {
-  it("the committed export-manifest.json + baseline pass cleanly against real source", () => {
+  it("the committed build/export-manifest.json + baseline pass cleanly against real source", () => {
     const manifest = readExportManifest({ rootDir: REPOSITORY_ROOT });
     const violations = findBoundaryViolations({ rootDir: REPOSITORY_ROOT, manifest });
     const baseline = readBaseline({ rootDir: REPOSITORY_ROOT });

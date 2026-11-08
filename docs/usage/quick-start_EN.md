@@ -6,7 +6,7 @@ Version 0.450.1 is source-only; this project has no public installer yet. Upstre
 
 ## Run from source
 
-Install Node.js 24 (reference version 24.15.0), npm, Git and the platform build tools listed in [Contributing](../../CONTRIBUTING.md). From the repository root:
+Install Node.js 24 (reference version 24.15.0), npm, Git and the platform build tools listed in [Contributing](../../.github/CONTRIBUTING.md). From the repository root:
 
 ```sh
 npm ci
@@ -25,5 +25,5 @@ Provider support does not mean every integration has been validated by this main
 ## Next steps
 
 - [Features](features_EN.md)
-- [Development and contributing](../../CONTRIBUTING.md)
+- [Development and contributing](../../.github/CONTRIBUTING.md)
 - [Local builds, updates and rollback (Chinese)](../maintenance/LOCAL_RELEASES.md)

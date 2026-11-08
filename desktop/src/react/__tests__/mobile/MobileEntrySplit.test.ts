@@ -74,7 +74,7 @@ describe('Mobile PWA entry split', () => {
   });
 
   it('serves mobile PWA assets explicitly in Vite dev instead of falling back to HTML', () => {
-    const viteConfig = readFileSync(path.join(process.cwd(), 'vite.config.ts'), 'utf8');
+    const viteConfig = readFileSync(path.join(process.cwd(), 'config/vite.config.ts'), 'utf8');
 
     expect(viteConfig).toContain("name: 'hana-serve-mobile-pwa-static-files'");
     expect(viteConfig).toContain("['/sw.js'");

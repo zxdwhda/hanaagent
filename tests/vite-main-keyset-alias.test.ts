@@ -21,11 +21,11 @@ afterEach(() => {
 
 async function loadConfig() {
   vi.resetModules();
-  const mod = await import("../vite.config.main.js");
+  const mod = await import("../config/vite.config.main.js");
   return mod.default as { resolve?: { alias?: Array<{ find: RegExp; replacement: string }> } };
 }
 
-describe("vite.config.main.js HANA_SIGN_KEYSET build-time substitution", () => {
+describe("config/vite.config.main.js HANA_SIGN_KEYSET build-time substitution", () => {
   it("adds no keyset alias by default (repo pinned-keyset.json gets inlined)", async () => {
     delete process.env.HANA_SIGN_KEYSET;
     const config = await loadConfig();

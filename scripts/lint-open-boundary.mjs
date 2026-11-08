@@ -2,7 +2,7 @@
 /**
  * lint-open-boundary.mjs — open/closed import boundary lint (ratchet mode)
  *
- * Reads export-manifest.json (the explicit open-set path whitelist -- see
+ * Reads build/export-manifest.json (the explicit open-set path whitelist -- see
  * that file's own "note" field for what it is a seed of) and, for every
  * whitelisted JS/TS/JSX/TSX file, walks its `import`/`export ... from`/
  * literal dynamic `import()`/`require()` specifiers. A relative specifier
@@ -57,22 +57,22 @@ function toPosix(value) {
 }
 
 // ---------------------------------------------------------------------------
-// export-manifest.json loading + directory expansion.
+// build/export-manifest.json loading + directory expansion.
 // ---------------------------------------------------------------------------
 
 export function readExportManifest({ rootDir = REPOSITORY_ROOT } = {}) {
-  const manifestPath = path.join(rootDir, "export-manifest.json");
+  const manifestPath = path.join(rootDir, "build/export-manifest.json");
   if (!fs.existsSync(manifestPath)) {
-    throw new Error(`[lint-open-boundary] export-manifest.json not found at ${manifestPath}`);
+    throw new Error(`[lint-open-boundary] build/export-manifest.json not found at ${manifestPath}`);
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
   if (!Array.isArray(manifest.paths)) {
-    throw new Error("[lint-open-boundary] export-manifest.json is missing a \"paths\" array.");
+    throw new Error("[lint-open-boundary] build/export-manifest.json is missing a \"paths\" array.");
   }
   for (const entry of manifest.paths) {
     if (entry.startsWith("!")) {
       throw new Error(
-        `[lint-open-boundary] export-manifest.json entry "${entry}" looks like a negation pattern; `
+        `[lint-open-boundary] build/export-manifest.json entry "${entry}" looks like a negation pattern; `
         + "negation patterns are not supported here (explicit whitelist only).",
       );
     }
@@ -86,7 +86,7 @@ function listGitTrackedFiles(rootDir, relDir) {
 }
 
 /**
- * Expands export-manifest.json's mixed directory/file whitelist into a
+ * Expands build/export-manifest.json's mixed directory/file whitelist into a
  * concrete, deduplicated set of repo-relative file paths. Directory
  * entries (ending in "/") expand to their git-tracked contents only, so
  * gitignored generated output sitting inside an otherwise-whitelisted
@@ -99,13 +99,13 @@ export function expandManifestPaths({ rootDir = REPOSITORY_ROOT, manifest }) {
       const relDir = entry.slice(0, -1);
       const absDir = path.join(rootDir, relDir);
       if (!fs.existsSync(absDir) || !fs.statSync(absDir).isDirectory()) {
-        throw new Error(`[lint-open-boundary] export-manifest.json directory entry does not exist: ${entry}`);
+        throw new Error(`[lint-open-boundary] build/export-manifest.json directory entry does not exist: ${entry}`);
       }
       for (const file of listGitTrackedFiles(rootDir, relDir)) files.add(file);
     } else {
       const absPath = path.join(rootDir, entry);
       if (!fs.existsSync(absPath)) {
-        throw new Error(`[lint-open-boundary] export-manifest.json file entry does not exist: ${entry}`);
+        throw new Error(`[lint-open-boundary] build/export-manifest.json file entry does not exist: ${entry}`);
       }
       files.add(entry);
     }

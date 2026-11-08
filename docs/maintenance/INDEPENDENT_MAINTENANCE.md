@@ -35,4 +35,4 @@
 
 ## 协作与发行
 
-欢迎Issue与PR，见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。不自动关闭外部PR，不要求用户先让某个Agent排查。安装包发布与源码公开分开，本次不创建Release；源代码中的原有发行流程仅作维护参考，默认不触发公开发行，不镜像到作者账号。独立更新/回退使用 [LOCAL_RELEASES.md](LOCAL_RELEASES.md)。
+欢迎Issue与PR，见 [CONTRIBUTING.md](../../.github/CONTRIBUTING.md)。不自动关闭外部PR，不要求用户先让某个Agent排查。安装包发布与源码公开分开，本次不创建Release；源代码中的原有发行流程仅作维护参考，默认不触发公开发行，不镜像到作者账号。独立更新/回退使用 [LOCAL_RELEASES.md](LOCAL_RELEASES.md)。

@@ -6,7 +6,7 @@
  * scripts/build-server-phases.mjs 的全部打包原语，但只喂开源专属参数：
  *   - Vite bundle entry = server/main-open.ts（open composition 薄入口，
  *     只调用 startServer({})，不挂载任何闭集产品路由）
- *   - 数据文件清单 = export-manifest.json 白名单 / build/cli-runtime-closure.json
+ *   - 数据文件清单 = build/export-manifest.json 白名单 / build/cli-runtime-closure.json
  *     runtime-asset 证据都覆盖到的 lib/ 子集（不含 pinned.example.md ——
  *     没有任何运行时读取证据，见 build/cli-runtime-closure.json 的
  *     runtime-asset census）
@@ -17,7 +17,7 @@
  *     HANA_SIGN_KEY）
  *
  * 动手前先做白名单断言（assertOpenBuildInputsWhitelisted）：本构建即将读取
- * 的每一个仓库源路径，必须命中 export-manifest.json 的显式白名单，或命中
+ * 的每一个仓库源路径，必须命中 build/export-manifest.json 的显式白名单，或命中
  * build/cli-runtime-closure.json 的 runtime-asset 证据。命中不了直接报错、
  * 列出违规路径——这是"从一棵干净的开源导出树也能构建"的机械等价物，不需要
  * 真的先删仓库文件再验证。
@@ -77,7 +77,7 @@ export const OPEN_LIB_TEMPLATE_DIRS = [
 
 /**
  * 本构建即将从仓库直接读取的源路径（package.json 之外，其余都要么是 lib/
- * 数据文件/目录，要么是 bundle/CLI 入口）。每一项必须命中 export-manifest.json
+ * 数据文件/目录，要么是 bundle/CLI 入口）。每一项必须命中 build/export-manifest.json
  * 白名单，或命中 build/cli-runtime-closure.json 的 runtime-asset 证据
  * （RUNTIME_ASSETS 数组，来自 scripts/compute-cli-closure.mjs，与生成
  * build/cli-runtime-closure.json 时用的是同一份声明）。
@@ -99,7 +99,7 @@ function normalizeManifestEntry(entry) {
 
 /**
  * Fail-closed 白名单断言：declaredPaths 里的每个仓库相对路径，必须命中
- * export-manifest.json 的显式白名单，或命中 RUNTIME_ASSETS 的
+ * build/export-manifest.json 的显式白名单，或命中 RUNTIME_ASSETS 的
  * runtime-asset 证据。两者都命不中就抛错，列出全部违规路径——不静默跳过、
  * 不自动降级、不"顺手"放行。
  *
@@ -119,7 +119,7 @@ export function assertOpenBuildInputsWhitelisted({ rootDir, declaredPaths }) {
   if (violations.length > 0) {
     throw new Error(
       "[build-server-open] refusing to build: the following repo source path(s) are neither in "
-        + "export-manifest.json's whitelist nor covered by build/cli-runtime-closure.json's "
+        + "build/export-manifest.json's whitelist nor covered by build/cli-runtime-closure.json's "
         + "runtime-asset evidence (scripts/compute-cli-closure.mjs's RUNTIME_ASSETS):\n"
         + violations.map((v) => `  - ${v}`).join("\n"),
     );
@@ -152,7 +152,7 @@ async function main() {
   });
 
   // ── 2. Vite + CLI bundle（entry = server/main-open.ts）──
-  // vite.config.server.js's own `outDir: "dist-server-bundle"` is a fixed
+  // config/vite.config.server.js's own `outDir: "dist-server-bundle"` is a fixed
   // config value (not parameterized — full and open builds never run
   // concurrently, so reusing the same transient intermediate directory is
   // safe); this must match that literal, not invent a second one.

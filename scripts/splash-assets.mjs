@@ -1,7 +1,7 @@
 /**
  * splash-assets.mjs — 双 artifact 管线：splash 独立构建产物的运行时资源清单
  *
- * splash.html 归壳（vite.config.splash.ts）后不再共享 dist-renderer 里
+ * splash.html 归壳（config/vite.config.splash.ts）后不再共享 dist-renderer 里
  * copyLegacyFiles() 那份"整个 lib/modules/themes/assets/locales 目录全copy"
  * 的大而全逻辑——splash 只需要它自己在 SplashApp.tsx 里实际引用的东西：
  *
@@ -16,7 +16,7 @@
  *    脱节——项目规则：扩展名/资源清单类映射禁止维护私有拷贝）。
  *
  * 抽成独立、无 vite 依赖的纯函数是为了可以脱离真实 vite build 单测——
- * vite.config.splash.ts 的 closeBundle 钩子只是薄薄一层调用它。
+ * config/vite.config.splash.ts 的 closeBundle 钩子只是薄薄一层调用它。
  */
 import fs from "fs";
 import path from "path";

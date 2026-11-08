@@ -5,7 +5,7 @@
 <h1 align="center">hanaagent</h1>
 
 <p align="center">有记忆、可扩展的本地优先 AI 助理</p>
-<p align="center"><a href="README_EN.md">English</a> · <a href="docs/README.md">文档导航</a></p>
+<p align="center"><a href="docs/README_EN.md">English</a> · <a href="docs/README.md">文档导航</a></p>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -44,7 +44,7 @@ HANA_HOME="$HOME/.hanaagent-dev" npm start
 | 需求 | 文档 |
 | --- | --- |
 | 运行、首次配置与功能 | [运行指南](docs/usage/quick-start.md) · [功能概览](docs/usage/features.md) |
-| 开发与代码结构 | [贡献指南](CONTRIBUTING.md) · [架构与技术栈](docs/development/architecture.md) |
+| 开发与代码结构 | [贡献指南](.github/CONTRIBUTING.md) · [架构与技术栈](docs/development/architecture.md) |
 | 编写插件 | [插件开发指南](docs/development/PLUGINS.md) · [Plugin SDK](docs/development/PLUGIN_SDK.md) |
 | 来源与版本维护 | [来源基线](docs/maintenance/FORK_BASELINE.md) · [独立维护说明](docs/maintenance/INDEPENDENT_MAINTENANCE.md) · [本地版本管理](docs/maintenance/LOCAL_RELEASES.md) |
 | 目录和材料归属 | [目录说明](docs/maintenance/directories.md) |
@@ -61,6 +61,6 @@ HANA_HOME="$HOME/.hanaagent-dev" npm start
 
 ## 参与与来源
 
-欢迎通过 [Issues](https://github.com/zxdwhda/hanaagent/issues) 报告问题、提出需求，或按[贡献指南](CONTRIBUTING.md)提交 PR。漏洞请按[安全政策](SECURITY.md)私密报告；社区协作遵循[行为准则](CODE_OF_CONDUCT.md)。
+欢迎通过 [Issues](https://github.com/zxdwhda/hanaagent/issues) 报告问题、提出需求，或按[贡献指南](.github/CONTRIBUTING.md)提交 PR。漏洞请按[安全政策](.github/SECURITY.md)私密报告；社区协作遵循[行为准则](.github/CODE_OF_CONDUCT.md)。
 
 上游来源为 [liliMozi/openhanako](https://github.com/liliMozi/openhanako)。保留原作者与贡献者归属，见 [NOTICE](NOTICE) 和 [Apache License 2.0](LICENSE)。沿用上游致谢：[tw93/kami](https://github.com/tw93/kami) 为 beautify 插件 HTML 美学指南的渐进披露结构提供了启发。

@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:c1a59cd3f653b6af34b8c32b7e4ef75e7fc34102a310316187d3374db8320a7b",
+  "payloadFingerprint": "sha256:0c548c5b1a25daf4b5e47c3599b778ac4cda265d3fa63755511db3ec4aba02a6",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Independent hanaagent distribution changes default home and updater eligibility, and prevents concurrent author/fork channel ownership. Existing store layouts and DATA_EPOCH remain unchanged; explicit homes and legacy reads remain compatible. Committed inventory reused because upstream exemptions expired 2026-10-31; no expiry or schema guard weakened.",
-    "payloadFingerprint": "sha256:c1a59cd3f653b6af34b8c32b7e4ef75e7fc34102a310316187d3374db8320a7b"
+    "compatibilityReason": "Repository layout consolidation moves the bundled release digest readers to build/releases. Only desktop/main.cjs executable sourceHash changes; window bounds, announcement bookmark, update cache formats, store paths, writer mappings, DATA_EPOCH and all SQLite schemas remain unchanged. Digest package entries and both readers move together. Committed inventory reused because upstream exemptions expired 2026-10-31; no expiry or schema guard weakened.",
+    "payloadFingerprint": "sha256:0c548c5b1a25daf4b5e47c3599b778ac4cda265d3fa63755511db3ec4aba02a6"
   },
   "schemas": [
     {
@@ -3320,7 +3320,7 @@
       "contract": "desktop window bounds, release announcement bookmark, and update cache version marker readers",
       "kind": "directory-contract",
       "module": "desktop/main.cjs",
-      "sourceHash": "sha256:74a9d7b8fc7bb83ae4ece9b12f9316e292309f4aef7d0e5a618cc105b3a28a0d",
+      "sourceHash": "sha256:b4945d980380f2469c2cfb233b7dfebe47b1c9b95395df7eec89dd50a8685fa4",
       "storeId": "desktop-window-version-state"
     },
     {

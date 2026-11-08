@@ -2,9 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig } from "vitest/config";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export default defineConfig({
+  root: __dirname,
   resolve: {
     alias: {
       "@hana/plugin-protocol": path.resolve(__dirname, "packages/plugin-protocol/src/index.ts"),
@@ -20,6 +21,8 @@ export default defineConfig({
       ".cache/**",
       // git worktree 副本有自己的测试快照，混进主树测试集会双份执行、断言错位
       ".claude/worktrees/**",
+      ".worktrees/**",
+      ".local/**",
       "desktop/native/**/.build/**",
       "dist-computer-use/**",
     ],

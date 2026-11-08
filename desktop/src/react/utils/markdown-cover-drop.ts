@@ -130,7 +130,7 @@ export async function applyMarkdownCoverImageDrop({
         imageFilePath: imageFilePath!,
       });
     // 显式判别收窄（=== false）：见 markdown-cover-actions.ts 同型注释，
-    // 兼容 tsconfig.test.json 的非严格编译闭包。
+    // 兼容 config/tsconfig.test.json 的非严格编译闭包。
     if (result.ok === false) {
       dispatchCoverNotice(`Cover 更新失败：${result.error}`, 'error');
       return true;

@@ -160,17 +160,17 @@ export function prepareNodeRuntime({
 // ── Bundle ────────────────────────────────────────────────────────────────
 
 /**
- * Runs `vite build --config vite.config.server.js` and copies the produced
+ * Runs `vite build --config config/vite.config.server.js` and copies the produced
  * bundle into `bundleOutDir`. `entry` overrides the bundle's lib entry via
  * the `HANA_SERVER_BUNDLE_ENTRY` environment variable (read by
- * vite.config.server.js); when omitted, vite.config.server.js's own default
+ * config/vite.config.server.js); when omitted, config/vite.config.server.js's own default
  * (server/main-full.ts, the closed composition entry) is used unchanged.
  *
  * @param {{ rootDir: string, viteBundleDir: string, bundleOutDir: string, entry?: string, log?: (msg: string) => void }} params
  */
 export function buildViteServerBundle({ rootDir, viteBundleDir, bundleOutDir, entry, log = (msg) => console.log(msg) }) {
   log("[build-server] running Vite bundle...");
-  execSync("npx vite build --config vite.config.server.js", {
+  execSync("npx vite build --config config/vite.config.server.js", {
     cwd: rootDir,
     stdio: "inherit",
     env: entry ? { ...process.env, HANA_SERVER_BUNDLE_ENTRY: entry } : process.env,
@@ -326,7 +326,7 @@ function removeBinDirs(nmDir) {
 
 /**
  * Derives the packaged server's external npm dependency set from
- * vite.config.server.js's `rollupOptions.external` (cross-referenced
+ * config/vite.config.server.js's `rollupOptions.external` (cross-referenced
  * against root package.json's declared dependencies), plus any
  * `extraPackageNames` the caller supplies (e.g. full's build-server.mjs
  * passes the bundled-plugin package deps it derives itself; the open
@@ -364,10 +364,10 @@ export async function resolveAndInstallExternalServerDeps({
   const rootPkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8"));
 
   // defineConfig is a pure identity function, import is side-effect free
-  const viteConfig = (await import(pathToFileURL(path.join(rootDir, "vite.config.server.js")).href)).default;
+  const viteConfig = (await import(pathToFileURL(path.join(rootDir, "config/vite.config.server.js")).href)).default;
   const viteExternals = viteConfig.build?.rollupOptions?.external;
   if (!Array.isArray(viteExternals)) {
-    throw new Error("[build-server] vite.config.server.js external must be an array");
+    throw new Error("[build-server] config/vite.config.server.js external must be an array");
   }
 
   const builtinSet = new Set(builtinModules.flatMap((m) => [m, `node:${m}`]));

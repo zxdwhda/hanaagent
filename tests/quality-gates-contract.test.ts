@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { builtinModules } from "node:module";
 import yaml from "js-yaml";
-import eslintConfig from "../eslint.config.js";
-import serverViteConfig from "../vite.config.server.js";
+import eslintConfig from "../config/eslint.config.js";
+import serverViteConfig from "../config/vite.config.server.js";
 
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.resolve(process.cwd(), relativePath), "utf8"));
@@ -21,7 +21,7 @@ function readText(relativePath) {
 describe("quality gates", () => {
   it("typecheck covers app TypeScript, root TypeScript tests, and workspace package sources", () => {
     const tsconfig = readJson("tsconfig.json");
-    const tsconfigTest = readJson("tsconfig.test.json");
+    const tsconfigTest = readJson("config/tsconfig.test.json");
     const packageJson = readJson("package.json");
 
     expect(tsconfig.include).toEqual(expect.arrayContaining([
@@ -31,15 +31,15 @@ describe("quality gates", () => {
       "packages/*/src/**/*.tsx",
     ]));
     expect(tsconfigTest.include).toEqual(expect.arrayContaining([
-      "tests/**/*.ts",
+      "../tests/**/*.ts",
     ]));
-    expect(packageJson.scripts.typecheck).toContain("tsconfig.test.json");
+    expect(packageJson.scripts.typecheck).toContain("config/tsconfig.test.json");
   });
 
-  it("lint checks the repository through eslint.config.js instead of a hand-picked directory subset", () => {
+  it("lint checks the repository through config/eslint.config.js instead of a hand-picked directory subset", () => {
     const packageJson = readJson("package.json");
 
-    expect(packageJson.scripts.lint).toBe("eslint .");
+    expect(packageJson.scripts.lint).toBe("eslint --config config/eslint.config.js .");
   });
 
   it("keeps generated dist families outside the repository-wide lint surface", () => {
@@ -79,9 +79,9 @@ describe("quality gates", () => {
     // onto scripts/build-server-phases.mjs's shared primitives (also used
     // by the open-composition builder).
     const buildServerPhases = readText("scripts/build-server-phases.mjs");
-    const serverConfig = readText("vite.config.server.js");
-    const mainConfig = readText("vite.config.main.js");
-    const preloadConfig = readText("vite.config.preload.js");
+    const serverConfig = readText("config/vite.config.server.js");
+    const mainConfig = readText("config/vite.config.main.js");
+    const preloadConfig = readText("config/vite.config.preload.js");
     const ci = readYaml(".github/workflows/ci.yml");
     const build = readYaml(".github/workflows/build.yml");
 

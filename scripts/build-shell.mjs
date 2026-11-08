@@ -27,9 +27,9 @@
  *
  * Steps (in order):
  *   1. build:computer-use-helper — conditional, darwin only
- *   2. build:main    (vite.config.main.js    -> desktop/main.bundle.cjs)
- *   3. build:preload (vite.config.preload.js -> desktop/preload.bundle.cjs)
- *   4. build:splash  (vite.config.splash.ts  -> desktop/dist-splash/)
+ *   2. build:main    (config/vite.config.main.js    -> desktop/main.bundle.cjs)
+ *   3. build:preload (config/vite.config.preload.js -> desktop/preload.bundle.cjs)
+ *   4. build:splash  (config/vite.config.splash.ts  -> desktop/dist-splash/)
  *   5. verify-seed-kit.mjs against the existing dist-server-artifact/{os}-{arch}/
  *   6. electron-builder --dir
  *   7. structural self-check of the --dir output (asar contents, seed/
@@ -239,9 +239,9 @@ async function main() {
   }
 
   // ── 2-4. main / preload / splash — never renderer, never theme ──
-  run("build:main", VITE_BIN, ["build", "--config", "vite.config.main.js"], { env: childEnv });
-  run("build:preload", VITE_BIN, ["build", "--config", "vite.config.preload.js"], { env: childEnv });
-  run("build:splash", VITE_BIN, ["build", "--config", "vite.config.splash.ts"], { env: childEnv });
+  run("build:main", VITE_BIN, ["build", "--config", "config/vite.config.main.js"], { env: childEnv });
+  run("build:preload", VITE_BIN, ["build", "--config", "config/vite.config.preload.js"], { env: childEnv });
+  run("build:splash", VITE_BIN, ["build", "--config", "config/vite.config.splash.ts"], { env: childEnv });
 
   // ── 5. seed kit: verify an existing signed kit, never build one ──
   const { artifactOutDir } = assertSeedKitDirExists({ platform, arch });

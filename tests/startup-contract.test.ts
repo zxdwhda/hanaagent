@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import viteServerConfig from "../vite.config.server.js";
+import viteServerConfig from "../config/vite.config.server.js";
 import { applyDevEnvironment, defaultDevHanaHome } from "../scripts/dev-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,12 +57,12 @@ describe("local startup contract", () => {
   });
 
   it("server keeps Pi SDK runtime paths explicit and CLI stays server-first", () => {
-    const cliSource = fs.readFileSync(path.join(ROOT, "index.js"), "utf-8");
+    const cliSource = fs.readFileSync(path.join(ROOT, "cli", "index.js"), "utf-8");
     const cliEntrySource = fs.readFileSync(path.join(ROOT, "cli", "entry.ts"), "utf-8");
     const launchSource = fs.readFileSync(path.join(ROOT, "scripts", "launch.js"), "utf-8");
     const serverSource = fs.readFileSync(path.join(ROOT, "server", "index.ts"), "utf-8");
 
-    expect(cliSource).toContain("./cli/entry.ts");
+    expect(cliSource).toContain("./entry.ts");
     expect(cliSource).not.toContain("HanaEngine");
     expect(cliEntrySource).not.toContain("HanaEngine");
     expect(launchSource).toContain('"cli/entry.ts"');

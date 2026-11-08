@@ -11,7 +11,7 @@
     {
       "name": "ws",
       "declaredVersion": "^8.18.0",
-      "reason": "vite.config.main.js keeps \"ws\" external from main.bundle.cjs (comment: \"CJS native addon (bufferutil/utf-8-validate) breaks when bundled\") — the module is required at runtime from node_modules, not inlined. package.json build.files re-includes \"node_modules/ws/**\" after the blanket \"!**/node_modules/**\" exclusion so it lands in the asar."
+      "reason": "config/vite.config.main.js keeps \"ws\" external from main.bundle.cjs (comment: \"CJS native addon (bufferutil/utf-8-validate) breaks when bundled\") — the module is required at runtime from node_modules, not inlined. package.json build.files re-includes \"node_modules/ws/**\" after the blanket \"!**/node_modules/**\" exclusion so it lands in the asar."
     }
   ],
   "asarFiles": [
@@ -19,7 +19,7 @@
       "builderEntry": "desktop/main.bundle.cjs",
       "kind": "buildOutput",
       "producedBy": "build:main",
-      "buildConfig": "vite.config.main.js",
+      "buildConfig": "config/vite.config.main.js",
       "sourceEntry": "desktop/main.cjs",
       "sourcePaths": ["desktop/main.cjs"]
     },
@@ -69,7 +69,7 @@
       "builderEntry": "desktop/preload.bundle.cjs",
       "kind": "buildOutput",
       "producedBy": "build:preload",
-      "buildConfig": "vite.config.preload.js",
+      "buildConfig": "config/vite.config.preload.js",
       "sourceEntry": "desktop/preload.cjs",
       "sourcePaths": ["desktop/preload.cjs"]
     },
@@ -77,7 +77,7 @@
       "builderEntry": "desktop/dist-splash/**",
       "kind": "buildOutputGlob",
       "producedBy": "build:splash",
-      "buildConfig": "vite.config.splash.ts",
+      "buildConfig": "config/vite.config.splash.ts",
       "note": "vite build entry desktop/src/splash.html, plus a closeBundle plugin (copySplashRuntimeAssets -> scripts/splash-assets.mjs copySplashAssets) that copies modules/platform.js, all locales/*.json, and the yuan-avatar PNGs named by shared/yuan-visuals.ts YUAN_VISUALS into dist-splash/. splash is the one shell-owned HTML surface: it must render before any HANA_HOME artifact is unpacked, so it cannot depend on dist-renderer build output.",
       "sourcePaths": [
         "desktop/src/splash.html",
@@ -109,16 +109,16 @@
       "note": "This is the file app.getVersion() reads inside the packaged asar (electron-builder copies it in, with extraMetadata.main overriding only the `main` field — `version` passes through unmodified). Do not confuse with a hypothetical separate shell-version file; there isn't one, and this ticket does not create one."
     },
     {
-      "builderEntry": "release-digest.v1.json",
+      "builderEntry": "build/releases/release-digest.v1.json",
       "kind": "static",
       "producedBy": "static (hand-authored per release, see AGENTS/CLAUDE release-digest workflow)",
-      "sourcePaths": ["release-digest.v1.json"]
+      "sourcePaths": ["build/releases/release-digest.v1.json"]
     },
     {
-      "builderEntry": "release-digest.v2.json",
+      "builderEntry": "build/releases/release-digest.v2.json",
       "kind": "static",
       "producedBy": "static (rolling history file, see scripts/generate-release-digest.mjs --append-history)",
-      "sourcePaths": ["release-digest.v2.json"]
+      "sourcePaths": ["build/releases/release-digest.v2.json"]
     },
     {
       "builderEntry": "!packages/**",
@@ -211,13 +211,13 @@
   ],
   "themeAttribution": {
     "script": "build:theme",
-    "buildConfig": "vite.config.theme.js",
+    "buildConfig": "config/vite.config.theme.js",
     "outDir": "desktop/dist-renderer/lib",
     "verdict": "renderer",
-    "reason": "build:theme's own outDir is literally under dist-renderer/ (desktop/dist-renderer/lib/theme.js). Its only consumers are <script src=\"lib/theme.js\"> tags in index.html, mobile.html, settings.html, quick-chat.html, onboarding.html, and browser-viewer.html — all six are vite.config.ts renderer build inputs (rollupOptions.input), none of which ship in the asar or as extraResources. desktop/src/splash.html — the one shell-owned HTML surface — has its own inline <style> block and does not reference lib/theme.js at all. Conclusion: build:theme's product belongs entirely to the renderer artifact pipeline; build:shell must not run it.",
+    "reason": "build:theme's own outDir is literally under dist-renderer/ (desktop/dist-renderer/lib/theme.js). Its only consumers are <script src=\"lib/theme.js\"> tags in index.html, mobile.html, settings.html, quick-chat.html, onboarding.html, and browser-viewer.html — all six are config/vite.config.ts renderer build inputs (rollupOptions.input), none of which ship in the asar or as extraResources. desktop/src/splash.html — the one shell-owned HTML surface — has its own inline <style> block and does not reference lib/theme.js at all. Conclusion: build:theme's product belongs entirely to the renderer artifact pipeline; build:shell must not run it.",
     "evidence": [
       "grep 'lib/theme.js' desktop/src/*.html -> matches index.html, mobile.html, browser-viewer.html, onboarding.html, settings.html, quick-chat.html; no match in splash.html",
-      "vite.config.ts rollupOptions.input lists exactly those six HTML files as renderer entries"
+      "config/vite.config.ts rollupOptions.input lists exactly those six HTML files as renderer entries"
     ]
   },
   "excludedFromShell": [

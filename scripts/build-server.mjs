@@ -90,7 +90,7 @@ const { isWin, cachedNpmCli, runWithTargetNode } = prepareNodeRuntime({
   outDir,
 });
 
-// ── 2. Vite + CLI bundle（entry = server/main-full.ts，vite.config.server.js 的默认值）──
+// ── 2. Vite + CLI bundle（entry = server/main-full.ts，config/vite.config.server.js 的默认值）──
 const viteBundleDir = path.join(ROOT, "dist-server-bundle");
 const bundleOutDir = path.join(outDir, "bundle");
 buildViteServerBundle({ rootDir: ROOT, viteBundleDir, bundleOutDir });

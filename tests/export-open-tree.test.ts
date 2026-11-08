@@ -62,7 +62,7 @@ function makeFixtureRepo(): string {
   write(dir, "tmpl/ignored.tmp", "scratch\n");
 
   // A "node_modules"-style literal file entry that is intentionally never
-  // committed to git at all (mirrors export-manifest.json's own
+  // committed to git at all (mirrors build/export-manifest.json's own
   // node_modules/@earendil-works/... file entries).
   write(dir, "vendor/lib.js", "module.exports = {};\n");
 
@@ -70,8 +70,9 @@ function makeFixtureRepo(): string {
 }
 
 function writeManifest(root: string, paths: string[]): void {
+  fs.mkdirSync(path.join(root, "build"), { recursive: true });
   fs.writeFileSync(
-    path.join(root, "export-manifest.json"),
+    path.join(root, "build/export-manifest.json"),
     JSON.stringify({ version: 1, paths }, null, 2),
   );
 }
@@ -80,7 +81,7 @@ describe("export-open-tree: planExportCopies path semantics", () => {
   it("expands a trailing-slash directory entry to git-tracked files only", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["pkg/"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     const files = planExportCopies({ rootDir: root, manifest, skeleton: [] });
     expect(files).toContain("pkg/index.ts");
     expect(files).not.toContain("pkg/dist/generated.js");
@@ -89,7 +90,7 @@ describe("export-open-tree: planExportCopies path semantics", () => {
   it("auto-detects a non-trailing-slash entry that is actually a directory and applies the same tracked-only filtering (ambiguous manifest entries like lib/yuan)", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["tmpl"]); // no trailing slash, but tmpl/ is a directory on disk
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     const files = planExportCopies({ rootDir: root, manifest, skeleton: [] });
     expect(files).toContain("tmpl/one.md");
     expect(files).not.toContain("tmpl/ignored.tmp");
@@ -98,7 +99,7 @@ describe("export-open-tree: planExportCopies path semantics", () => {
   it("treats a non-trailing-slash entry that is an actual file as a literal file", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["src/a.ts"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     const files = planExportCopies({ rootDir: root, manifest, skeleton: [] });
     expect(files).toEqual(["src/a.ts"]);
   });
@@ -106,7 +107,7 @@ describe("export-open-tree: planExportCopies path semantics", () => {
   it("copies a node_modules-style file entry verbatim without requiring git-tracked status", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["vendor/lib.js"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     const files = planExportCopies({ rootDir: root, manifest, skeleton: [] });
     expect(files).toEqual(["vendor/lib.js"]);
   });
@@ -114,7 +115,7 @@ describe("export-open-tree: planExportCopies path semantics", () => {
   it("deduplicates when a manifest path and a skeleton path point at the same file", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["src/a.ts"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     const files = planExportCopies({ rootDir: root, manifest, skeleton: [{ path: "src/a.ts" }] });
     expect(files).toEqual(["src/a.ts"]);
   });
@@ -122,21 +123,21 @@ describe("export-open-tree: planExportCopies path semantics", () => {
   it("hard-errors when a manifest path does not exist in the repo", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["nope.ts"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     expect(() => planExportCopies({ rootDir: root, manifest, skeleton: [] })).toThrow(/does not exist/);
   });
 
   it("hard-errors when a manifest path resolves outside the repository root (path-escape guard)", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["../outside-secret.txt"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     expect(() => planExportCopies({ rootDir: root, manifest, skeleton: [] })).toThrow(/escapes repository root/);
   });
 
   it("hard-errors when a skeleton path resolves outside the repository root", () => {
     const root = makeFixtureRepo();
     writeManifest(root, ["src/a.ts"]);
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "export-manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "build/export-manifest.json"), "utf-8"));
     expect(() => planExportCopies({ rootDir: root, manifest, skeleton: [{ path: "../../etc/passwd" }] }))
       .toThrow(/escapes repository root/);
   });
@@ -192,7 +193,7 @@ describe("export-open-tree: exportOpenTree materialization", () => {
 });
 
 describe("export-open-tree: real repository (smoke)", () => {
-  it("materializes the real export-manifest.json + EXPORT_SKELETON, is idempotent under --force", () => {
+  it("materializes the real build/export-manifest.json + EXPORT_SKELETON, is idempotent under --force", () => {
     const dest = path.join(tempDir("hana-export-real-"), "out");
     const first = exportOpenTree({ rootDir: REPOSITORY_ROOT, destDir: dest, log: () => {} });
     expect(first.fileCount).toBeGreaterThan(0);
