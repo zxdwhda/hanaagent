@@ -31,7 +31,7 @@ describe("server auth service", () => {
 
   it("authenticates loopback token only for local connection context", async () => {
     tmpDir = makeTmpDir();
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const auth = createServerAuthService({
       hanakoHome: tmpDir,
       loopbackToken: "local-secret",
@@ -59,7 +59,7 @@ describe("server auth service", () => {
 
   it("accepts query token only when the adapter explicitly allows it", async () => {
     tmpDir = makeTmpDir();
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const auth = createServerAuthService({
       hanakoHome: tmpDir,
       loopbackToken: "local-secret",
@@ -83,8 +83,8 @@ describe("server auth service", () => {
 
   it("authenticates a paired device credential", async () => {
     tmpDir = makeTmpDir();
-    const { createDeviceCredential } = await import("../core/device-registry.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createDeviceCredential } = await import("../packages/engine/core/device-registry.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const issued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_local",
       userId: "user_local",
@@ -119,8 +119,8 @@ describe("server auth service", () => {
 
   it("requires paired device credentials to match their transport trust state", async () => {
     tmpDir = makeTmpDir();
-    const { createDeviceCredential } = await import("../core/device-registry.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createDeviceCredential } = await import("../packages/engine/core/device-registry.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const lanIssued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_local",
       userId: "user_local",
@@ -170,8 +170,8 @@ describe("server auth service", () => {
     const {
       createDeviceCredential,
       revokeDeviceCredential,
-    } = await import("../core/device-registry.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    } = await import("../packages/engine/core/device-registry.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const issued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_local",
       userId: "user_local",
@@ -203,7 +203,7 @@ describe("server auth service", () => {
 
   it("returns structured deny diagnostics for stale local tokens", async () => {
     tmpDir = makeTmpDir();
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const auth = createServerAuthService({
       hanakoHome: tmpDir,
       loopbackToken: "new-local-secret",
@@ -226,9 +226,9 @@ describe("server auth service", () => {
 
   it("authenticates web sessions from HttpOnly cookie material without accepting them as URL tokens", async () => {
     tmpDir = makeTmpDir();
-    const { createDeviceCredential } = await import("../core/device-registry.ts");
-    const { createWebSession } = await import("../core/web-session-store.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createDeviceCredential } = await import("../packages/engine/core/device-registry.ts");
+    const { createWebSession } = await import("../packages/engine/core/web-session-store.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const issued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_local",
       userId: "user_local",
@@ -280,8 +280,8 @@ describe("server auth service", () => {
 
   it("does not replay a local-owner web session over LAN transport", async () => {
     tmpDir = makeTmpDir();
-    const { createWebSession } = await import("../core/web-session-store.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
+    const { createWebSession } = await import("../packages/engine/core/web-session-store.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
     const auth = createServerAuthService({
       hanakoHome: tmpDir,
       loopbackToken: "local-secret",

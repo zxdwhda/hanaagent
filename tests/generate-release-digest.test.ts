@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { appendDigestFileToHistoryFile, generateDigestWithOpenAI, parseArgs } from "../scripts/generate-release-digest.mjs";
+import { appendDigestFileToHistoryFile, generateDigestWithOpenAI, parseArgs } from "../tooling/scripts/generate-release-digest.mjs";
 
 describe("generate-release-digest", () => {
   it("parses local pre-tag defaults without requiring release lookup", () => {
@@ -194,6 +194,6 @@ describe("appendDigestFileToHistoryFile（手写工作流：追加一节进 v2 �
   it("--append-history 模式不要求 --tag（append 路径不接触 git/LLM）", () => {
     const args = parseArgs(["--append-history"], {});
     expect(args.appendHistory).toBe(true);
-    expect(args.historyFile).toBe("build/releases/release-digest.v2.json");
+    expect(args.historyFile).toBe("tooling/build/releases/release-digest.v2.json");
   });
 });

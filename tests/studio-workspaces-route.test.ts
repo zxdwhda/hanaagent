@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it } from "vitest";
-import { upsertStudioMount } from "../core/studio-mounts.ts";
+import { upsertStudioMount } from "../packages/engine/core/studio-mounts.ts";
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-studio-workspaces-"));
@@ -17,7 +17,7 @@ async function makeApp(engine: Record<string, any>, principal: Record<string, an
       await next();
     });
   }
-  const { createStudioWorkspacesRoute } = await import("../server/routes/studio-workspaces.ts");
+  const { createStudioWorkspacesRoute } = await import("../apps/server/routes/studio-workspaces.ts");
   app.route("/api", createStudioWorkspacesRoute(engine));
   return app;
 }

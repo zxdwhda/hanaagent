@@ -21,11 +21,11 @@ const {
   isRendererMainFrameLoadCrash,
   isRenderProcessGoneCrash,
   SEED_CHANNEL,
-} = require("../desktop/src/shared/artifact-boot.cjs");
+} = require("../apps/desktop/src/shared/artifact-boot.cjs");
 
-const ustar = require("../shared/artifact-core/ustar.cjs");
-const activation = require("../shared/artifact-core/activation.cjs");
-const pointerStore = require("../shared/artifact-core/pointer-store.cjs");
+const ustar = require("../packages/shared/artifact-core/ustar.cjs");
+const activation = require("../packages/shared/artifact-core/activation.cjs");
+const pointerStore = require("../packages/shared/artifact-core/pointer-store.cjs");
 
 const PLATFORM_ARCH = "darwin-arm64";
 const tempDirs: string[] = [];

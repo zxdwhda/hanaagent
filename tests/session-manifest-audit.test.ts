@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { auditLegacySessionManifests } from "../core/session-manifest/legacy-migration.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+import { auditLegacySessionManifests } from "../packages/engine/core/session-manifest/legacy-migration.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 describe("session manifest audit", () => {
   let hanaHome: string;
@@ -185,7 +185,7 @@ describe("session manifest audit", () => {
     store = null as any;
 
     const result = spawnSync(process.execPath, [
-      "scripts/session-manifest-audit.mjs",
+      "tooling/scripts/session-manifest-audit.mjs",
       "--hana-home",
       hanaHome,
       "--json",
@@ -204,7 +204,7 @@ describe("session manifest audit", () => {
     });
 
     const humanResult = spawnSync(process.execPath, [
-      "scripts/session-manifest-audit.mjs",
+      "tooling/scripts/session-manifest-audit.mjs",
       "--hana-home",
       hanaHome,
       "--fail-on-anomaly",
@@ -225,7 +225,7 @@ describe("session manifest audit", () => {
     const beforeStat = fs.statSync(dbPath);
 
     const result = spawnSync(process.execPath, [
-      "scripts/session-manifest-audit.mjs",
+      "tooling/scripts/session-manifest-audit.mjs",
       "--hana-home",
       hanaHome,
       "--json",

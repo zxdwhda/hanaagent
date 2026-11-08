@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { copySplashAssets } from "../scripts/splash-assets.mjs";
-import { YUAN_VISUALS } from "../shared/yuan-visuals.ts";
+import { copySplashAssets } from "../tooling/scripts/splash-assets.mjs";
+import { YUAN_VISUALS } from "../packages/shared/yuan-visuals.ts";
 
 const tempDirs: string[] = [];
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createSessionManifestCheckpoint,
   restoreSessionManifestCheckpoint,
-} from "../core/session-manifest/checkpoint.ts";
+} from "../packages/engine/core/session-manifest/checkpoint.ts";
 
 describe("session manifest migration checkpoint", () => {
   let hanaHome;

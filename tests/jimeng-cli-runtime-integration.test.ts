@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { Hub } from "../hub/index.ts";
-import JimengCliPlugin from "../plugins/jimeng-cli/index.ts";
+import { Hub } from "../packages/engine/hub/index.ts";
+import JimengCliPlugin from "../extensions/plugins/jimeng-cli/index.ts";
 
 function createEngine(providerRegistry, mediaConfig: any = {}) {
   return {

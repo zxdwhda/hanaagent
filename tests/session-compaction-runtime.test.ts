@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SettingsManager } from "../lib/pi-sdk/index.ts";
+import { SettingsManager } from "../packages/engine/lib/pi-sdk/index.ts";
 import {
   MIDRUN_COMPACTION_NOTICE,
   computeCompactionReserveTokens,
   installDynamicCompactionReserve,
   installMidRunCompaction,
-} from "../core/session-compaction-runtime.ts";
+} from "../packages/engine/core/session-compaction-runtime.ts";
 
 const FLOOR_RESERVE = 16_384;
 

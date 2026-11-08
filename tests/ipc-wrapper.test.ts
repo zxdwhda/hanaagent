@@ -23,7 +23,7 @@ describe('ipc-wrapper', () => {
 
   it('wrapIpcHandler keeps invoke/handle failure semantics and rejects escaped errors', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { wrapIpcHandler } = await import('../desktop/ipc-wrapper.cjs');
+    const { wrapIpcHandler } = await import('../apps/desktop/ipc-wrapper.cjs');
 
     wrapIpcHandler('strict-demo', async () => {
       throw new Error('boom');
@@ -36,7 +36,7 @@ describe('ipc-wrapper', () => {
 
   it('wrapIpcBestEffortHandler logs escaped errors and resolves undefined', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { wrapIpcBestEffortHandler } = await import('../desktop/ipc-wrapper.cjs');
+    const { wrapIpcBestEffortHandler } = await import('../apps/desktop/ipc-wrapper.cjs');
 
     wrapIpcBestEffortHandler('best-effort-demo', async () => {
       throw new Error('soft-fail');
@@ -49,7 +49,7 @@ describe('ipc-wrapper', () => {
 
   it('wrapIpcOn still traps async listener rejections without crashing the sender path', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { wrapIpcOn } = await import('../desktop/ipc-wrapper.cjs');
+    const { wrapIpcOn } = await import('../apps/desktop/ipc-wrapper.cjs');
 
     wrapIpcOn('listener-demo', async () => {
       throw new Error('listener-fail');

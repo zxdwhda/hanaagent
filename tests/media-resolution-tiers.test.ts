@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CODEX_IMAGE_RESOLUTION_TIERS,
   resolveOpenAiImageSize,
-} from "../core/media-adapters/resolution-tiers.ts";
+} from "../packages/engine/core/media-adapters/resolution-tiers.ts";
 
 describe("OpenAI image resolution tiers", () => {
   it("maps generic tiers and ratios to supported flexible OpenAI sizes", () => {

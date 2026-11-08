@@ -23,7 +23,7 @@ import {
   BRIDGE_HTTP_TIMEOUT_MS,
   BridgeHttpError,
   createBridgeOutboundHttp,
-} from "../lib/bridge/outbound-http.ts";
+} from "../packages/engine/lib/bridge/outbound-http.ts";
 
 function fakeResponse(status = 200) {
   return {

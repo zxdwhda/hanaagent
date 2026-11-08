@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { ProviderRegistry } from "../core/provider-registry.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
 
 let tmpHome: string;
 

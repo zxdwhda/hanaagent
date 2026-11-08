@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
-import { MCP_PROTOCOL_VERSION } from "../core/mcp/clients/stdio-client.ts";
-import { MCP_PROTOCOL_VERSION_2026_07_28 } from "../core/mcp/clients/protocol-version.ts";
+import { MCP_PROTOCOL_VERSION } from "../packages/engine/core/mcp/clients/stdio-client.ts";
+import { MCP_PROTOCOL_VERSION_2026_07_28 } from "../packages/engine/core/mcp/clients/protocol-version.ts";
 import {
   McpAutoHttpClient,
   McpHttpError,
   McpLegacySseClient,
   McpStreamableHttpClient,
   resolveMcpHttpProxyDiagnostics,
-} from "../core/mcp/clients/http-client.ts";
+} from "../packages/engine/core/mcp/clients/http-client.ts";
 
 function jsonResponse(body, { status = 200, headers = {} } = {}) {
   return new Response(JSON.stringify(body), {

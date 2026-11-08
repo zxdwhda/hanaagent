@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
-import { createDiaryRoute } from "../server/routes/diary.ts";
+import { createDiaryRoute } from "../apps/server/routes/diary.ts";
 
 describe("diary route", () => {
   function makeApp(engine: any) {

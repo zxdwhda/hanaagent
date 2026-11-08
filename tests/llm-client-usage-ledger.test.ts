@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { callText } from "../core/llm-client.ts";
-import { createUsageLedger } from "../lib/llm/usage-ledger.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
+import { createUsageLedger } from "../packages/engine/lib/llm/usage-ledger.ts";
 
 const usageContext = {
   source: {

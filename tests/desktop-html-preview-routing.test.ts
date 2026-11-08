@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
 
-const MAIN_PATH = path.join(process.cwd(), "desktop", "main.cjs");
-const PRELOAD_PATH = path.join(process.cwd(), "desktop", "preload.cjs");
-const PLATFORM_FALLBACK_PATH = path.join(process.cwd(), "desktop", "src", "modules", "platform.js");
+const MAIN_PATH = path.join(process.cwd(), "apps/desktop", "main.cjs");
+const PRELOAD_PATH = path.join(process.cwd(), "apps/desktop", "preload.cjs");
+const PLATFORM_FALLBACK_PATH = path.join(process.cwd(), "apps/desktop", "src", "modules", "platform.js");
 
 describe("desktop HTML preview routing", () => {
   it("does not expose a dedicated native WebContentsView host for local HTML previews", () => {

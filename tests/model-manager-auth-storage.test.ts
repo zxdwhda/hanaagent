@@ -3,9 +3,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import YAML from "js-yaml";
-import { ModelManager } from "../core/model-manager.ts";
-import { ProviderRegistry } from "../core/provider-registry.ts";
-import { callText } from "../core/llm-client.ts";
+import { ModelManager } from "../packages/engine/core/model-manager.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
 
 let tmpDir;
 

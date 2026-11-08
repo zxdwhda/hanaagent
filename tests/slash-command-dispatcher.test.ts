@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { SlashCommandRegistry } from "../core/slash-command-registry.ts";
-import { SlashCommandDispatcher } from "../core/slash-command-dispatcher.ts";
+import { SlashCommandRegistry } from "../packages/engine/core/slash-command-registry.ts";
+import { SlashCommandDispatcher } from "../packages/engine/core/slash-command-dispatcher.ts";
 
 function makeCtx(overrides = {}) {
   return {

@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import YAML from "js-yaml";
 
-vi.mock("../lib/memory/config-loader.js", () => ({
+vi.mock("../packages/engine/lib/memory/config-loader.js", () => ({
   saveConfig: vi.fn(),
   clearConfigCache: vi.fn(),
   loadConfig: vi.fn((filePath) => YAML.load(fs.readFileSync(filePath, "utf-8"))),
@@ -32,7 +32,7 @@ describe("agents route", () => {
   });
 
   it("returns each agent's effective home folder without replacing the explicit homeFolder field", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       gcWorkspacePersistence: vi.fn(),
@@ -70,7 +70,7 @@ describe("agents route", () => {
   });
 
   it("emits agent-created after creating an agent", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       createAgent: vi.fn().mockResolvedValue({ id: "hana", name: "Hana" }),
@@ -90,7 +90,7 @@ describe("agents route", () => {
   });
 
   it("does not emit agent-created when create validation fails", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       createAgent: vi.fn(),
@@ -111,7 +111,7 @@ describe("agents route", () => {
   });
 
   it("rejects an explicit non-ASCII agent id before calling the engine", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       createAgent: vi.fn(),
@@ -132,7 +132,7 @@ describe("agents route", () => {
   });
 
   it("preserves a safe legacy ASCII id containing uppercase letters and underscores", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       createAgent: vi.fn().mockResolvedValue({ id: "Legacy_AGENT-1", name: "Legacy" }),
@@ -155,7 +155,7 @@ describe("agents route", () => {
   });
 
   it("rejects an invalid primary agent id before calling the engine", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       setPrimaryAgent: vi.fn(),
@@ -174,7 +174,7 @@ describe("agents route", () => {
   });
 
   it("persists a valid primary agent id", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       setPrimaryAgent: vi.fn(),
@@ -197,7 +197,7 @@ describe("agents route", () => {
     { label: "unknown", order: ["hana", "missing"], error: "not found" },
     { label: "duplicate", order: ["hana", "hana"], error: "duplicate" },
   ])("rejects $label agent order without persisting it", async ({ order, error }) => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       getAgent: vi.fn((id) => id === "hana" ? { id } : null),
@@ -217,7 +217,7 @@ describe("agents route", () => {
   });
 
   it("persists an order only after every agent id is valid, unique, and known", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const knownIds = new Set(["Legacy_AGENT-1", "hana"]);
     const engine = {
@@ -239,7 +239,7 @@ describe("agents route", () => {
   });
 
   it("invalidates the agent list cache when a fresh list is requested", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       gcWorkspacePersistence: vi.fn(),
@@ -265,7 +265,7 @@ describe("agents route", () => {
   });
 
   it("returns create validation status codes without emitting agent-created", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const err: any = new Error('Invalid yuan "caikangyong": template not found in lib/yuan');
     err.code = "INVALID_YUAN";
@@ -290,7 +290,7 @@ describe("agents route", () => {
   });
 
   it("returns and emits the switched session workspace contract", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       currentAgentId: "target",
@@ -354,7 +354,7 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -399,11 +399,11 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
-      productDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "lib"),
+      productDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "packages", "engine", "lib"),
       currentAgentId: agentId,
       providerRegistry: {
         saveProvider: vi.fn(),
@@ -470,7 +470,7 @@ describe("agents route", () => {
     const agentDir = path.join(tempRoot, agentId);
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -498,7 +498,7 @@ describe("agents route", () => {
     const agentDir = path.join(tempRoot, agentId);
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -537,7 +537,7 @@ describe("agents route", () => {
     const agentDir = path.join(tempRoot, agentId);
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -568,7 +568,7 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "api:\n  provider: openai\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const saveProvider = vi.fn();
     const engine = {
@@ -609,11 +609,11 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n  yuan: hanako\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
-      productDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "lib"),
+      productDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "packages", "engine", "lib"),
       currentAgentId: agentId,
       providerRegistry: {
         saveProvider: vi.fn(),
@@ -649,7 +649,7 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -687,7 +687,7 @@ describe("agents route", () => {
     expect(fs.existsSync(path.join(agentDir, "identity.md"))).toBe(false);
     expect(fs.existsSync(path.join(agentDir, "AGENTS.md"))).toBe(false);
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -717,7 +717,7 @@ describe("agents route", () => {
     // 模板目录故意留空/不存在，证明命中的是落盘文件而不是误落到模板兜底
     fs.mkdirSync(productDir, { recursive: true });
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -746,7 +746,7 @@ describe("agents route", () => {
     fs.writeFileSync(path.join(agentDir, "AGENTS.public.md"), "public persona", "utf-8");
     fs.mkdirSync(productDir, { recursive: true });
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -771,7 +771,7 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n  yuan: hanako\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -802,7 +802,7 @@ describe("agents route", () => {
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\nexperience:\n  enabled: true\n", "utf-8");
     fs.writeFileSync(path.join(agentDir, "identity.md"), "original identity\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -840,7 +840,7 @@ describe("agents route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\ncwd_history:\n  - /gone\n  - /still-there\n", "utf-8");
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,

@@ -3,7 +3,7 @@ import {
   buildWin32HanaWriteAclCleanupArgs,
   buildWin32LegacyAclDiagnosticArgs,
   buildWin32LegacyProfileCleanupArgs,
-} from "../lib/sandbox/win32-legacy-maintenance.ts";
+} from "../packages/engine/lib/sandbox/win32-legacy-maintenance.ts";
 
 describe("Windows legacy sandbox maintenance args", () => {
   it("builds a legacy AppContainer ACL diagnostic command without executable passthrough", () => {

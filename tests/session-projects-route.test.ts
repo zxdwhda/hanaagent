@@ -7,7 +7,7 @@ function makeApp(engine) {
   return app;
 }
 
-import { createSessionProjectsRoute } from "../server/routes/session-projects.ts";
+import { createSessionProjectsRoute } from "../apps/server/routes/session-projects.ts";
 
 describe("session projects route", () => {
   it("reads the user-level project catalog", async () => {

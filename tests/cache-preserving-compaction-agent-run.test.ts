@@ -5,11 +5,11 @@ import {
   type AgentMessage,
   type AgentTool,
   type StreamFn,
-} from "../lib/pi-sdk/index.ts";
+} from "../packages/engine/lib/pi-sdk/index.ts";
 import {
   runCachePreservingCompactionAgentRun,
   type CachePreservingCompactionAgentRunOptions,
-} from "../lib/llm/cache-preserving-compaction-agent-run.ts";
+} from "../packages/engine/lib/llm/cache-preserving-compaction-agent-run.ts";
 
 const VALID_SUMMARY = `## Goal
 Keep the live session compact.

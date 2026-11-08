@@ -18,7 +18,7 @@ import {
   extractLatestTodos,
   extractLatestTodosFromEntries,
   extractLatestTodoSnapshot,
-} from "../lib/tools/todo-compat.ts";
+} from "../packages/engine/lib/tools/todo-compat.ts";
 
 describe("migrateLegacyTodos", () => {
   it("converts legacy {id, text, done: false} to pending", () => {

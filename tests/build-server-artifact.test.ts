@@ -15,7 +15,7 @@ import {
   packServerArchive,
   resolveBuildKeyset,
   seedManifestFileName,
-} from "../scripts/build-server-artifact.mjs";
+} from "../tooling/scripts/build-server-artifact.mjs";
 
 const tempDirs: string[] = [];
 const OFFICE_FONT_FIXTURE_CSS = `
@@ -152,7 +152,7 @@ describe("build-server-artifact: buildCodesignArgs (darwin in-seed signing spec)
   });
 
   it("repo ships the server Mach-O entitlements plist with the JIT allowances V8 needs on arm64", () => {
-    const plistPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "build", "server-macho-entitlements.plist");
+    const plistPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "tooling/build", "server-macho-entitlements.plist");
     expect(fs.existsSync(plistPath)).toBe(true);
     const plist = fs.readFileSync(plistPath, "utf8");
     expect(plist).toContain("com.apple.security.cs.allow-jit");
@@ -192,7 +192,7 @@ describe("build-server-artifact: dual-kind seed manifest shape", () => {
   });
 
   it("stamps contract.{preload,serverProtocol} from the single shared constants module, not a private literal copy", async () => {
-    const { PRELOAD_API_VERSION, SERVER_PROTOCOL_VERSION } = await import("../shared/contract-versions.cjs");
+    const { PRELOAD_API_VERSION, SERVER_PROTOCOL_VERSION } = await import("../packages/shared/contract-versions.cjs");
     const manifest = buildSeedManifest({
       version: "0.381.0",
       platform: "darwin",

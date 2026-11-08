@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { createWorkspaceWatcher } from "../lib/file-history/workspace-watcher.ts";
+import { createWorkspaceWatcher } from "../packages/engine/lib/file-history/workspace-watcher.ts";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {

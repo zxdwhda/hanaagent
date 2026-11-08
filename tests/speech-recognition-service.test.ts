@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
-import { SpeechRecognitionService } from "../core/speech-recognition-service.ts";
-import { ProviderRegistry } from "../core/provider-registry.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
+import { SpeechRecognitionService } from "../packages/engine/core/speech-recognition-service.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
 
 function makeProviderRegistry() {
   return {

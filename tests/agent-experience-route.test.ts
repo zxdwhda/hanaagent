@@ -22,7 +22,7 @@ describe("agents route: experience toggle", () => {
       "utf-8",
     );
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     engine = {
       agentsDir: tempRoot,
       getAgent: vi.fn(() => ({

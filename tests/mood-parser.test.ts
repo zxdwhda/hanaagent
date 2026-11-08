@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MoodParser } from "../core/events.ts";
+import { MoodParser } from "../packages/engine/core/events.ts";
 
 function collect(chunks: string[]) {
   const parser = new MoodParser();

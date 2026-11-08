@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../lib/session-collab/delivery.ts", () => ({
+vi.mock("../packages/engine/lib/session-collab/delivery.ts", () => ({
   deliverAgentMessage: vi.fn(),
 }));
 
-import { createSessionTool } from "../lib/tools/session-tool.ts";
-import { SessionCollabDraftStore } from "../lib/session-collab/draft-store.ts";
-import { deliverAgentMessage } from "../lib/session-collab/delivery.ts";
+import { createSessionTool } from "../packages/engine/lib/tools/session-tool.ts";
+import { SessionCollabDraftStore } from "../packages/engine/lib/session-collab/draft-store.ts";
+import { deliverAgentMessage } from "../packages/engine/lib/session-collab/delivery.ts";
 
 // 沿用 tests/session-tool-read.test.ts 的 makeEngine/makeTool/CTX/run 模式，
 // 差异：getDraftStore 返回真实 SessionCollabDraftStore 实例（不 mock，直接验 one-shot 链路），

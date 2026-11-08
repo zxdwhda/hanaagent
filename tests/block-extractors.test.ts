@@ -5,7 +5,7 @@ import {
   extractBlocks,
   pluginInstalledPredicate,
   resolveMediaGenerationBlocks,
-} from '../server/block-extractors.ts';
+} from '../apps/server/block-extractors.ts';
 
 // ─── stage_files ─────────────────────────────────────────────────────────────
 

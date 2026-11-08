@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeSessionSearchText,
   tokenizeSessionSearchQuery,
-} from "../lib/search/session-search-tokenizer.ts";
+} from "../packages/engine/lib/search/session-search-tokenizer.ts";
 
 describe("session search tokenizer", () => {
   it("uses jieba search mode so Chinese queries expose searchable words", () => {

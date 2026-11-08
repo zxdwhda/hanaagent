@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const stylesPath = path.resolve("desktop/src/styles.css");
+const stylesPath = path.resolve("apps/desktop/src/styles.css");
 
 function getCssRule(selector) {
   const css = fs.readFileSync(stylesPath, "utf-8");

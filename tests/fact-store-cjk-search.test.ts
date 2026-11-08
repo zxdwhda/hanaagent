@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FactStore } from "../lib/memory/fact-store.ts";
+import { FactStore } from "../packages/engine/lib/memory/fact-store.ts";
 
 function removeDbFiles(dbPath) {
   for (const suffix of ["", "-wal", "-shm"]) {

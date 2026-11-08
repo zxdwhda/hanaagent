@@ -117,7 +117,7 @@ async function runResolvePackagedArtifactBoot(
   updateChannelPreference: "stable" | "beta",
   opts: { serverBoot?: Partial<BootResultStub>; rendererBoot?: Partial<BootResultStub> } = {},
 ): Promise<RunResult> {
-  const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+  const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
   const readPrefSource = extractFunctionSource(mainSource, "readUpdateChannelPreference");
   const resolveSource = extractFunctionSource(mainSource, "resolvePackagedArtifactBoot");
   const buildCrashFallbackNoticeSource = extractFunctionSource(mainSource, "buildCrashFallbackNotice");
@@ -232,7 +232,7 @@ describe("artifact-boot channel consistency: crash-sentinel + renderer-retry sou
   // resolved — is covered as a source contract instead: the specific
   // hardcoded-constant pattern that caused the incident must not
   // reappear in either function's body.
-  const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+  const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
   const spawnServerOnceSource = extractFunctionSource(mainSource, "_spawnServerOnce");
   const rendererRetrySource = extractFunctionSource(mainSource, "handleRendererArtifactLoadFailure");
 
@@ -260,7 +260,7 @@ describe("artifact-boot channel consistency: crash-sentinel + renderer-retry sou
 
 describe("crash-fallback user notice (silent auto-recovery must surface to the user)", () => {
   it("buildCrashFallbackNotice returns null when the boot result did not crash-fallback", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const source = extractFunctionSource(mainSource, "buildCrashFallbackNotice");
     const context = vm.createContext({ console });
     vm.runInContext(source, context);
@@ -270,7 +270,7 @@ describe("crash-fallback user notice (silent auto-recovery must surface to the u
   });
 
   it("buildCrashFallbackNotice projects kind/fromVersion/toVersion/quarantinedTrain when crashFallback is true", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const source = extractFunctionSource(mainSource, "buildCrashFallbackNotice");
     const context = vm.createContext({ console });
     vm.runInContext(source, context);

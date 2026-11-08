@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { listRecentAgentSessions } from "../../core/slash-commands/list-agent-sessions.ts";
+import { listRecentAgentSessions } from "../../packages/engine/core/slash-commands/list-agent-sessions.ts";
 
 function makeSession({ path, agentId, modified, title = null, messageCount = 0 }) {
   return { path, agentId, modified, title, messageCount };

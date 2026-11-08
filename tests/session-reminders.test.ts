@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { EnvChangeLedger } from "../core/env-change-ledger.ts";
+import { EnvChangeLedger } from "../packages/engine/core/env-change-ledger.ts";
 import {
   applyReminderConsumption,
   collectReminderBlock,
   REMINDER_BLOCK_END,
   REMINDER_BLOCK_PREFIX,
   stripSessionReminderBlocks,
-} from "../core/session-reminders.ts";
+} from "../packages/engine/core/session-reminders.ts";
 
 function freshSessionEntry(overrides: Record<string, unknown> = {}) {
   return {

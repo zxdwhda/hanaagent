@@ -16,7 +16,7 @@ function makeCtx(request) {
 
 describe("media generation tools", () => {
   it("exposes image generation under the media plugin namespace", async () => {
-    const mod = await import("../plugins/media/tools/generate-image.ts");
+    const mod = await import("../extensions/plugins/media/tools/generate-image.ts");
 
     expect(mod.name).toBe("generate-image");
     expect(mod.parameters.required).toContain("prompt");
@@ -26,7 +26,7 @@ describe("media generation tools", () => {
   });
 
   it("delegates image generation to the native media bus", async () => {
-    const mod = await import("../plugins/media/tools/generate-image.ts");
+    const mod = await import("../extensions/plugins/media/tools/generate-image.ts");
     const request = vi.fn(async () => ({
       ok: true,
       kind: "image",
@@ -79,7 +79,7 @@ describe("media generation tools", () => {
   });
 
   it("delegates video generation to the native media bus", async () => {
-    const mod = await import("../plugins/media/tools/generate-video.ts");
+    const mod = await import("../extensions/plugins/media/tools/generate-video.ts");
     expect(mod.parameters.properties.model.description).toMatch(/(omit|省略).*(configured default|已配置默认)/i);
     expect(mod.parameters.properties.provider.description).toMatch(/(omit|省略).*(configured default|已配置默认)/i);
     expect(mod.parameters.properties.mode.description).toMatch(/omit.+ordinary generation/i);
@@ -135,7 +135,7 @@ describe("media generation tools", () => {
   });
 
   it("describes media provider options without submitting generation", async () => {
-    const mod = await import("../plugins/media/tools/describe-options.ts");
+    const mod = await import("../extensions/plugins/media/tools/describe-options.ts");
     const request = vi.fn(async () => ({
       providers: {
         "jimeng-cli": {
@@ -179,7 +179,7 @@ describe("media generation tools", () => {
   });
 
   it("labels the full provider list as optional overrides with a default invocation", async () => {
-    const mod = await import("../plugins/media/tools/describe-options.ts");
+    const mod = await import("../extensions/plugins/media/tools/describe-options.ts");
     const request = vi.fn(async () => ({
       selection: {
         defaultConfigured: true,

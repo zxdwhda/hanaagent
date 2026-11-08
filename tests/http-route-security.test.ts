@@ -43,7 +43,7 @@ function desktopOwnerPrincipal(extraScopes = []) {
 
 describe("HTTP route security policy", () => {
   it("keeps local owner access unrestricted", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
 
     expect(authorizeHttpRoute({
       method: "GET",
@@ -58,7 +58,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("allows scoped trusted devices to read masked settings without opening local-only admin routes", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const principal = devicePrincipal(["chat", "resources.read", "settings.read"]);
 
     for (const [method, path] of [
@@ -93,7 +93,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("keeps access and device management routes local-owner only", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const principal = devicePrincipal(["chat", "resources.read", "files.read", "files.write", "settings.read"]);
 
     for (const [method, path] of [
@@ -116,7 +116,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("keeps legacy GPU preference cleanup local-owner only", async () => {
-    const { authorizeHttpRoute, classifyHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute, classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
     const path = "/api/preferences/legacy-gpu-safe-mode/hardware-acceleration";
 
     expect(classifyHttpRoute({ method: "POST", path })).toMatchObject({ kind: "local_only" });
@@ -127,7 +127,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("separates remote settings writes, provider management, bridge management, and secret mutation scopes", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const settingsWriter = devicePrincipal(["settings.write"]);
     const providerManager = devicePrincipal(["providers.manage"]);
     const bridgeManager = devicePrincipal(["bridge.manage"]);
@@ -176,7 +176,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("includes required scope diagnostics when a scoped route denies access", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const principal = devicePrincipal(["chat"]);
 
     expect(authorizeHttpRoute({
@@ -193,7 +193,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("gates memory settings routes by settings scopes instead of studio-owner fallback", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const reader = devicePrincipal(["settings.read"]);
     const writer = devicePrincipal(["settings.write"]);
     const chatOnly = devicePrincipal(["chat"]);
@@ -231,7 +231,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("allows scoped device access to chat identity and resources without opening admin APIs", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const principal = devicePrincipal(["chat", "resources.read"]);
 
     expect(authorizeHttpRoute({ method: "GET", path: "/api/server/identity", principal }))
@@ -264,7 +264,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("gates Studio workspace APIs by file scopes instead of local-only filtering them", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const reader = devicePrincipal(["files.read"]);
     const writer = devicePrincipal(["files.read", "files.write"]);
     const chatOnly = devicePrincipal(["chat"]);
@@ -283,7 +283,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("allows remote plugin UI metadata, settings tabs, and iframe ticket issuance while keeping plugin route apps owner-gated", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const principal = devicePrincipal(["chat", "settings.read"]);
     const owner = desktopOwnerPrincipal();
 
@@ -333,7 +333,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("gates built-in MCP connector settings by settings scopes", async () => {
-    const { authorizeHttpRoute, classifyHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute, classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
     const reader = devicePrincipal(["settings.read"]);
     const writer = devicePrincipal(["settings.read", "settings.write"]);
     const chatOnly = devicePrincipal(["chat"]);
@@ -418,7 +418,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("allows desktop owner clients to consume Studio server settings, plugins, skills, image generation, and connector routes", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const owner = desktopOwnerPrincipal();
 
     for (const [method, path] of [
@@ -482,7 +482,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("keeps mobile clients scoped away from Studio-owner settings and plugin management", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const principal = mobilePrincipal();
 
     for (const [method, path] of [
@@ -504,7 +504,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("treats media submit routes as chat actions for plugin and client surfaces", async () => {
-    const { authorizeHttpRoute, classifyHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute, classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
 
     for (const path of [
       "/api/media/generate",
@@ -522,7 +522,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("keeps explicitly client-local server actions unavailable to remote desktop owners", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const owner = desktopOwnerPrincipal();
 
     for (const [method, path] of [
@@ -552,7 +552,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("treats browser PWA assets and web-auth login as public bootstrap routes", async () => {
-    const { authorizeHttpRoute, classifyHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute, classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
 
     for (const [method, path] of [
       ["GET", "/mobile/"],
@@ -580,7 +580,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("gates workbench routes behind explicit file scopes", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
     const reader = devicePrincipal(["chat", "files.read"]);
     const writer = devicePrincipal(["chat", "files.read", "files.write"]);
 
@@ -700,7 +700,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("allows scoped clients to register isolated HTML previews without exposing the rendered document API", async () => {
-    const { authorizeHttpRoute, classifyHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute, classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
     const reader = devicePrincipal(["files.read"]);
     const chatOnly = devicePrincipal(["chat"]);
 
@@ -727,7 +727,7 @@ describe("HTTP route security policy", () => {
   });
 
   it("defaults unknown server API routes to Studio owner instead of hiding them from remote desktop clients", async () => {
-    const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+    const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
 
     expect(authorizeHttpRoute({
       method: "GET",
@@ -760,7 +760,7 @@ describe("HTTP route security policy", () => {
     }
 
     it("classifies plugin proxy sub-paths as plugin_route with the plugin id", async () => {
-      const { classifyHttpRoute } = await import("../server/http/route-security.ts");
+      const { classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
 
       expect(classifyHttpRoute({ method: "POST", path: "/api/plugins/media-board/api/create-session" }))
         .toMatchObject({ kind: "plugin_route", pluginId: "media-board" });
@@ -769,7 +769,7 @@ describe("HTTP route security policy", () => {
     });
 
     it("keeps host-owned plugin management routes out of the plugin_route policy", async () => {
-      const { classifyHttpRoute } = await import("../server/http/route-security.ts");
+      const { classifyHttpRoute } = await import("../apps/server/http/route-security.ts");
 
       expect(classifyHttpRoute({ method: "POST", path: "/api/plugins/dev/install" }))
         .toMatchObject({ kind: "local_only" });
@@ -784,7 +784,7 @@ describe("HTTP route security policy", () => {
     });
 
     it("authorizes matching plugin surface principals on their own plugin routes only", async () => {
-      const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+      const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
 
       expect(authorizeHttpRoute({
         method: "POST",
@@ -804,7 +804,7 @@ describe("HTTP route security policy", () => {
     });
 
     it("keeps owner access and denies non-owner device principals on plugin routes", async () => {
-      const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+      const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
 
       expect(authorizeHttpRoute({
         method: "POST",
@@ -832,7 +832,7 @@ describe("HTTP route security policy", () => {
     });
 
     it("does not let plugin surface principals reach host scope or studio owner routes", async () => {
-      const { authorizeHttpRoute } = await import("../server/http/route-security.ts");
+      const { authorizeHttpRoute } = await import("../apps/server/http/route-security.ts");
       const principal = pluginSurfacePrincipal("media-board");
 
       expect(authorizeHttpRoute({

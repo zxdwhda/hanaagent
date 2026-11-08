@@ -3,7 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { createRequire } from "module";
-import { FileHistoryStore } from "../lib/file-history/history-store.ts";
+import { FileHistoryStore } from "../packages/engine/lib/file-history/history-store.ts";
 
 const tmpDirs: string[] = [];
 function makeStore(overrides: Record<string, unknown> = {}) {

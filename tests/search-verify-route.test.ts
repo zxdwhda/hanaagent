@@ -6,9 +6,9 @@ const searchMocks = vi.hoisted(() => ({
   searchProviderRequiresApiKey: vi.fn((provider) => ["anysearch", "tavily", "brave", "serper"].includes(provider)),
 }));
 
-vi.mock("../lib/tools/web-search.js", () => searchMocks);
+vi.mock("../packages/engine/lib/tools/web-search.js", () => searchMocks);
 
-import { createConfigRoute } from "../server/routes/config.ts";
+import { createConfigRoute } from "../apps/server/routes/config.ts";
 
 describe("search verify route", () => {
   it("stores a verified API key without leaving auto provider mode", async () => {

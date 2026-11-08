@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   SessionExecutionRegistry,
   wrapWithSessionExecutionCancellation,
-} from "../lib/session-execution-registry.ts";
+} from "../packages/engine/lib/session-execution-registry.ts";
 
 describe("SessionExecutionRegistry", () => {
   it("aborts every active tool execution owned by one session", async () => {

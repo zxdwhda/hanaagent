@@ -18,10 +18,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { discoverSites } from "../scripts/scan-persistent-stores.mjs";
-import { SECRET_TREES, TOP_LEVEL_SECRET_FILES } from "../core/credential-file-healer.ts";
-import { LOCAL_PROVIDER_PLUGINS_DIR } from "../core/local-provider-plugin-store.ts";
-import { SECURITY_DIR } from "../core/security-dir.ts";
+import { discoverSites } from "../tooling/scripts/scan-persistent-stores.mjs";
+import { SECRET_TREES, TOP_LEVEL_SECRET_FILES } from "../packages/engine/core/credential-file-healer.ts";
+import { LOCAL_PROVIDER_PLUGINS_DIR } from "../packages/engine/core/local-provider-plugin-store.ts";
+import { SECURITY_DIR } from "../packages/engine/core/security-dir.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -30,17 +30,17 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
  * Every write in these files must use the owner-only primitive.
  */
 const EXCLUSIVE_CREDENTIAL_WRITERS = [
-  "core/provider-catalog.ts",
-  "core/model-sync.ts",
-  "core/provider-media-config.ts",
-  "core/local-provider-plugin-store.ts",
-  "core/device-registry.ts",
-  "core/local-user-account.ts",
-  "core/web-session-store.ts",
-  "core/migrate-providers.ts",
-  "core/plugin-config.ts",
-  "lib/memory/config-loader.ts",
-  "shared/migrate-config-scope.ts",
+  "packages/engine/core/provider-catalog.ts",
+  "packages/engine/core/model-sync.ts",
+  "packages/engine/core/provider-media-config.ts",
+  "packages/engine/core/local-provider-plugin-store.ts",
+  "packages/engine/core/device-registry.ts",
+  "packages/engine/core/local-user-account.ts",
+  "packages/engine/core/web-session-store.ts",
+  "packages/engine/core/migrate-providers.ts",
+  "packages/engine/core/plugin-config.ts",
+  "packages/engine/lib/memory/config-loader.ts",
+  "packages/shared/migrate-config-scope.ts",
 ];
 
 /**
@@ -48,9 +48,9 @@ const EXCLUSIVE_CREDENTIAL_WRITERS = [
  * required to carry at least one owner-only write.
  */
 const MIXED_CREDENTIAL_WRITERS = [
-  "core/provider-registry.ts",
-  "core/migrations.ts",
-  "core/first-run.ts",
+  "packages/engine/core/provider-registry.ts",
+  "packages/engine/core/migrations.ts",
+  "packages/engine/core/first-run.ts",
 ];
 
 /**

@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { PluginManager } from "../core/plugin-manager.ts";
-import { SlashCommandRegistry } from "../core/slash-command-registry.ts";
-import { EventBus } from "../hub/event-bus.ts";
+import { PluginManager } from "../packages/engine/core/plugin-manager.ts";
+import { SlashCommandRegistry } from "../packages/engine/core/slash-command-registry.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
 
 let tmp, builtinDir, communityDir, dataDir;
 

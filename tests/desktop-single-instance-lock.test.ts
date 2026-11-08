@@ -5,7 +5,7 @@ import {
   configureClientSingleInstance,
   focusExistingWindow,
   getUserDataAppName,
-} from "../desktop/src/shared/single-instance-lock.cjs";
+} from "../apps/desktop/src/shared/single-instance-lock.cjs";
 
 function makeApp({ gotLock = true } = {}) {
   const handlers = new Map();

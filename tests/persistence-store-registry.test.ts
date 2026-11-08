@@ -9,20 +9,20 @@ import {
   pathPatternsOverlap,
   scanPersistentStores,
   validateRegistry,
-} from "../scripts/scan-persistent-stores.mjs";
+} from "../tooling/scripts/scan-persistent-stores.mjs";
 import {
   LOCAL_PROVIDER_PLUGINS_DIR,
   LocalProviderPluginStore,
-} from "../core/local-provider-plugin-store.ts";
+} from "../packages/engine/core/local-provider-plugin-store.ts";
 import {
   PERSISTENCE_EXEMPTIONS,
   PERSISTENT_STORES,
-} from "../shared/persistence/store-registry.ts";
-import { PRODUCTION_ROOTS, SOURCE_EXCLUSIONS } from "../scripts/scan-persistent-stores.mjs";
-import type { PersistenceExemption, StoreDescriptor } from "../shared/persistence/store-registry-types.ts";
+} from "../packages/shared/persistence/store-registry.ts";
+import { PRODUCTION_ROOTS, SOURCE_EXCLUSIONS } from "../tooling/scripts/scan-persistent-stores.mjs";
+import type { PersistenceExemption, StoreDescriptor } from "../packages/shared/persistence/store-registry-types.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INVENTORY_PATH = path.join(ROOT, "build", "persistence-store-inventory.json");
+const INVENTORY_PATH = path.join(ROOT, "tooling/build", "persistence-store-inventory.json");
 const TODAY = "2026-07-13";
 const tempDirs: string[] = [];
 
@@ -123,7 +123,7 @@ describe("persistent store registry", () => {
     }
 
     const facts = PERSISTENT_STORES.find((store) => store.id === "agent-facts-sqlite")!;
-    expect(facts.schemaSource).toMatchObject({ kind: "sqlite-runtime", module: "lib/memory/fact-store.ts" });
+    expect(facts.schemaSource).toMatchObject({ kind: "sqlite-runtime", module: "packages/engine/lib/memory/fact-store.ts" });
 
     const sessions = PERSISTENT_STORES.find((store) => store.id === "session-jsonl")!;
     expect(sessions.schemaSource).toMatchObject({
@@ -150,11 +150,11 @@ describe("persistent store registry", () => {
     // MCP config is owned by the core module, not by the plugin data store, even
     // though it kept its historical directory name.
     const mcp = PERSISTENT_STORES.find((store) => store.id === "mcp-config")!;
-    expect(mcp.ownerModule).toBe("core/mcp/manager.ts");
+    expect(mcp.ownerModule).toBe("packages/engine/core/mcp/manager.ts");
     expect(mcp.pathPatterns).toEqual(["plugin-data/mcp"]);
     expect(mcp.schemaContract.kind).not.toBe("exempt");
     const office = PERSISTENT_STORES.find((store) => store.id === "office-render-jobs")!;
-    expect(office.ownerModule).toBe("plugins/office/lib/html-to-pdf.ts");
+    expect(office.ownerModule).toBe("extensions/plugins/office/lib/html-to-pdf.ts");
     expect(office.pathPatterns).toEqual([
       "plugin-data/office/jobs",
       "plugin-data/office/generated",
@@ -226,8 +226,8 @@ describe("persistent store registry", () => {
   it("rejects expired and dangling exemptions", () => {
     const expired: PersistenceExemption = {
       id: "expired",
-      ownerModule: "core/example.ts",
-      sourceFile: "core/example.ts",
+      ownerModule: "packages/engine/core/example.ts",
+      sourceFile: "packages/engine/core/example.ts",
       reason: "test",
       expiresOn: "2026-07-12",
     };
@@ -236,7 +236,7 @@ describe("persistent store registry", () => {
     const dangling: PersistenceExemption = {
       ...expired,
       id: "dangling",
-      sourceFile: "core/no-such-persistence-site.ts",
+      sourceFile: "packages/engine/core/no-such-persistence-site.ts",
       expiresOn: "2027-01-01",
     };
     expect(() => scanPersistentStores({
@@ -249,13 +249,13 @@ describe("persistent store registry", () => {
 
   it("fails closed when a declared production root is missing", () => {
     const root = tempRepository();
-    fs.rmSync(path.join(root, "shared"), { recursive: true, force: true });
-    expect(() => discoverSites(root)).toThrow(/persistence scan root is missing: shared/);
+    fs.rmSync(path.join(root, "packages/shared"), { recursive: true, force: true });
+    expect(() => discoverSites(root)).toThrow(/persistence scan root is missing: packages\/shared/);
   });
 
   it("detects multiline, imported-alias, destructured-alias, stream, destructive, truncate, and SQLite writes", () => {
     const root = tempRepository();
-    fs.writeFileSync(path.join(root, "core", "mutation.ts"), `
+    fs.writeFileSync(path.join(root, "packages/engine/core", "mutation.ts"), `
       import fs from "node:fs";
       import { writeFile as persist } from "node:fs/promises";
       import Sqlite from "better-sqlite3";
@@ -294,19 +294,19 @@ describe("persistent store registry", () => {
       fs.writeFileSync(absolutePath, 'const fs = require("fs"); fs.writeFileSync("state.json", "x");\n', "utf-8");
     };
 
-    write("desktop/host.cjs");
-    write("desktop/src/shared/host.cjs");
-    write("cli/host.ts");
-    write("desktop/main.bundle.cjs");
-    write("desktop/dist-renderer/assets/generated.js");
-    write("desktop/dist-splash/assets/generated.js");
-    write("desktop/native/generated.cjs");
-    write("desktop/src/react/renderer.tsx");
-    write("desktop/src/main.tsx");
-    write("desktop/src/__tests__/host.test.ts");
+    write("apps/desktop/host.cjs");
+    write("apps/desktop/src/shared/host.cjs");
+    write("apps/cli/host.ts");
+    write("apps/desktop/main.bundle.cjs");
+    write("apps/desktop/dist-renderer/assets/generated.js");
+    write("apps/desktop/dist-splash/assets/generated.js");
+    write("apps/desktop/native/generated.cjs");
+    write("apps/desktop/src/react/renderer.tsx");
+    write("apps/desktop/src/main.tsx");
+    write("apps/desktop/src/__tests__/host.test.ts");
 
     const files = discoverSites(root).map((site) => site.sourceFile);
-    expect(files).toEqual(["cli/host.ts", "desktop/host.cjs", "desktop/src/shared/host.cjs"]);
+    expect(files).toEqual(["apps/cli/host.ts", "apps/desktop/host.cjs", "apps/desktop/src/shared/host.cjs"]);
   });
 
   it("rejects epoch-managed pre-coordinator access without a named additive read projection", () => {
@@ -365,7 +365,7 @@ describe("persistent store registry", () => {
 
     const committed = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
     expect(committed).toEqual(first.inventory);
-    expect(committed.sourceRoots).toEqual(expect.arrayContaining(["desktop", "cli"]));
+    expect(committed.sourceRoots).toEqual(expect.arrayContaining(["apps/desktop", "apps/cli"]));
     expect(committed.sourceExclusions).toEqual(
       SOURCE_EXCLUSIONS.map(({ id, reason }) => ({ id, reason })),
     );
@@ -388,7 +388,7 @@ describe("persistent store registry", () => {
       expect(site.ordinal).toBeGreaterThanOrEqual(0);
     }
 
-    const target = "server/index.ts";
+    const target = "apps/server/index.ts";
     const original = fs.readFileSync(path.join(ROOT, target), "utf-8");
     expect(inventory.discoveredSites.some((site: { sourceFile: string }) => site.sourceFile === target)).toBe(true);
 
@@ -403,7 +403,7 @@ describe("persistent store registry", () => {
   it("still reports a genuinely new write site after the ordinal change", () => {
     // Desensitizing line numbers must not blunt the guard: adding a real write
     // call to a scanned file has to stay unregistered-and-loud.
-    const target = "server/index.ts";
+    const target = "apps/server/index.ts";
     const original = fs.readFileSync(path.join(ROOT, target), "utf-8");
     expect(() => scanPersistentStores({
       rootDir: ROOT,

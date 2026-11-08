@@ -4,8 +4,8 @@ import os from "os";
 import path from "path";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { VISION_CONTEXT_START } from "../core/vision-bridge.ts";
-import { wrapReadOfficeMedia } from "../lib/sandbox/read-office-media.ts";
+import { VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
+import { wrapReadOfficeMedia } from "../packages/engine/lib/sandbox/read-office-media.ts";
 
 const TINY_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { bridgeCommands } from "../../core/slash-commands/bridge-commands.ts";
-import { SlashCommandRegistry } from "../../core/slash-command-registry.ts";
-import { SlashCommandDispatcher } from "../../core/slash-command-dispatcher.ts";
+import { bridgeCommands } from "../../packages/engine/core/slash-commands/bridge-commands.ts";
+import { SlashCommandRegistry } from "../../packages/engine/core/slash-command-registry.ts";
+import { SlashCommandDispatcher } from "../../packages/engine/core/slash-command-dispatcher.ts";
 
 function makeCtx( overrides: any = {}) {
   return {

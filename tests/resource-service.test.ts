@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
 
 describe("ResourceService", () => {
   let tmpDir = null;
@@ -82,7 +82,7 @@ describe("ResourceService", () => {
   }
 
   it("resolves old SessionFile sidecars by derived resource id without a disk migration", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir } = writeLegacySessionFileSidecar({ fileId: "sf_legacy" });
     const service = makeService(ResourceService, agentsDir);
 
@@ -101,7 +101,7 @@ describe("ResourceService", () => {
   });
 
   it("indexes manifest-era sidecars by sessionId while keeping path compatibility", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir, fileId } = writeLegacySessionFileSidecar({
       fileId: "sf_manifest",
       sessionId: "sess_manifest_resource",
@@ -124,7 +124,7 @@ describe("ResourceService", () => {
   });
 
   it("resolves local content for available legacy resources", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir, filePath } = writeLegacySessionFileSidecar({ fileId: "sf_content" });
     const service = makeService(ResourceService, agentsDir);
 
@@ -140,7 +140,7 @@ describe("ResourceService", () => {
   });
 
   it("marks available legacy resources as missing when tracked content no longer exists", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir } = writeLegacySessionFileSidecar({
       fileId: "sf_missing",
       status: "available",
@@ -162,7 +162,7 @@ describe("ResourceService", () => {
   });
 
   it("restores missing legacy resources as available when tracked content exists again", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir } = writeLegacySessionFileSidecar({
       fileId: "sf_returned",
       status: "missing",
@@ -184,8 +184,8 @@ describe("ResourceService", () => {
   });
 
   it("resolves resource ids captured before a fork through legacy file ids", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
-    const { resourceIdForSessionFileId } = await import("../lib/resources/resource-envelope.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
+    const { resourceIdForSessionFileId } = await import("../packages/engine/lib/resources/resource-envelope.ts");
     const { agentsDir } = writeLegacySessionFileSidecar({
       fileId: "sf_forked",
       sessionId: "sess_forked_child",
@@ -209,7 +209,7 @@ describe("ResourceService", () => {
   });
 
   it("scopes the by-id fallback to the owning session so legacy aliases resolve", async () => {
-    const { ResourceService } = await import("../core/resource-service.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir } = writeLegacySessionFileSidecar({
       fileId: "sf_scoped_child",
       sessionId: "sess_scoped_child",
@@ -228,7 +228,7 @@ describe("ResourceService", () => {
   });
 
   it("refuses content for expired legacy resources", async () => {
-    const { ResourceService, ResourceError } = await import("../core/resource-service.ts");
+    const { ResourceService, ResourceError } = await import("../packages/engine/core/resource-service.ts");
     const { agentsDir } = writeLegacySessionFileSidecar({ fileId: "sf_expired", status: "expired" });
     const service = makeService(ResourceService, agentsDir);
 

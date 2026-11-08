@@ -2,18 +2,18 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
 // 期望值必须与生产代码同一条规范化路径（native realpath 会展开 Windows 8.3
 // 短名，JS 版 fs.realpathSync 不会；CI runner 的 TEMP 恰好是短名形式）。
-import { canonicalFilesystemPathSync } from "../shared/link-aware-fs.ts";
+import { canonicalFilesystemPathSync } from "../packages/shared/link-aware-fs.ts";
 
 const createSandboxedTools = vi.fn(() => ({ tools: [], customTools: [] }));
 
-vi.mock("../lib/sandbox/index.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/index.js", () => ({
   createSandboxedTools,
 }));
 
-const { HanaEngine } = await import("../core/engine.ts");
+const { HanaEngine } = await import("../packages/engine/core/engine.ts");
 
 describe("HanaEngine.buildTools session external sandbox grants", () => {
   let tempRoot;

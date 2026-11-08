@@ -18,7 +18,7 @@ const { createAgentSessionMock, sessionManagerCreateMock } = vi.hoisted(() => ({
   sessionManagerCreateMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", async () => {
+vi.mock("../packages/engine/lib/pi-sdk/index.js", async () => {
   const { Type } = await import("typebox");
   const { StringEnum } = await import("@earendil-works/pi-ai");
   return {
@@ -36,7 +36,7 @@ vi.mock("../lib/pi-sdk/index.js", async () => {
   };
 });
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -44,7 +44,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 function makeCoordinatorDeps( overrides: any = {}) {
   return {
@@ -144,7 +144,7 @@ describe("createSession 返回值结构", () => {
 // subagent 并发限制的核心逻辑在 subagent-tool.test.js 中已有完整覆盖（6, 6b, 6c），
 // 这里补充 "完成后释放配额、新任务可继续" 的场景。
 
-import { createSubagentTool } from "../lib/tools/subagent-tool.ts";
+import { createSubagentTool } from "../packages/engine/lib/tools/subagent-tool.ts";
 
 const mockCtx = (sp = "/test/session.jsonl") => ({
   sessionManager: { getSessionFile: () => sp },
@@ -227,7 +227,7 @@ describe("subagent 并发配额释放与复用", () => {
 
 // ── 3. DeferredResultStore cleanup ──────────────────────
 
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
 
 describe("DeferredResultStore cleanup", () => {
   it("cleans up delivered tasks older than 7 days", () => {
@@ -322,7 +322,7 @@ describe("DeferredResultStore cleanup", () => {
 
 // ── 4. BrowserManager per-session 隔离 ──────────────────
 
-import { BrowserManager } from "../lib/browser/browser-manager.ts";
+import { BrowserManager } from "../packages/engine/lib/browser/browser-manager.ts";
 
 describe("BrowserManager per-session 隔离（并发场景）", () => {
   it("isolates state between sessions: navigate, url, close", async () => {
@@ -397,7 +397,7 @@ describe("BrowserManager per-session 隔离（并发场景）", () => {
 
 // ── 5. resolveAgentStrict 行为验证 ────────────────────────
 
-import { resolveAgentStrict, AgentNotFoundError } from "../server/utils/resolve-agent.ts";
+import { resolveAgentStrict, AgentNotFoundError } from "../apps/server/utils/resolve-agent.ts";
 
 function mockEngine(agents) {
   return {

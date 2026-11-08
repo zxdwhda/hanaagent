@@ -4,18 +4,18 @@ import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 // 期望值必须与生产代码同一条规范化路径（native realpath 会展开 Windows 8.3
 // 短名，JS 版 fs.realpathSync 不会；CI runner 的 TEMP 恰好是短名形式）。
-import { canonicalFilesystemPathSync } from "../shared/link-aware-fs.ts";
+import { canonicalFilesystemPathSync } from "../packages/shared/link-aware-fs.ts";
 
-vi.mock("../lib/bridge/telegram-adapter.js", () => ({ createTelegramAdapter: vi.fn() }));
-vi.mock("../lib/bridge/feishu-adapter.js", () => ({ createFeishuAdapter: vi.fn() }));
-vi.mock("../lib/bridge/qq-adapter.js", () => ({ createQQAdapter: vi.fn() }));
-vi.mock("../lib/bridge/wechat-adapter.js", () => ({ createWechatAdapter: vi.fn() }));
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/bridge/telegram-adapter.js", () => ({ createTelegramAdapter: vi.fn() }));
+vi.mock("../packages/engine/lib/bridge/feishu-adapter.js", () => ({ createFeishuAdapter: vi.fn() }));
+vi.mock("../packages/engine/lib/bridge/qq-adapter.js", () => ({ createQQAdapter: vi.fn() }));
+vi.mock("../packages/engine/lib/bridge/wechat-adapter.js", () => ({ createWechatAdapter: vi.fn() }));
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { BridgeManager } from "../lib/bridge/bridge-manager.ts";
+import { BridgeManager } from "../packages/engine/lib/bridge/bridge-manager.ts";
 
 const TELEGRAM_CAPS = {
   inputModes: ["buffer", "remote_url", "public_url"],

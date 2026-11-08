@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AgentManager } from "../core/agent-manager.ts";
+import { AgentManager } from "../packages/engine/core/agent-manager.ts";
 
 describe("AgentManager.deleteAgent skill bundle lifecycle", () => {
   let tempDir;

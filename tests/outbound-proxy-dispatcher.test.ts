@@ -8,7 +8,7 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
-import { createOutboundProxyRuntime, fetchDispatcherForUrl } from "../lib/net/outbound-proxy.ts";
+import { createOutboundProxyRuntime, fetchDispatcherForUrl } from "../packages/engine/lib/net/outbound-proxy.ts";
 
 describe("fetchDispatcherForUrl", () => {
   const runtime = createOutboundProxyRuntime({ log: () => {}, warn: () => {}, env: {} });

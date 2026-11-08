@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 async function loadModule() {
-  const mod = await import("../desktop/login-item-settings.cjs");
+  const mod = await import("../apps/desktop/login-item-settings.cjs");
   return mod.default || mod;
 }
 

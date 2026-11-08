@@ -2,18 +2,18 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { sessionLocatorKey } from "../core/session-manifest/path-normalizer.ts";
+import { sessionLocatorKey } from "../packages/engine/core/session-manifest/path-normalizer.ts";
 
 const { createCronSchedulerMock, schedulers } = vi.hoisted(() => ({
   createCronSchedulerMock: vi.fn(),
   schedulers: [],
 }));
 
-vi.mock("../lib/desk/cron-scheduler.js", () => ({
+vi.mock("../packages/engine/lib/desk/cron-scheduler.js", () => ({
   createCronScheduler: createCronSchedulerMock,
 }));
 
-vi.mock("../lib/desk/heartbeat.js", () => ({
+vi.mock("../packages/engine/lib/desk/heartbeat.js", () => ({
   HEARTBEAT_ACTIVITY_DIR: ".hana-heartbeat",
   createHeartbeat: vi.fn(() => ({
     start: vi.fn(),
@@ -21,20 +21,20 @@ vi.mock("../lib/desk/heartbeat.js", () => ({
   })),
 }));
 
-vi.mock("../lib/fresh-compact/daily-scheduler.js", () => ({
+vi.mock("../packages/engine/lib/fresh-compact/daily-scheduler.js", () => ({
   createFreshCompactDailyScheduler: vi.fn(() => ({
     start: vi.fn(),
     stop: vi.fn(),
   })),
 }));
 
-vi.mock("../hub/fresh-compact-maintainer.js", () => ({
+vi.mock("../packages/engine/hub/fresh-compact-maintainer.js", () => ({
   FreshCompactMaintainer: vi.fn().mockImplementation(function () {
     this.runDaily = vi.fn();
   }),
 }));
 
-import { Scheduler } from "../hub/scheduler.ts";
+import { Scheduler } from "../packages/engine/hub/scheduler.ts";
 
 describe("Scheduler studio cron", () => {
   beforeEach(() => {

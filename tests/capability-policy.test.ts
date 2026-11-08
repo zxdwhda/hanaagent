@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { authorizeCapability, capabilityDecisionSummary } from "../core/capability-policy.ts";
-import { normalizePrincipal } from "../core/security-principal.ts";
+import { authorizeCapability, capabilityDecisionSummary } from "../packages/engine/core/capability-policy.ts";
+import { normalizePrincipal } from "../packages/engine/core/security-principal.ts";
 
 function devicePrincipal( overrides: any = {}) {
   return normalizePrincipal({

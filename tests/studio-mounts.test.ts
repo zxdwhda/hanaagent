@@ -17,7 +17,7 @@ describe("studio mounts", () => {
 
   it("creates an empty registry when missing", async () => {
     tmpDir = makeTmpDir();
-    const { loadStudioMountRegistry } = await import("../core/studio-mounts.ts");
+    const { loadStudioMountRegistry } = await import("../packages/engine/core/studio-mounts.ts");
 
     expect(loadStudioMountRegistry(tmpDir)).toMatchObject({
       schemaVersion: 1,
@@ -27,7 +27,7 @@ describe("studio mounts", () => {
 
   it("validates a local storage mount", async () => {
     tmpDir = makeTmpDir();
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
 
     const mount = upsertStudioMount(tmpDir, {
       mountId: "mount_projects",
@@ -53,7 +53,7 @@ describe("studio mounts", () => {
 
   it("validates a Studio-to-Studio mount without transferring ownership", async () => {
     tmpDir = makeTmpDir();
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
 
     const mount = upsertStudioMount(tmpDir, {
       mountId: "mount_design_assets",
@@ -83,7 +83,7 @@ describe("studio mounts", () => {
 
   it("rejects a self-cycle Studio mount", async () => {
     tmpDir = makeTmpDir();
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
 
     expect(() => upsertStudioMount(tmpDir, {
       mountId: "mount_self",
@@ -100,7 +100,7 @@ describe("studio mounts", () => {
 
   it("rejects unknown capabilities", async () => {
     tmpDir = makeTmpDir();
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
 
     expect(() => upsertStudioMount(tmpDir, {
       mountId: "mount_bad",
@@ -115,7 +115,7 @@ describe("studio mounts", () => {
 
   it("disables an existing mount without deleting the registry entry", async () => {
     tmpDir = makeTmpDir();
-    const { disableStudioMount, listStudioMountsForStudio, upsertStudioMount } = await import("../core/studio-mounts.ts");
+    const { disableStudioMount, listStudioMountsForStudio, upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
     upsertStudioMount(tmpDir, {
       mountId: "mount_projects",
       hostStudioId: "studio_host",

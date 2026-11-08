@@ -5,7 +5,7 @@ import {
   describeForeignServerBlock,
   isForeignServerBlocking,
   probeServerInfo,
-} from "../shared/server-info-probe.cjs";
+} from "../packages/shared/server-info-probe.cjs";
 
 const TOKEN = "test-token-0123456789abcdef";
 

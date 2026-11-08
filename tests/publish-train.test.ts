@@ -19,7 +19,7 @@ import {
   releaseExistsFromExec,
   releaseInfoFromExec,
   SHELL_COMPAT_FLOOR,
-} from "../scripts/publish-train.mjs";
+} from "../tooling/scripts/publish-train.mjs";
 
 const tempDirs: string[] = [];
 
@@ -139,7 +139,7 @@ describe("publish-train: automatic workflow channel policy", () => {
       path.join(process.cwd(), ".github", "workflows", "publish-train.yml"),
       "utf8",
     );
-    const publisher = fs.readFileSync(path.join(process.cwd(), "scripts", "publish-train.mjs"), "utf8");
+    const publisher = fs.readFileSync(path.join(process.cwd(), "tooling/scripts", "publish-train.mjs"), "utf8");
     const confirmationStart = workflow.indexOf("allow_prerelease_stable:");
     const publishStart = workflow.indexOf("- name: Publish train");
 
@@ -152,7 +152,7 @@ describe("publish-train: automatic workflow channel policy", () => {
     expect(workflow.slice(conditionStart, workflow.indexOf("fi", conditionStart))).toContain(
       "args+=(--allow-prerelease-stable)",
     );
-    expect(workflow).toContain('node scripts/publish-train.mjs "${args[@]}"');
+    expect(workflow).toContain("node tooling/scripts/publish-train.mjs \"${args[@]}\"");
     expect(workflow).not.toContain("inputs.allow_prerelease_stable && '--allow-prerelease-stable'");
     expect(publisher).not.toContain("GITHUB_WORKFLOW_REF");
   });

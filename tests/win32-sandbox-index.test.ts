@@ -12,11 +12,11 @@ const Type = {
   Optional: (schema) => schema,
 };
 
-vi.mock("../lib/sandbox/win32-exec.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/win32-exec.js", () => ({
   createWin32Exec,
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => {
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => {
   const makeTool = (name) => ({ name, execute: vi.fn(async () => ({ content: [] })) });
   return {
     createReadTool: vi.fn(() => makeTool("read")),
@@ -45,7 +45,7 @@ afterEach(() => {
 
 async function buildWin32Tools(overrides: any = {}) {
   Object.defineProperty(process, "platform", { value: "win32" });
-  const { createSandboxedTools } = await import("../lib/sandbox/index.ts");
+  const { createSandboxedTools } = await import("../packages/engine/lib/sandbox/index.ts");
   const { tools } = createSandboxedTools("C:\\work", [], {
     agentDir: "C:\\hana\\agents\\hana",
     workspace: "C:\\work",
@@ -63,7 +63,7 @@ async function buildWin32Tools(overrides: any = {}) {
 describe("createSandboxedTools on Windows", () => {
   it("constructs a sandboxed restricted-token exec plus an unsandboxed fallback exec", async () => {
     Object.defineProperty(process, "platform", { value: "win32" });
-    const { createSandboxedTools } = await import("../lib/sandbox/index.ts");
+    const { createSandboxedTools } = await import("../packages/engine/lib/sandbox/index.ts");
 
     const getExternalReadPaths = () => ["C:\\outside\\brief.md"];
     const getSandboxNetworkEnabled = () => true;

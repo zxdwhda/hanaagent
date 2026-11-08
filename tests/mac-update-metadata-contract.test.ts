@@ -6,7 +6,7 @@ import yaml from "js-yaml";
 import { afterEach, describe, expect, it } from "vitest";
 
 const rootDir = process.cwd();
-const scriptPath = path.join(rootDir, "scripts", "merge-latest-mac-yml.cjs");
+const scriptPath = path.join(rootDir, "tooling/scripts", "merge-latest-mac-yml.cjs");
 const workflowPath = path.join(rootDir, ".github", "workflows", "build.yml");
 
 let tmpDir;
@@ -127,7 +127,7 @@ describe("macOS update metadata release contract", () => {
   it("routes the GitHub release workflow through the checked merge script", () => {
     const workflow = fs.readFileSync(workflowPath, "utf8");
 
-    expect(workflow).toContain("node scripts/merge-latest-mac-yml.cjs artifacts latest-mac.yml");
+    expect(workflow).toContain("node tooling/scripts/merge-latest-mac-yml.cjs artifacts latest-mac.yml");
     expect(workflow).not.toContain("Only x64 yml found, using as-is");
     expect(workflow).not.toContain("Only arm64 yml found, using as-is");
   });

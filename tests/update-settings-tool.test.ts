@@ -7,8 +7,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { loadLocale } from "../lib/i18n.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { loadLocale } from "../packages/engine/lib/i18n.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 // ── Mock 工厂 ──
 
@@ -102,7 +102,7 @@ describe("update-settings-tool", () => {
 
   beforeEach(async () => {
     loadLocale("en");
-    const mod = await import("../lib/tools/update-settings-tool.ts");
+    const mod = await import("../packages/engine/lib/tools/update-settings-tool.ts");
     createUpdateSettingsTool = mod.createUpdateSettingsTool;
   });
 

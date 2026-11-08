@@ -2,11 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createLegacyChannelOwnerGuard } from "../lib/bridge/channel-owner.ts";
+import { createLegacyChannelOwnerGuard } from "../packages/engine/lib/bridge/channel-owner.ts";
 
 const adapters = vi.hoisted(() => ({ create: vi.fn(), inbound: null as any }));
-vi.mock("../lib/bridge/telegram-adapter.ts", () => ({ createTelegramAdapter: (...args) => adapters.create(...args) }));
-import { BridgeManager } from "../lib/bridge/bridge-manager.ts";
+vi.mock("../packages/engine/lib/bridge/telegram-adapter.ts", () => ({ createTelegramAdapter: (...args) => adapters.create(...args) }));
+import { BridgeManager } from "../packages/engine/lib/bridge/bridge-manager.ts";
 
 const dirs: string[] = [];
 function homes() {

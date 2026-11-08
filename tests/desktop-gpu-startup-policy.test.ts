@@ -19,7 +19,7 @@ const {
   resolveGpuStartupPolicy,
   restoreDeeperAutoGpuMode,
   settleLegacyGpuPreferenceMigration,
-} = require("../desktop/src/shared/gpu-startup-policy.cjs");
+} = require("../apps/desktop/src/shared/gpu-startup-policy.cjs");
 
 let root;
 

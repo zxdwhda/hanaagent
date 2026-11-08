@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
@@ -11,8 +11,8 @@ vi.mock("../lib/debug-log.js", () => ({
 import {
   decodeIlinkMediaAesKey,
   encodeIlinkMediaAesKey,
-} from "../lib/bridge/wechat-ilink-media-crypto.ts";
-import { createWechatAdapter } from "../lib/bridge/wechat-adapter.ts";
+} from "../packages/engine/lib/bridge/wechat-ilink-media-crypto.ts";
+import { createWechatAdapter } from "../packages/engine/lib/bridge/wechat-adapter.ts";
 
 function jsonResponse(body) {
   return {

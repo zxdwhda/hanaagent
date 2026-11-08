@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   resolveSessionSkillsForRuntime,
   snapshotSkillsForSession,
-} from "../lib/skills/session-skill-snapshot.ts";
+} from "../packages/engine/lib/skills/session-skill-snapshot.ts";
 
 describe("session skill snapshot identity", () => {
   let tmpDir = null;

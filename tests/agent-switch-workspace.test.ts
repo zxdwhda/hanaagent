@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentManager } from "../core/agent-manager.ts";
+import { AgentManager } from "../packages/engine/core/agent-manager.ts";
 
 describe("AgentManager.switchAgent workspace selection", () => {
   let tempDir = null;

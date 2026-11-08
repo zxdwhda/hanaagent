@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildThemeName, extractScreenshotPayload } from '../desktop/src/react/utils/screenshot-extract';
+import { buildThemeName, extractScreenshotPayload } from '../apps/desktop/src/react/utils/screenshot-extract';
 
 describe('buildThemeName', () => {
   it('light + mobile → solarized-light', () => {

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import defaultModels from "../lib/default-models.json";
+import defaultModels from "../packages/engine/lib/default-models.json";
 import {
   listKnownProviderModels,
   lookupKnown,
   lookupKnownProvider,
   lookupKnownWithSource,
-} from "../shared/known-models.ts";
+} from "../packages/shared/known-models.ts";
 
 describe("known-models dictionary", () => {
   it("treats missing model ids as unknown instead of throwing", () => {

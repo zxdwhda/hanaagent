@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyWin32Command } from "../lib/sandbox/win32-command-router.ts";
+import { classifyWin32Command } from "../packages/engine/lib/sandbox/win32-command-router.ts";
 
 describe("classifyWin32Command", () => {
   const resolveNativePath = (name) => {

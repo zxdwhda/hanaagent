@@ -46,7 +46,7 @@ describe("trusted remote admin secret writes", () => {
   });
 
   it("rejects remote config secret mutations without secrets.write", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     tmpDir = makeTmpDir();
     const saveProvider = vi.fn();
     const engine = {
@@ -86,7 +86,7 @@ describe("trusted remote admin secret writes", () => {
   });
 
   it("allows scoped remote config secret mutations and records an audit event without the secret value", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     tmpDir = makeTmpDir();
     const saveProvider = vi.fn();
     const engine = {
@@ -136,7 +136,7 @@ describe("trusted remote admin secret writes", () => {
   });
 
   it("requires providers.manage before a remote config request can mutate provider definitions", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     tmpDir = makeTmpDir();
     const saveProvider = vi.fn();
     const engine = {
@@ -174,7 +174,7 @@ describe("trusted remote admin secret writes", () => {
   });
 
   it("requires secrets.write before a remote bridge credential can be saved", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     tmpDir = makeTmpDir();
     const agent = {
       id: "hana",

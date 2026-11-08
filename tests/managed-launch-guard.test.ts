@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkManagedLaunch } from "../desktop/src/shared/managed-launch-guard.cjs";
+import { checkManagedLaunch } from "../apps/desktop/src/shared/managed-launch-guard.cjs";
 
 const homes: string[] = [];
 function fixture(contents?: string) {

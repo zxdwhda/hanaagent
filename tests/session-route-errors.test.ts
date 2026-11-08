@@ -3,8 +3,8 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createSessionsRoute, __testables } from "../server/routes/sessions.ts";
-import { AgentManager } from "../core/agent-manager.ts";
+import { createSessionsRoute, __testables } from "../apps/server/routes/sessions.ts";
+import { AgentManager } from "../packages/engine/core/agent-manager.ts";
 
 const AGENTS_DIR = "/tmp/hana-test-agents";
 const SESSION_PATH = `${AGENTS_DIR}/agent-a/sessions/sess-1.jsonl`;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApprovalGateway, createModelApprovalReviewer } from "../lib/approval-gateway.ts";
+import { createApprovalGateway, createModelApprovalReviewer } from "../packages/engine/lib/approval-gateway.ts";
 
 const reviewerLogMocks = vi.hoisted(() => ({
   log: vi.fn(),
@@ -8,7 +8,7 @@ const reviewerLogMocks = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.ts", () => ({
+vi.mock("../packages/engine/lib/debug-log.ts", () => ({
   createModuleLogger: () => reviewerLogMocks,
 }));
 

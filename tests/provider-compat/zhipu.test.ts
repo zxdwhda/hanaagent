@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
-import * as zhipu from "../../core/provider-compat/zhipu.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
+import * as zhipu from "../../packages/engine/core/provider-compat/zhipu.ts";
 
 const zhipuModel = {
   id: "glm-5.1",

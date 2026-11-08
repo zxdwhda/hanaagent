@@ -6,7 +6,7 @@ import path from "path";
 
 const require = createRequire(import.meta.url);
 const { maybeHealWin32InstallAcl, buildInstallAclHealDiagnostics } = require(
-  "../desktop/src/shared/win32-install-acl-heal.cjs",
+  "../apps/desktop/src/shared/win32-install-acl-heal.cjs",
 );
 
 let root: string | null;

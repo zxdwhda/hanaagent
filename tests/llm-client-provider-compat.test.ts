@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { callText } from "../core/llm-client.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
 
 function makeCodexJwt(accountId) {
   const payload = Buffer.from(JSON.stringify({

@@ -4,7 +4,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 // saveImage writes to disk — mock it out so tests stay pure
-vi.mock("../core/media/download.ts", () => ({
+vi.mock("../packages/engine/core/media/download.ts", () => ({
   saveImage: vi.fn(async (_buf, _mime, _dir, customName) => {
     const filename = customName ? `${customName}-abc.png` : `1234-abc.png`;
     return { filename, filePath: `/tmp/generated/${filename}` };
@@ -45,7 +45,7 @@ describe("volcengine adapter", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("does not send Seedream 5-only output_format to Seedream 4.0", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const fakeB64 = Buffer.from("fake-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -81,7 +81,7 @@ describe("volcengine adapter", () => {
   });
 
   it("sends output_format only for Seedream 5 models", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const fakeB64 = Buffer.from("fake-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -102,7 +102,7 @@ describe("volcengine adapter", () => {
   });
 
   it("keeps Seedream 1K at a 1K pixel size instead of silently upgrading to 2K", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const fakeB64 = Buffer.from("img").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -123,7 +123,7 @@ describe("volcengine adapter", () => {
   });
 
   it("rejects Seedream 3 unsupported resolution tiers before calling Volcengine", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const ctx = makeBusCtx("key", "https://test.com");
     await expect(volcengineImageAdapter.submit({
@@ -136,7 +136,7 @@ describe("volcengine adapter", () => {
   });
 
   it("applies Seedream 3-only providerDefaults without leaking them to newer models", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const fakeB64 = Buffer.from("img").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -178,7 +178,7 @@ describe("volcengine adapter", () => {
   });
 
   it("throws on API error with status and message", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -193,7 +193,7 @@ describe("volcengine adapter", () => {
   });
 
   it("throws when data array is empty", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -207,7 +207,7 @@ describe("volcengine adapter", () => {
   });
 
   it("rejects an explicit unknown model before credentials or network calls", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const ctx = makeBusCtx("key", "https://test.com");
     await expect(volcengineImageAdapter.submit({
@@ -220,7 +220,7 @@ describe("volcengine adapter", () => {
   });
 
   it("accepts Volcengine Coding Plan credentials in the same auth path used by submit", async () => {
-    const { volcengineImageAdapter } = await import("../core/media-adapters/volcengine.ts");
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 
     const request = vi.fn(async (type, payload) => {
       if (type === "provider:credentials" && payload.providerId === "volcengine") {
@@ -250,7 +250,7 @@ describe("openai adapter", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("sends correct request and returns files from b64_json", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     const fakeB64 = Buffer.from("fake-openai-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -283,7 +283,7 @@ describe("openai adapter", () => {
   });
 
   it("uses official OpenAI image default model when no model is provided", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     const fakeB64 = Buffer.from("img").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -299,7 +299,7 @@ describe("openai adapter", () => {
   });
 
   it("maps generic 4k resolution to gpt-image-2 size", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     const fakeB64 = Buffer.from("img").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -322,7 +322,7 @@ describe("openai adapter", () => {
   });
 
   it("uses JSON images references for OpenAI URL edits", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     const fakeB64 = Buffer.from("edited").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -346,7 +346,7 @@ describe("openai adapter", () => {
   });
 
   it("applies providerDefaults (background)", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     const fakeB64 = Buffer.from("img").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -370,7 +370,7 @@ describe("openai adapter", () => {
   });
 
   it("uses DALL-E 3-specific response fields instead of GPT Image fields", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     const fakeB64 = Buffer.from("dalle").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -402,7 +402,7 @@ describe("openai adapter", () => {
   });
 
   it("throws on API error", async () => {
-    const { openaiImageAdapter } = await import("../core/media-adapters/openai.ts");
+    const { openaiImageAdapter } = await import("../packages/engine/core/media-adapters/openai.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -421,7 +421,7 @@ describe("agnes adapters", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("submits text-to-image requests using Agnes image response_format inside extra_body", async () => {
-    const { agnesImageAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesImageAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     const fakeB64 = Buffer.from("agnes-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -456,7 +456,7 @@ describe("agnes adapters", () => {
   });
 
   it("submits image-to-image references in Agnes extra_body.image", async () => {
-    const { agnesImageAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesImageAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     const fakeB64 = Buffer.from("agnes-edit").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -482,7 +482,7 @@ describe("agnes adapters", () => {
   });
 
   it("rejects unsupported Agnes image sizes before calling the API", async () => {
-    const { agnesImageAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesImageAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     const ctx = makeBusCtx("agnes-key", "https://apihub.agnes-ai.com/v1", "agnes");
     await expect(agnesImageAdapter.submit({
@@ -496,7 +496,7 @@ describe("agnes adapters", () => {
   });
 
   it("submits Agnes video tasks and queries completed videos from the recommended video_id endpoint", async () => {
-    const { agnesVideoAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesVideoAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     mockFetch
       .mockResolvedValueOnce({
@@ -558,7 +558,7 @@ describe("agnes adapters", () => {
   });
 
   it("uses the Agnes documented 720p 3:2 video defaults", async () => {
-    const { agnesVideoAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesVideoAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -589,7 +589,7 @@ describe("agnes adapters", () => {
   });
 
   it("rejects unsupported Agnes video resolution and ratio before calling the API", async () => {
-    const { agnesVideoAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesVideoAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     const ctx = makeBusCtx("agnes-key", "https://apihub.agnes-ai.com/v1", "agnes");
     await expect(agnesVideoAdapter.submit({
@@ -626,7 +626,7 @@ describe("agnes adapters", () => {
   });
 
   it("falls back to the Agnes legacy task_id result endpoint when video_id query is unavailable", async () => {
-    const { agnesVideoAdapter } = await import("../core/media-adapters/agnes.ts");
+    const { agnesVideoAdapter } = await import("../packages/engine/core/media-adapters/agnes.ts");
 
     mockFetch
       .mockResolvedValueOnce({
@@ -673,7 +673,7 @@ describe("openai codex oauth adapter", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("uses Codex OAuth credentials and saves image_generation_call results", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const fakeB64 = Buffer.from("fake-codex-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -736,7 +736,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("derives the Codex account id from the OAuth token when credentials omit it", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const fakeB64 = Buffer.from("fake-codex-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -761,7 +761,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("parses Codex streaming image_generation_call results", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const fakeB64 = Buffer.from("fake-codex-stream-image").toString("base64");
     const encoder = new TextEncoder();
@@ -803,7 +803,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("requires a decodable Codex account id for ChatGPT backend requests", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const ctx = makeBusCtx("oauth-token", "https://chatgpt.com/backend-api", "openai-codex-oauth");
 
@@ -813,7 +813,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("rejects unsupported Codex 4K resolution before calling the backend", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const ctx = makeBusCtx("oauth-token", "https://chatgpt.com/backend-api", "openai-codex-oauth");
     ctx.bus.request = vi.fn(async (type, payload) => {
@@ -837,7 +837,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("accepts generic Codex size tiers but still rejects impossible pixel sizes", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const fakeB64 = Buffer.from("fake-codex-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -875,7 +875,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("rotates the OAuth credential and retries once when the backend rejects the token", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     const fakeB64 = Buffer.from("fake-codex-image").toString("base64");
     mockFetch
@@ -924,7 +924,7 @@ describe("openai codex oauth adapter", () => {
   });
 
   it("surfaces the backend error when the retried request is rejected again", async () => {
-    const { openaiCodexImageAdapter } = await import("../core/media-adapters/openai-codex.ts");
+    const { openaiCodexImageAdapter } = await import("../packages/engine/core/media-adapters/openai-codex.ts");
 
     mockFetch.mockResolvedValue({
       ok: false,
@@ -956,7 +956,7 @@ describe("minimax adapter", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("calls MiniMax image_generation and saves base64 images", async () => {
-    const { minimaxImageAdapter } = await import("../core/media-adapters/minimax.ts");
+    const { minimaxImageAdapter } = await import("../packages/engine/core/media-adapters/minimax.ts");
 
     const fakeB64 = Buffer.from("minimax-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -989,7 +989,7 @@ describe("minimax adapter", () => {
   });
 
   it("uses MiniMax Token Plan credentials when credentialProviderId selects that lane", async () => {
-    const { minimaxImageAdapter } = await import("../core/media-adapters/minimax.ts");
+    const { minimaxImageAdapter } = await import("../packages/engine/core/media-adapters/minimax.ts");
 
     const fakeB64 = Buffer.from("minimax-token-plan-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -1016,7 +1016,7 @@ describe("minimax adapter", () => {
   });
 
   it("rejects MiniMax image resolution instead of silently dropping it", async () => {
-    const { minimaxImageAdapter } = await import("../core/media-adapters/minimax.ts");
+    const { minimaxImageAdapter } = await import("../packages/engine/core/media-adapters/minimax.ts");
 
     const ctx = makeBusCtx("minimax-key", "https://api.minimaxi.com/v1", "minimax");
     await expect(minimaxImageAdapter.submit({
@@ -1028,7 +1028,7 @@ describe("minimax adapter", () => {
   });
 
   it("passes MiniMax model-level generation controls through to image_generation", async () => {
-    const { minimaxImageAdapter } = await import("../core/media-adapters/minimax.ts");
+    const { minimaxImageAdapter } = await import("../packages/engine/core/media-adapters/minimax.ts");
 
     const fakeB64 = Buffer.from("minimax-controls").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -1066,7 +1066,7 @@ describe("gemini image adapter", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("calls Gemini generateContent and saves inlineData images", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const fakeB64 = Buffer.from("gemini-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -1106,7 +1106,7 @@ describe("gemini image adapter", () => {
   });
 
   it("defaults Gemini 3 image size to 1K in generationConfig.imageConfig", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const fakeB64 = Buffer.from("gemini-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -1137,7 +1137,7 @@ describe("gemini image adapter", () => {
   });
 
   it("downloads ordinary image URLs and sends Gemini reference images as inline data", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const fakeB64 = Buffer.from("gemini-image").toString("base64");
     mockFetch
@@ -1176,7 +1176,7 @@ describe("gemini image adapter", () => {
   });
 
   it("rejects unsupported Gemini image sizes instead of raw passthrough", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const fakeB64 = Buffer.from("gemini-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -1201,7 +1201,7 @@ describe("gemini image adapter", () => {
   });
 
   it("keeps Gemini 2.5 to aspect-ratio-only image config", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const ctx = makeBusCtx("gemini-key", "https://generativelanguage.googleapis.com/v1beta", "gemini");
     await expect(geminiImageAdapter.submit({
@@ -1214,7 +1214,7 @@ describe("gemini image adapter", () => {
   });
 
   it("sends Gemini 2.5 aspect ratio without an imageSize field", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const fakeB64 = Buffer.from("gemini-25-image").toString("base64");
     mockFetch.mockResolvedValueOnce({
@@ -1242,7 +1242,7 @@ describe("gemini image adapter", () => {
   });
 
   it("ignores thought image parts and saves only final image parts", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     const thoughtB64 = Buffer.from("gemini-thought-image").toString("base64");
     const finalB64 = Buffer.from("gemini-final-image").toString("base64");
@@ -1271,7 +1271,7 @@ describe("gemini image adapter", () => {
   });
 
   it("surfaces prompt and candidate block reasons when Gemini returns no image", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -1290,7 +1290,7 @@ describe("gemini image adapter", () => {
   });
 
   it("preserves Google error status and classifies retryability", async () => {
-    const { geminiImageAdapter } = await import("../core/media-adapters/gemini.ts");
+    const { geminiImageAdapter } = await import("../packages/engine/core/media-adapters/gemini.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -1326,7 +1326,7 @@ describe("dashscope image adapter", () => {
   beforeEach(() => mockFetch.mockReset());
 
   it("submits async Wan image tasks and queries result URLs", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
 
     mockFetch
       .mockResolvedValueOnce({
@@ -1373,7 +1373,7 @@ describe("dashscope image adapter", () => {
   });
 
   it("saves DashScope async base64 image results instead of treating them as URLs", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
     const fakeB64 = Buffer.from("dashscope-base64-image").toString("base64");
 
     mockFetch.mockResolvedValueOnce({
@@ -1395,7 +1395,7 @@ describe("dashscope image adapter", () => {
   });
 
   it("submits Qwen 2 image models through the DashScope multimodal endpoint", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
 
     mockFetch
       .mockResolvedValueOnce({
@@ -1432,7 +1432,7 @@ describe("dashscope image adapter", () => {
   });
 
   it("maps Qwen 2 resolution and ratio to a documented DashScope size", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -1463,7 +1463,7 @@ describe("dashscope image adapter", () => {
   });
 
   it("rejects unsupported Qwen 2 4K resolution before calling DashScope", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
 
     const ctx = makeBusCtx("dash-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "dashscope");
     await expect(dashscopeImageAdapter.submit({
@@ -1477,7 +1477,7 @@ describe("dashscope image adapter", () => {
   });
 
   it("submits Qwen async text-to-image models with input.prompt", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -1507,7 +1507,7 @@ describe("dashscope image adapter", () => {
   });
 
   it("rejects reference images for DashScope text-only Qwen models", async () => {
-    const { dashscopeImageAdapter } = await import("../core/media-adapters/dashscope.ts");
+    const { dashscopeImageAdapter } = await import("../packages/engine/core/media-adapters/dashscope.ts");
 
     const ctx = makeBusCtx("dash-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "dashscope");
     await expect(dashscopeImageAdapter.submit({

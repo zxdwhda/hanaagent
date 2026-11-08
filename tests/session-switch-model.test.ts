@@ -7,7 +7,7 @@ const { estimateTokensMock } = vi.hoisted(() => ({
   estimateTokensMock: vi.fn(() => 2000),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   buildNativeCompactionRequestShapes: vi.fn(() => ({ requests: [] })),
   completeSimple: vi.fn(),
   convertAgentMessagesToLlm: vi.fn(async (messages) => messages),
@@ -25,7 +25,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   refreshSessionModelFromRegistry: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 const tempRoots: string[] = [];
 

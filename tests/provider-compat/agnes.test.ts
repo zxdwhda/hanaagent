@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
-import * as agnes from "../../core/provider-compat/agnes.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
+import * as agnes from "../../packages/engine/core/provider-compat/agnes.ts";
 
 const AGNES_MODEL = {
   provider: "agnes",

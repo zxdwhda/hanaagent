@@ -4,7 +4,7 @@ import {
   isComputerUseAppApproved,
   normalizeComputerUseSettings,
   revokeComputerUseApp,
-} from "../core/computer-use/settings.ts";
+} from "../packages/engine/core/computer-use/settings.ts";
 
 describe("Computer Use settings", () => {
   it("normalizes default provider selection and rejects invalid approvals", () => {

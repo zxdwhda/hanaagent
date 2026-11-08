@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCardGuideTool } from "../lib/tools/card-guide-tool.ts";
+import { createCardGuideTool } from "../packages/engine/lib/tools/card-guide-tool.ts";
 
 describe("hana_card_guide tool", () => {
   function makeTool() {

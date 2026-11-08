@@ -6,11 +6,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import YAML from "js-yaml";
-import { getMigrationStatus, runMigrations } from "../core/migrations.ts";
-import { ProviderRegistry } from "../core/provider-registry.ts";
-import { getAgentPhoneProjectionPath, safeConversationStem } from "../lib/conversations/agent-phone-projection.ts";
-import { SEARCH_CAPABILITY_PROVIDERS } from "../shared/search-providers.ts";
-import { validateProviderModels } from "../shared/provider-model-validation.ts";
+import { getMigrationStatus, runMigrations } from "../packages/engine/core/migrations.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
+import { getAgentPhoneProjectionPath, safeConversationStem } from "../packages/engine/lib/conversations/agent-phone-projection.ts";
+import { SEARCH_CAPABILITY_PROVIDERS } from "../packages/shared/search-providers.ts";
+import { validateProviderModels } from "../packages/shared/provider-model-validation.ts";
 
 // ── 测试工具 ────────────────────────────────────────────────────────────────
 
@@ -3685,7 +3685,7 @@ describe("migration #20: Pi model input schema compatibility", () => {
       input: ["text"],
     });
 
-    const { AuthStorage, createModelRegistry } = await import("../lib/pi-sdk/index.ts");
+    const { AuthStorage, createModelRegistry } = await import("../packages/engine/lib/pi-sdk/index.ts");
     const registry = createModelRegistry(new (AuthStorage as any)(tmpDir), modelsJsonPath);
     const available = await registry.getAvailable();
     expect(available.map((model) => model.id)).toEqual(["qwen3-vl-plus", "qwen-plus", "custom-video"]);

@@ -3,7 +3,7 @@ import {
   registerToolCapabilityDelegate,
   resolveToolInvocationPermission,
   unregisterToolCapabilityDelegate,
-} from "../lib/permission/tool-invocation-permission.ts";
+} from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 function bridgeLikeTool(extra: Record<string, unknown> = {}) {
   return {

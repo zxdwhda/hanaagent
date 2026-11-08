@@ -36,7 +36,7 @@ A plugin installed under `${HANA_HOME}/plugins`, `${HANA_HOME}/plugins-dev`, or 
 Before copying or zipping a plugin outside the monorepo, inspect every server-side entry point:
 
 - `index.js` / `index.ts`
-- `tools/*`
+- `tooling/tools/*`
 - `routes/*`
 - `providers/*`
 - `extensions/*`
@@ -216,7 +216,7 @@ Use `ctx.resources.watch(ref)` for a single resource and `ctx.resources.subscrib
 
 Treat ResourceIO as the only user-resource authority. `local-file`, `mount`, `session-file`, `resource`, and `url` refs are identity inputs, not promises that the plugin can see a host-local path. `stageFile()` is for plugin-generated artifacts that should be delivered as `SessionFile` media. `ctx.dataDir` and packaged `assets/` are plugin-owned storage; workspace, mount, URL, and SessionFile inputs are not. When a library needs a real path, call `ctx.resources.materialize(ref)` and keep the write-back path explicit through ResourceIO rather than editing the materialized file as if it were the source.
 
-Scheduled automation plugin actions reuse plugin tools in v0. A cron executor saved as `plugin_action` with `{ pluginId, actionId, params }` maps to the loaded tool named `pluginId_actionId`. The scheduler stores only JSON data and invokes the tool at runtime; plugin-authored static `tools/*.js` tools and dynamic `ctx.registerTool()` tools both receive the SDK-style `(input, ctx)` call. If the plugin or tool is unavailable, the run fails explicitly and is recorded in cron history.
+Scheduled automation plugin actions reuse plugin tools in v0. A cron executor saved as `plugin_action` with `{ pluginId, actionId, params }` maps to the loaded tool named `pluginId_actionId`. The scheduler stores only JSON data and invokes the tool at runtime; plugin-authored static `tooling/tools/*.js` tools and dynamic `ctx.registerTool()` tools both receive the SDK-style `(input, ctx)` call. If the plugin or tool is unavailable, the run fails explicitly and is recorded in cron history.
 
 Lifecycle plugins should declare `activationEvents` in `manifest.json` when they do not need to start on app launch. Existing lifecycle plugins without this field still activate on startup for compatibility.
 
@@ -399,7 +399,7 @@ export default function(pi) {
 }
 ```
 
-Use extensions for request-pipeline hooks such as provider request rewriting, context filtering, and tool-call observation. Do not use them for ordinary tool behavior; a normal `tools/*.js` contribution is safer and can remain restricted.
+Use extensions for request-pipeline hooks such as provider request rewriting, context filtering, and tool-call observation. Do not use them for ordinary tool behavior; a normal `tooling/tools/*.js` contribution is safer and can remain restricted.
 
 Provider plugins can use `defineProvider()` for TypeScript-friendly authoring, then export named provider fields from `providers/*.js`:
 
@@ -464,4 +464,4 @@ Migration rule for older image-generation plugins:
 
 CLI-backed providers must use structured argument bindings. Avoid shell command strings; the host runtime validates the contract and runs local commands through non-shell execution.
 
-See `examples/plugins/sdk-showcase/` for a compact plugin that shows the current recommended shape.
+See `extensions/examples/plugins/sdk-showcase/` for a compact plugin that shows the current recommended shape.

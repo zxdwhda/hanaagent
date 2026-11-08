@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createConfigRoute } from "../server/routes/config.ts";
+import { createConfigRoute } from "../apps/server/routes/config.ts";
 
 function makeAgent(tmpDir, overrides: any = {}) {
   const agentDir = path.join(tmpDir, "agents", "hana");

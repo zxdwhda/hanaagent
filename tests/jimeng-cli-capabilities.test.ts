@@ -7,7 +7,7 @@ import {
   parseDreaminaCapabilityOutputs,
   parseDreaminaVersion,
   resolveDreaminaExecutable,
-} from "../plugins/jimeng-cli/lib/dreamina-capabilities.ts";
+} from "../extensions/plugins/jimeng-cli/lib/dreamina-capabilities.ts";
 
 const TEXT_TO_IMAGE_HELP = `
 Usage:

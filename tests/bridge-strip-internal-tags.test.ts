@@ -19,10 +19,10 @@ import {
   __test_cleanReplyForPlatform,
   __test_cleanStreamSnapshot,
   BridgeManager,
-} from "../lib/bridge/bridge-manager.ts";
-import { sanitizeBridgeVisibleText } from "../shared/bridge-visible-text.ts";
+} from "../packages/engine/lib/bridge/bridge-manager.ts";
+import { sanitizeBridgeVisibleText } from "../packages/shared/bridge-visible-text.ts";
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));

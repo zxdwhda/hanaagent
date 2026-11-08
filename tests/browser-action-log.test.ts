@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeBrowserActionParams } from "../lib/tools/browser-action-log.ts";
+import { summarizeBrowserActionParams } from "../packages/engine/lib/tools/browser-action-log.ts";
 
 describe("browser action log summaries", () => {
   it("does not keep typed text in browser action logs", () => {

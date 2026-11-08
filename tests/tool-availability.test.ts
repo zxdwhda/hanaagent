@@ -3,8 +3,8 @@ import {
   computeAvailableToolNames,
   computeReminderLiveToolAvailability,
   filterToolObjectsByAvailability,
-} from "../core/tool-availability.ts";
-import { buildLlmContextCachePrefixContract } from "../lib/llm/cache-prefix-contract.ts";
+} from "../packages/engine/core/tool-availability.ts";
+import { buildLlmContextCachePrefixContract } from "../packages/engine/lib/llm/cache-prefix-contract.ts";
 
 describe("Reminder live tool availability", () => {
   const agentConfig = { tools: { disabled: [] } };

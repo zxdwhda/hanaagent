@@ -2,11 +2,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readCurrentSessionBranch } from "../lib/session-jsonl.ts";
+import { readCurrentSessionBranch } from "../packages/engine/lib/session-jsonl.ts";
 import {
   applyStoredSessionBranchHead,
   syncSessionBranchHeadAfterAppend,
-} from "../core/session-branch-head.ts";
+} from "../packages/engine/core/session-branch-head.ts";
 
 function entry(id: string, parentId: string | null, text: string) {
   return {

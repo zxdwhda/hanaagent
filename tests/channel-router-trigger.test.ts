@@ -2,10 +2,10 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createChannel, appendMessage } from "../lib/channels/channel-store.ts";
-import { ChannelRouter } from "../hub/channel-router.ts";
+import { createChannel, appendMessage } from "../packages/engine/lib/channels/channel-store.ts";
+import { ChannelRouter } from "../packages/engine/hub/channel-router.ts";
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
   createModuleLogger: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
 }));

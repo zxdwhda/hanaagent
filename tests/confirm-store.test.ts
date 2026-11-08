@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConfirmStore } from "../lib/confirm-store.ts";
+import { ConfirmStore } from "../packages/engine/lib/confirm-store.ts";
 
 describe("ConfirmStore", () => {
   it("exposes pending confirmation metadata without resolving it", () => {

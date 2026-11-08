@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { upsertStudioMount } from "../core/studio-mounts.ts";
-import { createSandboxResourceIO } from "../lib/resource-io/sandbox-resource-io.ts";
+import { upsertStudioMount } from "../packages/engine/core/studio-mounts.ts";
+import { createSandboxResourceIO } from "../packages/engine/lib/resource-io/sandbox-resource-io.ts";
 
 const PNG_HEADER = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -100,7 +100,7 @@ describe("desk beautify cover apply route", () => {
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
     fs.writeFileSync(imagePath, PNG_HEADER);
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir);
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
@@ -135,7 +135,7 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir);
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
@@ -193,7 +193,7 @@ describe("desk beautify cover apply route", () => {
       presentation: "folder",
       capabilities: ["list", "read", "write"],
     });
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
 
@@ -224,7 +224,7 @@ describe("desk beautify cover apply route", () => {
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
     fs.writeFileSync(imagePath, PNG_HEADER);
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute(makeEngine(tmpDir, ["beautify"]), null));
 
@@ -242,8 +242,8 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { COVER_GALLERY_PRESETS } = await import("../shared/cover-gallery-presets.ts");
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { COVER_GALLERY_PRESETS } = await import("../packages/shared/cover-gallery-presets.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir);
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
@@ -281,8 +281,8 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { COVER_GALLERY_PRESETS } = await import("../shared/cover-gallery-presets.ts");
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { COVER_GALLERY_PRESETS } = await import("../packages/shared/cover-gallery-presets.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir);
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
@@ -310,8 +310,8 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { COVER_GALLERY_PRESETS } = await import("../shared/cover-gallery-presets.ts");
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { COVER_GALLERY_PRESETS } = await import("../packages/shared/cover-gallery-presets.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute(makeEngine(tmpDir, { disabled: ["beautify"] }), null));
 
@@ -329,7 +329,7 @@ describe("desk beautify cover apply route", () => {
   });
 
   it("reports system cover availability separately from primary-Agent generation availability", async () => {
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute(makeEngine(tmpDir, { disabled: ["beautify"] }), null));
 
@@ -347,7 +347,7 @@ describe("desk beautify cover apply route", () => {
   });
 
   it("reports the executor as unavailable when no primary agent is configured", async () => {
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir);
     // The server is focused on agent-1, but no primary agent is configured.
     // Beautify has no executor to name, and must not borrow the focus.
@@ -371,7 +371,7 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir);
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
@@ -395,7 +395,7 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     // engine.media absent entirely -- there is no legacy plugin-context
     // fallback anymore, so this is the only "unavailable" shape left.
     const engine = makeEngine(tmpDir, { media: null });
@@ -442,7 +442,7 @@ describe("desk beautify cover apply route", () => {
       })),
     };
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const engine = makeEngine(tmpDir, { executeIsolated, activityStore, media });
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, null));
@@ -473,7 +473,7 @@ describe("desk beautify cover apply route", () => {
     const notePath = path.join(tmpDir, "note.md");
     fs.writeFileSync(notePath, "# Demo\n", "utf-8");
 
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute(makeEngine(tmpDir), null));
 

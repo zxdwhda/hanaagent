@@ -3,9 +3,9 @@ import { vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { createChannel, appendMessage } from "../lib/channels/channel-store.ts";
-import { createChannelTool } from "../lib/tools/channel-tool.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { createChannel, appendMessage } from "../packages/engine/lib/channels/channel-store.ts";
+import { createChannelTool } from "../packages/engine/lib/tools/channel-tool.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-channel-tool-test-"));

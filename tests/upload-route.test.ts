@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUploadRoute } from "../server/routes/upload.ts";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
+import { createUploadRoute } from "../apps/server/routes/upload.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-upload-route-"));

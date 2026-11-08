@@ -1,8 +1,8 @@
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { wrapReadImageWithVisionBridge } from "../lib/sandbox/read-image-vision.ts";
-import { VISION_CONTEXT_END, VISION_CONTEXT_START } from "../core/vision-bridge.ts";
-import { normalizeWin32ShellPath } from "../lib/sandbox/win32-path.ts";
+import { wrapReadImageWithVisionBridge } from "../packages/engine/lib/sandbox/read-image-vision.ts";
+import { VISION_CONTEXT_END, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
+import { normalizeWin32ShellPath } from "../packages/engine/lib/sandbox/win32-path.ts";
 
 function makeReadTool(result) {
   return {

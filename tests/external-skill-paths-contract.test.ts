@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { WELL_KNOWN_SKILL_PATHS } from "../core/engine.ts";
+import { WELL_KNOWN_SKILL_PATHS } from "../packages/engine/core/engine.ts";
 
 describe("external compatible skill path contract", () => {
   it("keeps global Pi agent skills as a compatible external skill source", () => {

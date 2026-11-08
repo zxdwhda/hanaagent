@@ -2,12 +2,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
-import { SessionFileResolver } from "../lib/resource-io/session-file-resolver.ts";
-import { SessionFileResolverProvider } from "../lib/resource-io/providers/session-file-resolver.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
+import { SessionFileResolver } from "../packages/engine/lib/resource-io/session-file-resolver.ts";
+import { SessionFileResolverProvider } from "../packages/engine/lib/resource-io/providers/session-file-resolver.ts";
 // 期望值必须与生产代码同一条规范化路径（native realpath 会展开 Windows 8.3
 // 短名，JS 版 fs.realpathSync 不会；CI runner 的 TEMP 恰好是短名形式）。
-import { canonicalFilesystemPathSync } from "../shared/link-aware-fs.ts";
+import { canonicalFilesystemPathSync } from "../packages/shared/link-aware-fs.ts";
 
 const CAPABILITY_KEYS = [
   "stat",

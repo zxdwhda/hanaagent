@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EventBus } from "../hub/event-bus.ts";
-import { createUsageLedger } from "../lib/llm/usage-ledger.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
+import { createUsageLedger } from "../packages/engine/lib/llm/usage-ledger.ts";
 
 describe("usage:list bus handler", () => {
   it("returns filtered usage ledger entries through EventBus request", async () => {

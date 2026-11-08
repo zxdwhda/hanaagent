@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { VisionBridge, VISION_CONTEXT_END, VISION_CONTEXT_START } from "../core/vision-bridge.ts";
-import { adaptVisualContextMessages } from "../core/visual-context-pipeline.ts";
+import { VisionBridge, VISION_CONTEXT_END, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
+import { adaptVisualContextMessages } from "../packages/engine/core/visual-context-pipeline.ts";
 
 const tempDirs = [];
 const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

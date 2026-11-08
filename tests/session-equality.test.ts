@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getToolSessionPath } from "../lib/tools/tool-session.ts";
-import { resolveAgentStrict, AgentNotFoundError } from "../server/utils/resolve-agent.ts";
+import { getToolSessionPath } from "../packages/engine/lib/tools/tool-session.ts";
+import { resolveAgentStrict, AgentNotFoundError } from "../apps/server/utils/resolve-agent.ts";
 
 // ── getToolSessionPath ──
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dreamInstances: any[] = [];
 
-vi.mock("../lib/memory/dream/runner.ts", () => ({
+vi.mock("../packages/engine/lib/memory/dream/runner.ts", () => ({
   createMemoryDreamRunner: vi.fn(() => {
     const instance = {
       start: vi.fn(() => ({ status: "running", runId: "manual" })),
@@ -20,7 +20,7 @@ vi.mock("../lib/memory/dream/runner.ts", () => ({
   }),
 }));
 
-vi.mock("../lib/memory/compile.ts", () => ({
+vi.mock("../packages/engine/lib/memory/compile.ts", () => ({
   compileToday: vi.fn().mockResolvedValue("compiled"),
   compileDaily: vi.fn().mockResolvedValue("compiled"),
   assembleWeekFromDaily: vi.fn(),
@@ -32,18 +32,18 @@ vi.mock("../lib/memory/compile.ts", () => ({
   migrateLegacyWeekToLongterm: vi.fn().mockResolvedValue({ migrated: false }),
 }));
 
-vi.mock("../lib/memory/deep-memory.ts", () => ({
+vi.mock("../packages/engine/lib/memory/deep-memory.ts", () => ({
   processDirtySessions: vi.fn().mockResolvedValue({ processed: 0, factsAdded: 0 }),
 }));
 
-vi.mock("../lib/debug-log.ts", () => ({
+vi.mock("../packages/engine/lib/debug-log.ts", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { createMemoryTicker } from "../lib/memory/memory-ticker.ts";
-import { compileDaily } from "../lib/memory/compile.ts";
-import { createMemoryDreamRunner } from "../lib/memory/dream/runner.ts";
+import { createMemoryTicker } from "../packages/engine/lib/memory/memory-ticker.ts";
+import { compileDaily } from "../packages/engine/lib/memory/compile.ts";
+import { createMemoryDreamRunner } from "../packages/engine/lib/memory/dream/runner.ts";
 
 function makeTicker(tmpDir: string, getDreamAutoEnabled?: () => boolean) {
   fs.mkdirSync(path.join(tmpDir, "sessions"), { recursive: true });

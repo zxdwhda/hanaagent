@@ -17,7 +17,7 @@ const { createAgentSessionMock, emitSessionShutdownMock, sessionManagerCreateMoc
   sessionManagerCreateMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   emitSessionShutdown: emitSessionShutdownMock,
   getPiModels: vi.fn(() => []),
@@ -30,7 +30,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   },
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -38,7 +38,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 // ── Helpers ──
 
@@ -365,7 +365,7 @@ describe("模型选择无 fallback", () => {
     let ModelManager;
 
     beforeEach(async () => {
-      const mod = await import("../core/model-manager.ts");
+      const mod = await import("../packages/engine/core/model-manager.ts");
       ModelManager = mod.ModelManager;
     });
 
@@ -460,9 +460,9 @@ describe("模型选择无 fallback", () => {
     let ModelManager, ExecutionRouter;
 
     beforeEach(async () => {
-      const mod = await import("../core/model-manager.ts");
+      const mod = await import("../packages/engine/core/model-manager.ts");
       ModelManager = mod.ModelManager;
-      const routerMod = await import("../core/execution-router.ts");
+      const routerMod = await import("../packages/engine/core/execution-router.ts");
       ExecutionRouter = routerMod.ExecutionRouter;
     });
 

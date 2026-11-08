@@ -7,27 +7,27 @@ const createDingTalkAdapter = vi.fn();
 const createQQAdapter = vi.fn();
 const createWechatAdapter = vi.fn();
 
-vi.mock("../lib/bridge/telegram-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/telegram-adapter.js", () => ({
   createTelegramAdapter: (...args) => createTelegramAdapter(...args),
 }));
-vi.mock("../lib/bridge/feishu-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/feishu-adapter.js", () => ({
   createFeishuAdapter: (...args) => createFeishuAdapter(...args),
 }));
-vi.mock("../lib/bridge/dingtalk-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/dingtalk-adapter.js", () => ({
   createDingTalkAdapter: (...args) => createDingTalkAdapter(...args),
 }));
-vi.mock("../lib/bridge/qq-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/qq-adapter.js", () => ({
   createQQAdapter: (...args) => createQQAdapter(...args),
 }));
-vi.mock("../lib/bridge/wechat-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/wechat-adapter.js", () => ({
   createWechatAdapter: (...args) => createWechatAdapter(...args),
 }));
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { BridgeManager } from "../lib/bridge/bridge-manager.ts";
+import { BridgeManager } from "../packages/engine/lib/bridge/bridge-manager.ts";
 
 describe("BridgeManager platform status", () => {
   it("starts wechat in connecting state until the adapter reports readiness", () => {

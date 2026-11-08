@@ -9,7 +9,7 @@ import {
   runWin32LegacySandboxRootCleanup,
   runWin32LegacySandboxMigration,
   Win32LegacySandboxCleanupQueue,
-} from "../lib/sandbox/win32-legacy-migration.ts";
+} from "../packages/engine/lib/sandbox/win32-legacy-migration.ts";
 
 function dirent(name, directory = true) {
   return {

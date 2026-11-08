@@ -5,7 +5,7 @@
 This guide now lives under development documentation. Commands and source paths below are relative to the repository root.
 
 > This document is for community developers who want to build user-installable plugins.
-> System plugins (built-in features) use the same plugin format, placed in the project's `plugins/` directory and bundled with the app.
+> System plugins (built-in features) use the same plugin format, placed in the project's `extensions/plugins/` directory and bundled with the app.
 
 ## Quick Start
 
@@ -13,12 +13,12 @@ This guide now lives under development documentation. Commands and source paths 
 
 ```text
 my-plugin/
-└── tools/
+└── tooling/tools/
     └── hello.js
 ```
 
 ```js
-// tools/hello.js
+// tooling/tools/hello.js
 export const name = "hello";
 export const description = "Say hello to someone";
 export const parameters = {
@@ -49,7 +49,7 @@ Pick the plugin shape first, then follow the manifest, runtime, and UI guidance 
 Start with the `hana-plugin-creator` scaffold, then delete what you do not need:
 
 ```bash
-python3 skills2set/hana-plugin-creator/scripts/create_hana_plugin.py "My Plugin" --path examples/plugins --kind full
+python3 extensions/skills/hana-plugin-creator/scripts/create_hana_plugin.py "My Plugin" --path extensions/examples/plugins --kind full
 ```
 
 Debug order: install the local folder, inspect Settings diagnostics, finish README/manifest, then add an `OH-Plugins` marketplace entry when the plugin is ready to publish.
@@ -147,7 +147,7 @@ Plugin private data is stored in `${HANA_HOME}/plugin-data/{pluginId}/`. This di
 ```text
 my-plugin/
 ├── manifest.json          # Optional, only needed for complex declarations
-├── tools/                 # Tools (called by Agent)
+├── tooling/tools/                 # Tools (called by Agent)
 │   └── *.js
 ├── skills/                # Knowledge injection (Markdown)
 │   └── my-skill/
@@ -179,7 +179,7 @@ No manifest declaration needed; community plugins default to restricted.
 
 | Capability | Description |
 |------------|-------------|
-| `tools/*.js` | Declare tools for Agent to call |
+| `tooling/tools/*.js` | Declare tools for Agent to call |
 | `skills/` | Markdown knowledge injection |
 | `commands/*.js` | User commands |
 | `agents/*.json` | Agent templates (JSON declarations) |
@@ -225,7 +225,7 @@ In addition to restricted capabilities:
 
 ### Tools
 
-`tools/*.js` each file exports:
+`tooling/tools/*.js` each file exports:
 
 ```js
 export const name = "search";           // required
@@ -240,7 +240,7 @@ export async function execute(input, toolCtx) {  // required
 
 - Automatically namespaced: `pluginId_name` (e.g. `my-plugin_search`)
 - Restricted plugins' `toolCtx.bus` only has `emit/subscribe/request`, not `handle`
-- New plugins can use `defineTool()` from `@hana/plugin-runtime` for types and default parameters. The current static `tools/*.js` loader still reads named exports.
+- New plugins can use `defineTool()` from `@hana/plugin-runtime` for types and default parameters. The current static `tooling/tools/*.js` loader still reads named exports.
 - Agent-callable tools should declare `sessionPermission`. Use `readOnly: true` for pure reads, `kind: "plugin_output"` for bounded `ctx.dataDir` writes returned through `stageFile()`, and `kind: "external_side_effect"` for provider, network, platform, or account actions that Auto mode should send to the reviewer. Tools that modify user workspace files should remain reviewer-bound unless they describe a narrower side effect with `describeSideEffect(input)`.
 
 ```js
@@ -363,7 +363,7 @@ Boundaries:
 
 Scheduled automation `plugin_action` executors reuse plugin tools in v0. A job stores `{ pluginId, actionId, params }` as JSON and maps it to the loaded tool named `pluginId_actionId` at runtime.
 
-Both static `tools/*.js` exports and dynamic `ctx.registerTool()` tools receive the SDK-style `(input, ctx)` call. If the plugin is disabled, missing, or the tool cannot be found, the scheduled run fails explicitly and records the error in cron history. Hana does not silently fall back to an Agent session.
+Both static `tooling/tools/*.js` exports and dynamic `ctx.registerTool()` tools receive the SDK-style `(input, ctx)` call. If the plugin is disabled, missing, or the tool cannot be found, the scheduled run fails explicitly and records the error in cron history. Hana does not silently fall back to an Agent session.
 
 #### Visual Cards
 
@@ -790,7 +790,7 @@ Widgets are also rendered via WebView/iframe and must send the `ready` handshake
 
 ### SettingsTab (Native Settings Page, Built-ins Only) ⚡ full-access
 
-Bundled built-in plugins can register a native settings page shown in the settings sidebar, at the same level as "Skills" and "Plugins". This contribution only works for built-in plugins under the packaged `plugins/` directory; community plugins are ignored even if they declare it. The renderer maps `nativeComponent` through a host whitelist, so plugins declare a component id rather than shipping frontend code.
+Bundled built-in plugins can register a native settings page shown in the settings sidebar, at the same level as "Skills" and "Plugins". This contribution only works for built-in plugins under the packaged `extensions/plugins/` directory; community plugins are ignored even if they declare it. The renderer maps `nativeComponent` through a host whitelist, so plugins declare a component id rather than shipping frontend code.
 
 ```json
 {
@@ -1212,7 +1212,7 @@ Without either environment variable, Hana first tries `${HANA_HOME}/plugin-marke
         }
       }
     ],
-    "readmePath": "plugins/demo/README.md"
+    "readmePath": "extensions/plugins/demo/README.md"
   }]
 }
 ```

@@ -3,8 +3,8 @@ import {
   enableWindowsSystemCaForCurrentProcess,
   mergeCertificateLists,
   withWindowsSystemCaEnv,
-} from "../desktop/src/shared/windows-system-ca.cjs";
-import { buildWin32ServerEnv } from "../desktop/src/shared/server-process-env.cjs";
+} from "../apps/desktop/src/shared/windows-system-ca.cjs";
+import { buildWin32ServerEnv } from "../apps/desktop/src/shared/server-process-env.cjs";
 
 describe("Windows system CA wiring", () => {
   it("merges current defaults with Windows system roots without duplicates", () => {

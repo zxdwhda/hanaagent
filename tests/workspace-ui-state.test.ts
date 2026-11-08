@@ -4,7 +4,7 @@ import {
   normalizeWorkspaceUiEntry,
   normalizeWorkspaceUiState,
   upsertWorkspaceUiState,
-} from "../shared/workspace-ui-state.ts";
+} from "../packages/shared/workspace-ui-state.ts";
 
 describe("workspace UI state", () => {
   it("keeps desktop and mobile workspace state in separate surface buckets", () => {

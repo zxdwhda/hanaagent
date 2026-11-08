@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { SessionProjectCatalogStore } from "../core/session-project-catalog-store.ts";
+import { SessionProjectCatalogStore } from "../packages/engine/core/session-project-catalog-store.ts";
 
 function makeStore() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-session-projects-"));

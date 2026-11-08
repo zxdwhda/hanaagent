@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { openaiImageAdapter } from "../core/media-adapters/openai.ts";
+import { openaiImageAdapter } from "../packages/engine/core/media-adapters/openai.ts";
 
 const tmpDirs = [];
 

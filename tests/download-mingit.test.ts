@@ -9,7 +9,7 @@ import {
   REQUIRED_RUNTIME_FILES,
   missingRuntimeFiles,
   hasMinGitRuntime,
-} from "../scripts/mingit-runtime.js";
+} from "../tooling/scripts/mingit-runtime.js";
 
 const tempDirs = [];
 

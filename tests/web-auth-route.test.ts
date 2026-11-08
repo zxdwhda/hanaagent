@@ -32,9 +32,9 @@ describe("web auth route", () => {
 
   it("exchanges a paired device credential for an HttpOnly browser session cookie", async () => {
     tmpDir = makeTmpDir();
-    const { createDeviceCredential } = await import("../core/device-registry.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
-    const { createWebAuthRoute } = await import("../server/routes/web-auth.ts");
+    const { createDeviceCredential } = await import("../packages/engine/core/device-registry.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
+    const { createWebAuthRoute } = await import("../apps/server/routes/web-auth.ts");
     const issued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_local",
       userId: "user_local",
@@ -93,9 +93,9 @@ describe("web auth route", () => {
 
   it("allows local account password login only over local or secure transport", async () => {
     tmpDir = makeTmpDir();
-    const { setLocalAccountPassword } = await import("../core/local-user-account.ts");
-    const { createServerAuthService } = await import("../core/server-auth.ts");
-    const { createWebAuthRoute } = await import("../server/routes/web-auth.ts");
+    const { setLocalAccountPassword } = await import("../packages/engine/core/local-user-account.ts");
+    const { createServerAuthService } = await import("../packages/engine/core/server-auth.ts");
+    const { createWebAuthRoute } = await import("../apps/server/routes/web-auth.ts");
     fs.writeFileSync(path.join(tmpDir, "users.json"), JSON.stringify({
       schemaVersion: 1,
       defaultUserId: "user_local",

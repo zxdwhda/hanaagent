@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LEGACY_SESSION_MANIFEST_MIGRATION_KEY,
   ensureLegacySessionManifestMigration,
-} from "../core/session-manifest/startup-migration.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+} from "../packages/engine/core/session-manifest/startup-migration.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 describe("session manifest startup migration", () => {
   let hanaHome;

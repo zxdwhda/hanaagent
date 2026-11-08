@@ -5,7 +5,7 @@
 本文已归入开发文档；下文命令与源码路径均以仓库根目录为起点。
 
 > 本文档面向社区开发者，描述如何开发用户可安装的插件。
-> 系统插件（内嵌到 app 的内置功能）使用相同的插件格式，放在项目 `plugins/` 目录下随 app 打包分发。
+> 系统插件（内嵌到 app 的内置功能）使用相同的插件格式，放在项目 `extensions/plugins/` 目录下随 app 打包分发。
 
 ## 快速开始
 
@@ -13,12 +13,12 @@
 
 ```text
 my-plugin/
-└── tools/
+└── tooling/tools/
     └── hello.js
 ```
 
 ```js
-// tools/hello.js
+// tooling/tools/hello.js
 export const name = "hello";
 export const description = "Say hello to someone";
 export const parameters = {
@@ -49,7 +49,7 @@ export async function execute(input) {
 推荐先用 `hana-plugin-creator` 脚手架生成，再按需求删减：
 
 ```bash
-python3 skills2set/hana-plugin-creator/scripts/create_hana_plugin.py "My Plugin" --path examples/plugins --kind full
+python3 extensions/skills/hana-plugin-creator/scripts/create_hana_plugin.py "My Plugin" --path extensions/examples/plugins --kind full
 ```
 
 调试顺序：本地文件夹安装 → 设置页诊断 → 补 README/manifest → 需要公开时再写 `OH-Plugins` 市场条目。
@@ -120,7 +120,7 @@ UI 插件调试时，先用 `plugin.dev.listSurfaces` 找到 page / widget，再
 ```text
 my-plugin/
 ├── manifest.json          # 可选，复杂声明才需要
-├── tools/                 # 工具（Agent 调用）
+├── tooling/tools/                 # 工具（Agent 调用）
 │   └── *.js
 ├── skills/                # 知识注入（Markdown）
 │   └── my-skill/
@@ -152,7 +152,7 @@ my-plugin/
 
 | 能力 | 说明 |
 |------|------|
-| `tools/*.js` | 声明工具供 Agent 调用 |
+| `tooling/tools/*.js` | 声明工具供 Agent 调用 |
 | `skills/` | Markdown 知识注入 |
 | `commands/*.js` | 用户命令 |
 | `agents/*.json` | Agent 模板（JSON 声明） |
@@ -198,7 +198,7 @@ restricted 插件的 tool/command 代码在主进程运行，有完整的 Node.j
 
 ### Tools（工具）
 
-`tools/*.js` 每个文件 export：
+`tooling/tools/*.js` 每个文件 export：
 
 ```js
 export const name = "search";           // 必须
@@ -213,9 +213,9 @@ export async function execute(input, toolCtx) {  // 必须
 
 - 自动加命名空间前缀：`pluginId_name`（如 `my-plugin_search`）
 - restricted 插件的 `toolCtx.bus` 只有 `emit/subscribe/request`，没有 `handle`
-- 新插件可以使用 `@hana/plugin-runtime` 的 `defineTool()` 获得类型和默认参数；当前静态 `tools/*.js` loader 仍读取命名导出。
+- 新插件可以使用 `@hana/plugin-runtime` 的 `defineTool()` 获得类型和默认参数；当前静态 `tooling/tools/*.js` loader 仍读取命名导出。
 - Agent 可调用工具应声明 `sessionPermission`。纯读取工具用 `readOnly: true`；只写 `ctx.dataDir` 并通过 `stageFile()` 返回 `SessionFile` 的工具用 `kind: "plugin_output"`；会访问外部 provider、网络、平台账号或真实世界副作用的工具用 `kind: "external_side_effect"`，Auto 模式会交给 reviewer。修改用户工作区文件的工具默认保持 reviewer-bound，除非能用 `describeSideEffect(input)` 明确描述更窄的副作用。
-- 定时自动化的 `plugin_action` v0 复用工具入口：`pluginId/actionId` 会映射到 `pluginId_actionId` 工具。cron 只保存 `pluginId`、`actionId` 和 JSON 参数；插件作者写的静态 `tools/*.js` 与动态 `ctx.registerTool()` 工具都会收到 SDK 风格的 `(input, ctx)` 调用；插件缺失、工具缺失或插件被禁用时，任务执行失败并记录运行历史，不会自动降级成 Agent 会话。
+- 定时自动化的 `plugin_action` v0 复用工具入口：`pluginId/actionId` 会映射到 `pluginId_actionId` 工具。cron 只保存 `pluginId`、`actionId` 和 JSON 参数；插件作者写的静态 `tooling/tools/*.js` 与动态 `ctx.registerTool()` 工具都会收到 SDK 风格的 `(input, ctx)` 调用；插件缺失、工具缺失或插件被禁用时，任务执行失败并记录运行历史，不会自动降级成 Agent 会话。
 
 ```js
 import { defineTool } from '@hana/plugin-runtime';
@@ -815,7 +815,7 @@ Widget 同样通过 iframe 渲染，需要发送 `ready` 握手信号。
 
 ### SettingsTab（原生设置页，内置插件专用）⚡ full-access
 
-随 app 打包的内置插件可以注册一个原生设置页，显示在设置左侧导航中，与「技能」「插件」等大页面平级。这个入口只对 `plugins/` 目录下的 built-in 插件生效，社区插件即使声明也会被忽略。原生组件由宿主白名单映射，插件只声明组件 ID，不执行前端代码。
+随 app 打包的内置插件可以注册一个原生设置页，显示在设置左侧导航中，与「技能」「插件」等大页面平级。这个入口只对 `extensions/plugins/` 目录下的 built-in 插件生效，社区插件即使声明也会被忽略。原生组件由宿主白名单映射，插件只声明组件 ID，不执行前端代码。
 
 ```json
 {
@@ -1310,7 +1310,7 @@ https://raw.githubusercontent.com/liliMozi/OH-Plugins/main/marketplace.json
         }
       }
     ],
-    "readmePath": "plugins/demo/README.md"
+    "readmePath": "extensions/plugins/demo/README.md"
   }]
 }
 ```

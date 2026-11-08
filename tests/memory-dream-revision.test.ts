@@ -10,7 +10,7 @@ import {
   recoverPendingDreamApply,
   restoreDreamRevision,
   snapshotDreamSections,
-} from "../lib/memory/dream/revision-store.ts";
+} from "../packages/engine/lib/memory/dream/revision-store.ts";
 
 function seed(memoryDir: string) {
   fs.mkdirSync(path.join(memoryDir, "daily"), { recursive: true });

@@ -4,7 +4,7 @@ import {
   GROK_CLI_CLIENT_VERSION,
   buildXaiOauthCliModelHeaders,
   buildXaiOauthCliProviderHeaders,
-} from "../lib/providers/xai-oauth-cli-headers.ts";
+} from "../packages/engine/lib/providers/xai-oauth-cli-headers.ts";
 
 describe("xai-oauth CLI proxy headers", () => {
   it("pins a client version above the 426 floor and identifies as hana", () => {

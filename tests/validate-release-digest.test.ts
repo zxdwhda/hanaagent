@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateDigestForTag, validateDigestFileValue } from "../scripts/validate-release-digest.mjs";
+import { validateDigestForTag, validateDigestFileValue } from "../tooling/scripts/validate-release-digest.mjs";
 
 function digest(overrides = {}) {
   return {

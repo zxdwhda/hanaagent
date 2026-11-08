@@ -11,7 +11,7 @@
  *   - 保证下游资源一定被释放
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 function makeMockEntry({ hasShutdownHandlers = true }: any = {}) {
   const emit = vi.fn(async () => {});

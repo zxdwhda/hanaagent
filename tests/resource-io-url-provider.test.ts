@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { UrlProvider } from "../lib/resource-io/providers/url-provider.ts";
+import { UrlProvider } from "../packages/engine/lib/resource-io/providers/url-provider.ts";
 
 const CAPABILITY_KEYS = [
   "stat",

@@ -9,7 +9,7 @@ import {
   handlePluginUiRequest,
   type PluginUiCapability,
   type PluginUiRequestContext,
-} from '../desktop/src/react/plugin-ui/plugin-ui-host-controller';
+} from '../apps/desktop/src/react/plugin-ui/plugin-ui-host-controller';
 
 const baseContext: PluginUiRequestContext = {
   pluginId: 'demo-plugin',

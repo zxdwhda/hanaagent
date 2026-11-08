@@ -7,18 +7,18 @@ import {
   quarantineDestination,
   restoreDataEpochCheckpoint,
   type DataEpochRestoreResult,
-} from "../core/data-epoch-restore.ts";
-import { createDataEpochCheckpointProvider } from "../core/data-epoch-checkpoint-provider.ts";
-import { inspectDataEpochMaintenance } from "../core/data-epoch-coordinator.ts";
-import { PERSISTENT_STORES } from "../shared/persistence/store-registry.ts";
-import type { StoreDescriptor } from "../shared/persistence/store-registry-types.ts";
+} from "../packages/engine/core/data-epoch-restore.ts";
+import { createDataEpochCheckpointProvider } from "../packages/engine/core/data-epoch-checkpoint-provider.ts";
+import { inspectDataEpochMaintenance } from "../packages/engine/core/data-epoch-coordinator.ts";
+import { PERSISTENT_STORES } from "../packages/shared/persistence/store-registry.ts";
+import type { StoreDescriptor } from "../packages/shared/persistence/store-registry-types.ts";
 import {
   readDataEpochJournal,
   readDataEpochRestoreJournal,
   readDataEpochStamp,
   writeDataEpochJournal,
   writeDataEpochStamp,
-} from "../shared/data-epoch.cjs";
+} from "../packages/shared/data-epoch.cjs";
 
 const tempDirs: string[] = [];
 const fakeServers: http.Server[] = [];
@@ -518,11 +518,11 @@ describe("restoreDataEpochCheckpoint: restore fault matrix (crash-then-resume id
 });
 
 describe("server/index.ts data-epoch startup wiring (checkpoint provider injection)", () => {
-  const serverIndexSource = fs.readFileSync(path.join(process.cwd(), "server", "index.ts"), "utf-8");
+  const serverIndexSource = fs.readFileSync(path.join(process.cwd(), "apps/server", "index.ts"), "utf-8");
 
   it("imports the production checkpoint provider factory", () => {
     expect(serverIndexSource).toContain(
-      'import { createDataEpochCheckpointProvider } from "../core/data-epoch-checkpoint-provider.ts";',
+      'import { createDataEpochCheckpointProvider } from "../../packages/engine/core/data-epoch-checkpoint-provider.ts";',
     );
   });
 

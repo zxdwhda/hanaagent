@@ -12,8 +12,8 @@ describe("MountAwareFileService", () => {
   });
 
   it("resolves default root and active local_fs studio mounts without exposing paths", async () => {
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
-    const { MountAwareFileService } = await import("../core/mount-aware-file-service.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
+    const { MountAwareFileService } = await import("../packages/engine/core/mount-aware-file-service.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-mount-file-"));
     const defaultRoot = path.join(tmpDir, "default");
     const mountRoot = path.join(tmpDir, "mount");
@@ -59,7 +59,7 @@ describe("MountAwareFileService", () => {
   });
 
   it("rejects local_fs mounts outside their resolved root", async () => {
-    const { MountAwareFileService } = await import("../core/mount-aware-file-service.ts");
+    const { MountAwareFileService } = await import("../packages/engine/core/mount-aware-file-service.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-mount-file-"));
     const defaultRoot = path.join(tmpDir, "default");
     fs.mkdirSync(defaultRoot, { recursive: true });
@@ -73,8 +73,8 @@ describe("MountAwareFileService", () => {
   });
 
   it("discloses local_fs native roots only when constructed with discloseNativeRoot", async () => {
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
-    const { MountAwareFileService } = await import("../core/mount-aware-file-service.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
+    const { MountAwareFileService } = await import("../packages/engine/core/mount-aware-file-service.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-mount-file-"));
     const defaultRoot = path.join(tmpDir, "default");
     const mountRoot = path.join(tmpDir, "mount");
@@ -119,7 +119,7 @@ describe("MountAwareFileService", () => {
   });
 
   it("preserves ResourceIO operation context for workbench mutations", async () => {
-    const { MountAwareFileService } = await import("../core/mount-aware-file-service.ts");
+    const { MountAwareFileService } = await import("../packages/engine/core/mount-aware-file-service.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-mount-file-"));
     const defaultRoot = path.join(tmpDir, "default");
     fs.mkdirSync(defaultRoot, { recursive: true });

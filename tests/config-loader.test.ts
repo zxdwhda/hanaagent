@@ -13,7 +13,7 @@ import {
   loadConfig,
   saveConfig,
   clearConfigCache,
-} from "../lib/memory/config-loader.ts";
+} from "../packages/engine/lib/memory/config-loader.ts";
 
 const tmpDir = path.join(os.tmpdir(), "hana-test-config-" + Date.now());
 const configPath = path.join(tmpDir, "config.yaml");

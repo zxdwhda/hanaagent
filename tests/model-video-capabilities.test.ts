@@ -5,7 +5,7 @@ import {
   modelSupportsDirectVideoInput,
   modelSupportsVideoInput,
   resolveModelVideoInputTransport,
-} from "../shared/model-capabilities.ts";
+} from "../packages/shared/model-capabilities.ts";
 
 describe("model video capability transport", () => {
   it("keeps semantic video capability separate from provider transport support", () => {

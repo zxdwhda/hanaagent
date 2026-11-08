@@ -13,7 +13,7 @@ const {
   sessionManagerOpenMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   SessionManager: {
     create: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   refreshSessionModelFromRegistry: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-vi.mock("../core/session-inline-media-prune.js", async (importOriginal) => {
+vi.mock("../packages/engine/core/session-inline-media-prune.js", async (importOriginal) => {
   const actual = await importOriginal() as any;
   return {
     ...actual,
@@ -43,7 +43,7 @@ vi.mock("../core/session-inline-media-prune.js", async (importOriginal) => {
   };
 });
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 function makeTool(name) {
   return { name, execute: vi.fn() };

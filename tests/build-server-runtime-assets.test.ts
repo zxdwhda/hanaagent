@@ -7,7 +7,7 @@ import {
   copyServerRuntimeAssets,
   SERVER_RUNTIME_ASSET_DIRS,
   SERVER_RUNTIME_ASSET_FILES,
-} from "../scripts/build-server-runtime-assets.mjs";
+} from "../tooling/scripts/build-server-runtime-assets.mjs";
 
 describe("server runtime assets", () => {
   let tempDir;
@@ -18,7 +18,7 @@ describe("server runtime assets", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-server-assets-"));
     rootDir = path.join(tempDir, "root");
     outDir = path.join(tempDir, "dist-server", "mac-arm64");
-    const assetsDir = path.join(rootDir, "desktop", "src", "assets");
+    const assetsDir = path.join(rootDir, "apps/desktop", "src", "assets");
     fs.mkdirSync(assetsDir, { recursive: true });
     for (const fileName of SERVER_RUNTIME_ASSET_FILES) {
       fs.writeFileSync(path.join(assetsDir, fileName), `${fileName}\n`);
@@ -31,7 +31,7 @@ describe("server runtime assets", () => {
     fs.writeFileSync(path.join(assetsDir, "character-cards", "yuan-hanako-card-back.png"), "card-back\n");
     fs.writeFileSync(path.join(assetsDir, "character-cards", "yuan-hanako-emblem.png"), "emblem\n");
 
-    const rendererDir = path.join(rootDir, "desktop", "dist-renderer");
+    const rendererDir = path.join(rootDir, "apps/desktop", "dist-renderer");
     fs.mkdirSync(path.join(rendererDir, "assets"), { recursive: true });
     fs.mkdirSync(path.join(rendererDir, "lib"), { recursive: true });
     fs.mkdirSync(path.join(rendererDir, "themes"), { recursive: true });
@@ -68,30 +68,30 @@ describe("server runtime assets", () => {
     const copied = copyServerRuntimeAssets({ rootDir, outDir });
 
     for (const fileName of SERVER_RUNTIME_ASSET_FILES) {
-      expect(fs.readFileSync(path.join(outDir, "desktop", "src", "assets", fileName), "utf-8"))
+      expect(fs.readFileSync(path.join(outDir, "apps/desktop", "src", "assets", fileName), "utf-8"))
         .toBe(`${fileName}\n`);
     }
     expect(fs.readFileSync(
-      path.join(outDir, "desktop", "src", "assets", "character-cards", "yuan-hanako-card-back.png"),
+      path.join(outDir, "apps/desktop", "src", "assets", "character-cards", "yuan-hanako-card-back.png"),
       "utf-8",
     )).toBe("card-back\n");
     expect(fs.readFileSync(
-      path.join(outDir, "desktop", "src", "assets", "character-cards", "yuan-hanako-emblem.png"),
+      path.join(outDir, "apps/desktop", "src", "assets", "character-cards", "yuan-hanako-emblem.png"),
       "utf-8",
     )).toBe("emblem\n");
     expect(fs.readFileSync(
-      path.join(outDir, "desktop", "src", "assets", "cover-gallery", "cover-gallery-fixture.txt"),
+      path.join(outDir, "apps/desktop", "src", "assets", "cover-gallery", "cover-gallery-fixture.txt"),
       "utf-8",
     )).toBe("cover-gallery\n");
     expect(copied).toEqual(expect.arrayContaining([
-      path.join("desktop", "src", "assets", "Hanako.png"),
-      path.join("desktop", "src", "assets", "character-cards") + path.sep,
-      path.join("desktop", "src", "assets", "cover-gallery") + path.sep,
+      path.join("apps/desktop", "src", "assets", "Hanako.png"),
+      path.join("apps/desktop", "src", "assets", "character-cards") + path.sep,
+      path.join("apps/desktop", "src", "assets", "cover-gallery") + path.sep,
     ]));
   });
 
   it("fails the build when a required fallback asset is missing", () => {
-    fs.unlinkSync(path.join(rootDir, "desktop", "src", "assets", "Butter.png"));
+    fs.unlinkSync(path.join(rootDir, "apps/desktop", "src", "assets", "Butter.png"));
 
     expect(() => copyServerRuntimeAssets({ rootDir, outDir }))
       .toThrow(/required runtime asset missing: .*Butter\.png/);
@@ -100,26 +100,26 @@ describe("server runtime assets", () => {
   it("copies the mobile renderer bundle into the bundled server root", () => {
     const copied = copyServerRuntimeAssets({ rootDir, outDir });
 
-    expect(fs.readFileSync(path.join(outDir, "desktop", "dist-renderer", "mobile.html"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "apps/desktop", "dist-renderer", "mobile.html"), "utf-8"))
       .toContain("<title>Mobile</title>");
-    expect(fs.readFileSync(path.join(outDir, "desktop", "dist-renderer", "assets", "mobile.js"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "mobile.js"), "utf-8"))
       .toContain("console.log('mobile')");
-    expect(fs.readFileSync(path.join(outDir, "desktop", "dist-renderer", "assets", "shared.js"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "shared.js"), "utf-8"))
       .toContain("console.log('shared')");
-    expect(fs.readFileSync(path.join(outDir, "desktop", "dist-renderer", "assets", "mobile.css"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "mobile.css"), "utf-8"))
       .toContain("background");
-    expect(fs.readFileSync(path.join(outDir, "desktop", "dist-renderer", "assets", "paper.png"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "paper.png"), "utf-8"))
       .toBe("paper");
-    expect(copied).toContain(path.join("desktop", "dist-renderer") + path.sep);
+    expect(copied).toContain(path.join("apps/desktop", "dist-renderer") + path.sep);
   });
 
   it("excludes source maps and desktop-only renderer files from the server runtime", () => {
     copyServerRuntimeAssets({ rootDir, outDir });
 
-    expect(fs.existsSync(path.join(outDir, "desktop", "dist-renderer", "assets", "mobile.js.map"))).toBe(false);
-    expect(fs.existsSync(path.join(outDir, "desktop", "dist-renderer", "assets", "main-desktop.js"))).toBe(false);
-    expect(fs.existsSync(path.join(outDir, "desktop", "dist-renderer", "assets", "main-desktop.css"))).toBe(false);
-    expect(fs.existsSync(path.join(outDir, "desktop", "dist-renderer", "index.html"))).toBe(false);
-    expect(fs.existsSync(path.join(outDir, "desktop", "dist-renderer", "modules", "legacy.js"))).toBe(false);
+    expect(fs.existsSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "mobile.js.map"))).toBe(false);
+    expect(fs.existsSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "main-desktop.js"))).toBe(false);
+    expect(fs.existsSync(path.join(outDir, "apps/desktop", "dist-renderer", "assets", "main-desktop.css"))).toBe(false);
+    expect(fs.existsSync(path.join(outDir, "apps/desktop", "dist-renderer", "index.html"))).toBe(false);
+    expect(fs.existsSync(path.join(outDir, "apps/desktop", "dist-renderer", "modules", "legacy.js"))).toBe(false);
   });
 });

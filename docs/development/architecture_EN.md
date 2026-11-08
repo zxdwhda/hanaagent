@@ -2,17 +2,15 @@
 
 [文档导航 / Documentation](../README.md) · [中文](architecture.md) · [English](architecture_EN.md)
 
-```
-core/           Engine orchestration + Managers (including PluginManager)
-lib/            Core libraries (memory, tools, sandbox, bridge adapters)
-server/         Hono HTTP + WebSocket server (standalone Node.js process)
-hub/            Scheduler, ChannelRouter, EventBus
-desktop/        Electron app + React frontend
-shared/         Cross-layer utilities (config schema, error bus, model refs)
-plugins/        Built-in system plugins (bundled into app)
-skills2set/     Built-in skill definitions
-scripts/        Build tools (server bundler, launcher, signing)
-tests/          Vitest test suite
+```text
+apps/                 Desktop, server and CLI entry points
+packages/engine/      Existing core, lib and hub modules
+packages/shared/      Shared runtime code and contracts
+packages/plugin-*/    Existing SDK workspace packages
+extensions/           Built-in plugins, skills and examples
+tooling/              Config, scripts, build resources and tools
+docs/                 Documentation
+tests/                Integration and cross-module tests
 ```
 
 The engine layer coordinates multiple managers (Agent, Session, Model, Preferences, Skill, Channel, BridgeSession, Plugin, etc.) and exposes them through a unified facade. The Hub handles background tasks (heartbeat, automation / cron, channel routing, agent messaging, DM routing) independently of the active chat session.

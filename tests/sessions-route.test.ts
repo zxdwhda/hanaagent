@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { upsertStudioMount } from "../core/studio-mounts.ts";
-import { normalizeWorkspacePath } from "../shared/workspace-history.ts";
+import { upsertStudioMount } from "../packages/engine/core/studio-mounts.ts";
+import { normalizeWorkspacePath } from "../packages/shared/workspace-history.ts";
 
 const { replayLatestUserTurnMock, retrySessionTurnMock } = vi.hoisted(() => ({
   replayLatestUserTurnMock: vi.fn(async () => ({ text: null, toolMedia: [] })),
@@ -38,13 +38,13 @@ const browserManagerMock = {
   getBrowserSessionStates: vi.fn(() => ({})),
 };
 
-vi.mock("../lib/browser/browser-manager.js", () => ({
+vi.mock("../packages/engine/lib/browser/browser-manager.js", () => ({
   BrowserManager: {
     instance: () => browserManagerMock,
   },
 }));
 
-vi.mock("../core/message-utils.js", () => ({
+vi.mock("../packages/engine/core/message-utils.js", () => ({
   extractTextContent: vi.fn(() => ({ text: "", images: [], thinking: "", toolUses: [] })),
   contentHasThinkingBlock: vi.fn(() => false),
   filterUnreferencedInlineImages: vi.fn((_text, images) => images || []),
@@ -63,7 +63,7 @@ vi.mock("../core/message-utils.js", () => ({
   overlaySessionCollabDecision: vi.fn((block) => block),
 }));
 
-vi.mock("../core/session-turn-actions.js", () => ({
+vi.mock("../packages/engine/core/session-turn-actions.js", () => ({
   replayLatestUserTurn: replayLatestUserTurnMock,
   retrySessionTurn: retrySessionTurnMock,
 }));
@@ -92,7 +92,7 @@ describe("sessions route", () => {
   });
 
   it("restores browser state for the target session after switch", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const engine = {
@@ -173,7 +173,7 @@ describe("sessions route", () => {
   });
 
   it("returns historical model availability without failing the session switch", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const targetPath = "/tmp/agents/a/sessions/removed-model.jsonl";
     const historicalModel = {
@@ -234,7 +234,7 @@ describe("sessions route", () => {
   });
 
   it("switches sessions by sessionId and treats path as a legacy locator", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const currentPath = "/tmp/agents/a/sessions/current.jsonl";
 
@@ -284,7 +284,7 @@ describe("sessions route", () => {
   });
 
   it("skips opportunistic browser resume without failing when no browser host is attached", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const targetPath = "/tmp/agents/a/sessions/no-host.jsonl";
 
@@ -343,7 +343,7 @@ describe("sessions route", () => {
   });
 
   it("keeps cold browser resume deferred during session switch", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const targetPath = "/tmp/agents/a/sessions/cold-browser.jsonl";
 
@@ -403,7 +403,7 @@ describe("sessions route", () => {
   });
 
   it("keeps real browser resume failures visible during session switch", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const targetPath = "/tmp/agents/a/sessions/browser-error.jsonl";
 
@@ -444,7 +444,7 @@ describe("sessions route", () => {
   });
 
   it("passes workspaceFolders when creating a new session and returns the normalized scope", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const cwd = path.join(tmpDir, "main");
     const extra = path.join(tmpDir, "reference");
@@ -505,7 +505,7 @@ describe("sessions route", () => {
   });
 
   it("returns a structured no-model error instead of a generic 500 when new session creation cannot select a model (#1643)", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const engine = {
       currentAgentId: "hana",
@@ -534,7 +534,7 @@ describe("sessions route", () => {
   });
 
   it("resolves workspaceMountId on the server when creating a new session", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const hanakoHome = path.join(tmpDir, "hana");
     const defaultRoot = path.join(tmpDir, "default");
@@ -615,7 +615,7 @@ describe("sessions route", () => {
   });
 
   it("creates a detached session without switching the focused session", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const cwd = path.join(tmpDir, "quick");
     const extra = path.join(tmpDir, "reference");
@@ -693,7 +693,7 @@ describe("sessions route", () => {
   });
 
   it("adds a session authorized folder through an explicit session route", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = path.join(tmpDir, "agents", "hana", "sessions", "new.jsonl");
     const cwd = path.join(tmpDir, "workspace");
@@ -744,7 +744,7 @@ describe("sessions route", () => {
   });
 
   it("assigns a new session to the requested project before broadcasting it", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const hub = { eventBus: { emit: vi.fn() } };
 
@@ -791,7 +791,7 @@ describe("sessions route", () => {
   });
 
   it("includes pinnedAt in the session list response", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const pinnedAt = "2026-04-29T08:00:00.000Z";
 
@@ -822,7 +822,7 @@ describe("sessions route", () => {
   });
 
   it("includes the manual pin order in the session list and search responses", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const session = {
       path: "/tmp/agents/hana/sessions/a.jsonl",
@@ -851,7 +851,7 @@ describe("sessions route", () => {
   });
 
   it("includes explicit projectId in the session list response", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const engine = {
@@ -879,7 +879,7 @@ describe("sessions route", () => {
   });
 
   it("searches sessions without exposing the cached full transcript", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessions = [
       {
@@ -935,7 +935,7 @@ describe("sessions route", () => {
   });
 
   it("rejects overly long session search queries before scanning session text", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const listSessions = vi.fn(async () => {
       throw new Error("should not scan sessions for invalid query");
@@ -957,7 +957,7 @@ describe("sessions route", () => {
   });
 
   it("projects the same default Studio sessions to a paired device principal", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const session = {
       path: "/tmp/agents/hana/sessions/a.jsonl",
@@ -1013,7 +1013,7 @@ describe("sessions route", () => {
   });
 
   it("includes each session's permission mode in the session list projection", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const session = {
       path: "/tmp/agents/hana/sessions/a.jsonl",
@@ -1045,7 +1045,7 @@ describe("sessions route", () => {
   });
 
   it("keeps cold-start session permission mode from the session list projection", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const session = {
       path: "/tmp/agents/hana/sessions/auto.jsonl",
@@ -1078,7 +1078,7 @@ describe("sessions route", () => {
   });
 
   it("marks deleted-agent sessions read-only in the session list response", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const session = {
       path: "/tmp/agents/deleted/sessions/a.jsonl",
@@ -1112,7 +1112,7 @@ describe("sessions route", () => {
   });
 
   it("creates a primary-agent continuation from a deleted-agent session", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const hub = { eventBus: { emit: vi.fn() } };
     const agentsDir = path.join(tmpDir, "agents");
@@ -1171,7 +1171,7 @@ describe("sessions route", () => {
   });
 
   it("returns typed 422 when a deleted-agent continuation source has no transcript", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const agentsDir = path.join(tmpDir, "agents");
     const oldPath = path.join(agentsDir, "deleted", "sessions", "empty.jsonl");
@@ -1207,8 +1207,8 @@ describe("sessions route", () => {
   });
 
   it("returns an actionable typed 422 when fresh compaction cannot replay retained history", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const { CompactionHistoryReplayError } = await import("../core/session-compactor.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const { CompactionHistoryReplayError } = await import("../packages/engine/core/session-compactor.ts");
     const app = new Hono();
     const sessionPath = path.join(tmpDir, "agents", "hana", "sessions", "unsafe.jsonl");
     const replayError = new CompactionHistoryReplayError({
@@ -1241,7 +1241,7 @@ describe("sessions route", () => {
   });
 
   it("rejects content/runtime writes but allows safe unpin for deleted-agent sessions", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const deletedPath = "/tmp/agents/deleted/sessions/old.jsonl";
     const engine = {
@@ -1289,7 +1289,7 @@ describe("sessions route", () => {
   });
 
   it("deleted-agent 门禁以 engine.isDeletedAgentSession 为准（manifest 归属存活时放行 pin）", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     // 物理路径在已删除 agent 目录（路径口径会拦），manifest 归属存活 agent（权威口径放行）
     const movedPath = "/tmp/agents/deleted/sessions/moved.jsonl";
@@ -1315,7 +1315,7 @@ describe("sessions route", () => {
   });
 
   it("rejects session projection when the authenticated Studio differs from the server Studio", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     app.use("*", async (c, next) => {
@@ -1360,7 +1360,7 @@ describe("sessions route", () => {
   });
 
   it("includes summary presence in the session list response", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const summaryManager = {
       getSummary: vi.fn((sessionId) => (
@@ -1420,7 +1420,7 @@ describe("sessions route", () => {
   });
 
   it("replays the latest user message through the branch-aware action", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = path.join(tmpDir, "agents", "hana", "sessions", "a.jsonl");
     fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
@@ -1459,7 +1459,7 @@ describe("sessions route", () => {
   });
 
   it("retries an arbitrary active-branch node through the sessionId-first route", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = path.join(tmpDir, "agents", "hana", "sessions", "retry.jsonl");
     fs.mkdirSync(path.dirname(sessionPath), { recursive: true });
@@ -1506,7 +1506,7 @@ describe("sessions route", () => {
   });
 
   it("rejects a stale path paired with a valid sessionId before retrying", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const currentPath = path.join(tmpDir, "agents", "hana", "sessions", "current.jsonl");
     const stalePath = path.join(tmpDir, "agents", "hana", "sessions", "stale.jsonl");
@@ -1536,7 +1536,7 @@ describe("sessions route", () => {
   });
 
   it("forks an arbitrary node into a new session and announces the child", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sourcePath = path.join(tmpDir, "agents", "hana", "sessions", "source.jsonl");
     const childPath = path.join(tmpDir, "agents", "hana", "sessions", "child.jsonl");
@@ -1622,7 +1622,7 @@ describe("sessions route", () => {
     }
 
     async function retryWith(err) {
-      const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+      const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
       const app = new Hono();
       const { sessionPath, manifest } = activeSession("retry-status");
       retrySessionTurnMock.mockRejectedValueOnce(err);
@@ -1644,7 +1644,7 @@ describe("sessions route", () => {
     }
 
     async function forkWith(err) {
-      const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+      const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
       const app = new Hono();
       const { sessionPath, manifest } = activeSession("fork-status");
       app.route("/api", createSessionsRoute({
@@ -1699,7 +1699,7 @@ describe("sessions route", () => {
   });
 
   it("returns a session summary through an explicit route", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/with-summary.jsonl";
     const summaryManager = {
@@ -1740,7 +1740,7 @@ describe("sessions route", () => {
   });
 
   it("returns an empty summary state when the session has no summary", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const engine = {
       agentsDir: "/tmp/agents",
@@ -1763,7 +1763,7 @@ describe("sessions route", () => {
   });
 
   it("pins and unpins sessions through an explicit route", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const pinnedAt = "2026-04-29T08:00:00.000Z";
 
@@ -1807,7 +1807,7 @@ describe("sessions route", () => {
   });
 
   it("applies a submitted pin order for the whole pinned strip", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const locators = {
       sess_a: "/tmp/agents/hana/sessions/a.jsonl",
@@ -1849,7 +1849,7 @@ describe("sessions route", () => {
   });
 
   it("rejects a pin order request that is empty, repeats a session, or names an unknown one", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const engine = {
@@ -1887,7 +1887,7 @@ describe("sessions route", () => {
   });
 
   it("surfaces an unpinned session in a pin order request as a client error", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const engine = {
@@ -1921,7 +1921,7 @@ describe("sessions route", () => {
   });
 
   it("refuses a pin order request from a principal without session write scope", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     app.use("*", async (c, next) => {
@@ -1973,7 +1973,7 @@ describe("sessions route", () => {
   });
 
   it("pins sessions by sessionId and rejects stale locator paths", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const pinnedAt = "2026-04-29T08:00:00.000Z";
     const currentPath = "/tmp/agents/hana/sessions/current.jsonl";
@@ -2030,7 +2030,7 @@ describe("sessions route", () => {
   });
 
   it("clears pinned state before archiving a session", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const agentsDir = path.join(tmpDir, "agents");
     const sessionPath = path.join(agentsDir, "hana", "sessions", "a.jsonl");
@@ -2061,7 +2061,7 @@ describe("sessions route", () => {
   });
 
   it("suppresses deferred and confirm state by sessionId during archive cleanup", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const agentsDir = path.join(tmpDir, "agents");
     const sessionPath = path.join(agentsDir, "hana", "sessions", "a.jsonl");
@@ -2104,10 +2104,10 @@ describe("sessions route", () => {
   });
 
   it("marks current todos completed and removed through an explicit session route", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const { SessionManager } = await import("../lib/pi-sdk/index.ts");
-    const { loadLatestTodosFromSessionFile, loadLatestTodoSnapshotFromSessionFile } = await import("../lib/tools/todo-compat.ts");
-    const { TODO_STATE_CUSTOM_TYPE } = await import("../lib/tools/todo-constants.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const { SessionManager } = await import("../packages/engine/lib/pi-sdk/index.ts");
+    const { loadLatestTodosFromSessionFile, loadLatestTodoSnapshotFromSessionFile } = await import("../packages/engine/lib/tools/todo-compat.ts");
+    const { TODO_STATE_CUSTOM_TYPE } = await import("../packages/engine/lib/tools/todo-constants.ts");
     const app = new Hono();
     const agentsDir = path.join(tmpDir, "agents");
     const sessionDir = path.join(agentsDir, "hana", "sessions");
@@ -2186,8 +2186,8 @@ describe("sessions route", () => {
   });
 
   it("infers subagent agent identity from child sessionPath when history details are missing", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -2238,8 +2238,8 @@ describe("sessions route", () => {
   });
 
   it("hydrates legacy path-only subagent blocks with sessionId and current manifest locator", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const legacyChildPath = "/tmp/agents/hanako/subagent-sessions/child-old.jsonl";
     const movedChildPath = "/tmp/agents/hanako/subagent-sessions/archive/child-new.jsonl";
@@ -2293,8 +2293,8 @@ describe("sessions route", () => {
   });
 
   it("restores deferred subagent result as an interlude block before the following assistant reply", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/subagent-result.jsonl";
 
@@ -2363,8 +2363,8 @@ describe("sessions route", () => {
   });
 
   it("restores repeated deferred result occurrences for the same task as distinct interludes", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/subagent-result-repeat.jsonl";
 
@@ -2424,8 +2424,8 @@ describe("sessions route", () => {
   });
 
   it("exposes JSONL source order for messages and deferred interludes during restore", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/source-order.jsonl";
 
@@ -2523,8 +2523,8 @@ describe("sessions route", () => {
   });
 
   it("restores consumed turn input ledger records as durable interludes before their assistant reply", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/turn-input-consumption.jsonl";
 
@@ -2621,8 +2621,8 @@ describe("sessions route", () => {
   });
 
   it("keeps deferred subagent interlude hidden in history until an assistant reply exists", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/subagent-result-pending-reply.jsonl";
 
@@ -2668,8 +2668,8 @@ describe("sessions route", () => {
   });
 
   it("does not attach a hidden deferred interlude across a later user message", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/subagent-result-cross-user.jsonl";
 
@@ -2719,8 +2719,8 @@ describe("sessions route", () => {
   });
 
   it("loads session messages by sessionId and treats path as a legacy locator", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const currentPath = "/tmp/agents/hana/sessions/current.jsonl";
 
@@ -2752,8 +2752,8 @@ describe("sessions route", () => {
   });
 
   it("reload 时从 runStore 回填 workflow inline 块终态（running→done + 补 finishedAt）", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -2788,8 +2788,8 @@ describe("sessions route", () => {
   });
 
   it("workflow inline 块仍 pending 时保持 running（不误判完成）", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -2817,8 +2817,8 @@ describe("sessions route", () => {
   });
 
   it("首屏载入重发该会话的 workflow 活动（重启后右侧卡复原）", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -2842,8 +2842,8 @@ describe("sessions route", () => {
   });
 
   it("翻页（before）不重发 workflow 活动（避免重复广播）", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -2867,8 +2867,8 @@ describe("sessions route", () => {
   });
 
   it("includes session entry timestamps on displayable history messages", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -2909,8 +2909,8 @@ describe("sessions route", () => {
   });
 
   it("projects the exact hidden turn input onto its assistant without relabeling the visible user", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const hiddenInput = '<hana-background-result task-id="task-1" status="success" type="subagent">done</hana-background-result>';
 
@@ -2959,8 +2959,8 @@ describe("sessions route", () => {
   });
 
   it("does not expose legacy reminder blocks in REST history projections", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const raw = "[hana_reminder at 2026-07-05 14:05]\n- Plugin demo loaded\n[/hana_reminder]\n\nhello";
 
@@ -2983,8 +2983,8 @@ describe("sessions route", () => {
   });
 
   it("strips Bridge internal time tags from loadMessages history for bridge sessions", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const bridgePath = "/tmp/agents/hana/sessions/bridge/owner/tg.jsonl";
 
@@ -3009,8 +3009,8 @@ describe("sessions route", () => {
   });
 
   it("returns empty assistant thinking blocks from history as completed thinking", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const content = [{ type: "thinking", thinking: "" }];
 
@@ -3042,8 +3042,8 @@ describe("sessions route", () => {
   });
 
   it("does not return OpenAI commentary-only history messages as visible text", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent).mockClear();
@@ -3079,8 +3079,8 @@ describe("sessions route", () => {
   });
 
   it("hydrates only the requested display window for long session history", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sourceMessages = Array.from({ length: 120 }, (_, i) => ({
       role: "assistant",
@@ -3115,8 +3115,8 @@ describe("sessions route", () => {
   });
 
   it("pairs restored tool outcomes by call id and keeps missing results unknown", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.loadSessionHistoryMessages).mockResolvedValueOnce([
@@ -3152,8 +3152,8 @@ describe("sessions route", () => {
   });
 
   it("does not return path-backed inline image base64 in session history", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -3192,8 +3192,8 @@ describe("sessions route", () => {
   });
 
   it("refreshes session file lifecycle metadata when rebuilding history blocks", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/main.jsonl";
 
@@ -3298,8 +3298,8 @@ describe("sessions route", () => {
   });
 
   it("returns session registry files alongside restored messages", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/main.jsonl";
 
@@ -3356,8 +3356,8 @@ describe("sessions route", () => {
   });
 
   it("preserves repeated stage_files cards for the same SessionFile in history", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/repeated-stage.jsonl";
 
@@ -3436,8 +3436,8 @@ describe("sessions route", () => {
   });
 
   it("hydrates every legacy file block without fileId from the session file sidecar by path", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/legacy.jsonl";
 
@@ -3516,8 +3516,8 @@ describe("sessions route", () => {
   });
 
   it("restores completed image generation as a session file block and suppresses the iframe card of a since-retired plugin", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/media-restore.jsonl";
     const resultBody = JSON.stringify({
@@ -3592,8 +3592,8 @@ describe("sessions route", () => {
   });
 
   it("restores plugin_card blocks from extension custom messages", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/plugin-card.jsonl";
 
@@ -3642,8 +3642,8 @@ describe("sessions route", () => {
   });
 
   it("normalizes plugin chat surface cards from extension custom messages", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/plugin-chat-surface.jsonl";
 
@@ -3708,8 +3708,8 @@ describe("sessions route", () => {
   });
 
   it("restores completed image generation from a non-context deferred result record", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/legacy-ledger.jsonl";
 
@@ -3783,8 +3783,8 @@ describe("sessions route", () => {
   });
 
   it("prefers explicit executor metadata over owner-path inference", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -3839,8 +3839,8 @@ describe("sessions route", () => {
   });
 
   it("uses child-session executor snapshot when live agent has been deleted", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     const agentsDir = path.join(tmpDir, "agents");
@@ -3901,8 +3901,8 @@ describe("sessions route", () => {
   });
 
   it("uses manifest executor metadata before legacy child-session sidecars", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     const agentsDir = path.join(tmpDir, "agents");
@@ -3966,8 +3966,8 @@ describe("sessions route", () => {
   });
 
   it("keeps pending subagent block running even when child-session tail summary is available", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -4016,8 +4016,8 @@ describe("sessions route", () => {
   });
 
   it("marks running subagent block done only after deferred store resolves", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -4071,8 +4071,8 @@ describe("sessions route", () => {
   });
 
   it("deduplicates subagent summary reads by sessionId while resolving stale paths to the current locator", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
     const staleChildPath = "/tmp/agents/hanako/subagent-sessions/stale-child.jsonl";
     const currentChildPath = "/tmp/agents/hanako/subagent-sessions/current-child.jsonl";
@@ -4146,8 +4146,8 @@ describe("sessions route", () => {
   });
 
   it("hydrates running subagent block from durable run store when deferred delivery state is gone", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.extractTextContent)
@@ -4213,8 +4213,8 @@ describe("sessions route", () => {
   });
 
   it("marks old unmapped running subagent block failed instead of leaving preview in an infinite connecting state", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.loadLatestAssistantSummaryFromSessionFile).mockClear();
@@ -4262,8 +4262,8 @@ describe("sessions route", () => {
   });
 
   it("marks stale durable pending subagent run failed when the deferred runtime task is gone", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
-    const msgUtils = await import("../core/message-utils.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
     const app = new Hono();
 
     vi.mocked(msgUtils.loadLatestAssistantSummaryFromSessionFile).mockClear();
@@ -4320,7 +4320,7 @@ describe("sessions route", () => {
   });
 
   it("exposes structured browser session states and returns refreshed states after close", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/browser.jsonl";
     const states = {
@@ -4350,7 +4350,7 @@ describe("sessions route", () => {
   });
 
   it("emits browser_status when a browser session is closed through the route", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/browser.jsonl";
     const hub = { eventBus: { emit: vi.fn() } };
@@ -4373,7 +4373,7 @@ describe("sessions route", () => {
   // ── #1610: web/mobile 会话修订点（revision）──
 
   it("passes the projection revision through the session list response", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const engine = {
@@ -4401,7 +4401,7 @@ describe("sessions route", () => {
   });
 
   it("defaults the session list revision to null when the projection has none", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const engine = {
@@ -4428,7 +4428,7 @@ describe("sessions route", () => {
   });
 
   it("returns the on-disk revision with the session messages payload", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
 
     const agentsDir = path.join(tmpDir, "agents");
@@ -4456,7 +4456,7 @@ describe("sessions route", () => {
   });
 
   it("returns a null messages revision when the session file cannot be stat-ed", async () => {
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const sessionPath = "/tmp/agents/hana/sessions/raced-away.jsonl";
 

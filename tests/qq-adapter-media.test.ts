@@ -15,7 +15,7 @@ vi.mock("ws", () => {
   return { default: MockWebSocket };
 });
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
@@ -27,7 +27,7 @@ const outboundCapture = vi.hoisted(() => ({
   requests: [] as Array<{ stage: string; url: string; method: string }>,
 }));
 
-vi.mock("../lib/bridge/outbound-http.ts", () => ({
+vi.mock("../packages/engine/lib/bridge/outbound-http.ts", () => ({
   createBridgeOutboundHttp: ({ platform }: any) => {
     outboundCapture.platforms.push(platform);
     return {
@@ -39,7 +39,7 @@ vi.mock("../lib/bridge/outbound-http.ts", () => ({
   },
 }));
 
-import { createQQAdapter, deriveQQPrincipal } from "../lib/bridge/qq-adapter.ts";
+import { createQQAdapter, deriveQQPrincipal } from "../packages/engine/lib/bridge/qq-adapter.ts";
 
 function jsonResponse(body) {
   return {

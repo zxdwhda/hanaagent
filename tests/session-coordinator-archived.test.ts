@@ -3,10 +3,10 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import os from "os";
 import path from "path";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 async function loadCoord(tmpDir, overrides: any = {}) {
-  const { SessionCoordinator } = await import("../core/session-coordinator.ts");
+  const { SessionCoordinator } = await import("../packages/engine/core/session-coordinator.ts");
   const deps = {
     agentsDir: path.join(tmpDir, "agents"),
     listAgents: () => [
@@ -219,7 +219,7 @@ describe("session-coordinator: archived helpers", () => {
       ].join("\n") + "\n",
     );
 
-    const { SessionCoordinator } = await import("../core/session-coordinator.ts");
+    const { SessionCoordinator } = await import("../packages/engine/core/session-coordinator.ts");
     const coord = new SessionCoordinator({
       agentsDir: path.join(tmpDir, "agents"),
       listAgents: () => [],

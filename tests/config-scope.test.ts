@@ -9,8 +9,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import YAML from "js-yaml";
-import { splitByScope, injectGlobalFields } from "../shared/config-scope.ts";
-import { migrateConfigScope } from "../shared/migrate-config-scope.ts";
+import { splitByScope, injectGlobalFields } from "../packages/shared/config-scope.ts";
+import { migrateConfigScope } from "../packages/shared/migrate-config-scope.ts";
 
 // ---------------------------------------------------------------------------
 // splitByScope

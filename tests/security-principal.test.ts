@@ -4,7 +4,7 @@ import {
   principalSummary,
   principalOwnsLocalConnection,
   principalHasScope,
-} from "../core/security-principal.ts";
+} from "../packages/engine/core/security-principal.ts";
 
 describe("security principal", () => {
   it("normalizes a local owner principal with a stable principalId", () => {

@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { PRODUCTION_ROOTS, discoverSites } from "../scripts/scan-persistent-stores.mjs";
+import { PRODUCTION_ROOTS, discoverSites } from "../tooling/scripts/scan-persistent-stores.mjs";
 
 const tempDirs: string[] = [];
 
@@ -40,7 +40,7 @@ function sitesIn(root: string, sourceFile: string) {
 describe("persistence scan: descriptor-based writes", () => {
   it("counts a descriptor opened for writing as a file write", () => {
     const root = makeFixtureRepo({
-      "core/opener.ts": [
+      "packages/engine/core/opener.ts": [
         'import fs from "node:fs";',
         "",
         "export function open(target: string) {",
@@ -49,12 +49,12 @@ describe("persistence scan: descriptor-based writes", () => {
       ].join("\n"),
     });
 
-    expect(sitesIn(root, "core/opener.ts").map((site: any) => site.kind)).toEqual(["write-file"]);
+    expect(sitesIn(root, "packages/engine/core/opener.ts").map((site: any) => site.kind)).toEqual(["write-file"]);
   });
 
   it("counts writes through a descriptor as file writes", () => {
     const root = makeFixtureRepo({
-      "core/writer.ts": [
+      "packages/engine/core/writer.ts": [
         'import fs from "node:fs";',
         "",
         "export function save(fd: number, data: Buffer, chunks: Buffer[]) {",
@@ -64,7 +64,7 @@ describe("persistence scan: descriptor-based writes", () => {
       ].join("\n"),
     });
 
-    expect(sitesIn(root, "core/writer.ts").map((site: any) => site.kind)).toEqual([
+    expect(sitesIn(root, "packages/engine/core/writer.ts").map((site: any) => site.kind)).toEqual([
       "write-file",
       "write-file",
     ]);
@@ -72,7 +72,7 @@ describe("persistence scan: descriptor-based writes", () => {
 
   it("ignores a descriptor opened only for reading", () => {
     const root = makeFixtureRepo({
-      "core/reader.ts": [
+      "packages/engine/core/reader.ts": [
         'import fs from "node:fs";',
         "",
         "export function load(target: string) {",
@@ -83,6 +83,6 @@ describe("persistence scan: descriptor-based writes", () => {
       ].join("\n"),
     });
 
-    expect(sitesIn(root, "core/reader.ts")).toEqual([]);
+    expect(sitesIn(root, "packages/engine/core/reader.ts")).toEqual([]);
   });
 });

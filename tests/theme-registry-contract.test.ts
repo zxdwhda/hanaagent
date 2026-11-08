@@ -2,13 +2,13 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import registry from '../desktop/src/shared/theme-registry.cjs';
+import registry from '../apps/desktop/src/shared/theme-registry.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 
-const THEMES_DIR = path.join(ROOT, 'desktop/src');
+const THEMES_DIR = path.join(ROOT, 'apps/desktop/src');
 const LOCALES = ['zh', 'zh-TW', 'ja', 'ko', 'en'];
 
 function resolveKey(obj, dottedKey) {
@@ -29,7 +29,7 @@ describe('theme-registry data contract', () => {
     });
 
     it.each(LOCALES)('i18nName 在 locale "%s" 有值', (locale) => {
-      const localePath = path.join(ROOT, 'desktop/src/locales', `${locale}.json`);
+      const localePath = path.join(ROOT, 'apps/desktop/src/locales', `${locale}.json`);
       expect(fs.existsSync(localePath), `locale file missing: ${localePath}`).toBe(true);
       const data = JSON.parse(fs.readFileSync(localePath, 'utf8'));
       const value = resolveKey(data, entry.i18nName);
@@ -37,7 +37,7 @@ describe('theme-registry data contract', () => {
     });
 
     it.each(LOCALES)('i18nMode 在 locale "%s" 有值', (locale) => {
-      const localePath = path.join(ROOT, 'desktop/src/locales', `${locale}.json`);
+      const localePath = path.join(ROOT, 'apps/desktop/src/locales', `${locale}.json`);
       const data = JSON.parse(fs.readFileSync(localePath, 'utf8'));
       const value = resolveKey(data, entry.i18nMode);
       expect(value, `locale=${locale} key=${entry.i18nMode} 缺失或为空`).toBeTruthy();
@@ -46,14 +46,14 @@ describe('theme-registry data contract', () => {
 
   describe('AUTO_OPTION', () => {
     it.each(LOCALES)('auto i18nName 在 locale "%s" 有值', (locale) => {
-      const localePath = path.join(ROOT, 'desktop/src/locales', `${locale}.json`);
+      const localePath = path.join(ROOT, 'apps/desktop/src/locales', `${locale}.json`);
       const data = JSON.parse(fs.readFileSync(localePath, 'utf8'));
       const value = resolveKey(data, registry.AUTO_OPTION.i18nName);
       expect(value, `locale=${locale} auto i18nName 缺失`).toBeTruthy();
     });
 
     it.each(LOCALES)('auto i18nMode 在 locale "%s" 有值', (locale) => {
-      const localePath = path.join(ROOT, 'desktop/src/locales', `${locale}.json`);
+      const localePath = path.join(ROOT, 'apps/desktop/src/locales', `${locale}.json`);
       const data = JSON.parse(fs.readFileSync(localePath, 'utf8'));
       const value = resolveKey(data, registry.AUTO_OPTION.i18nMode);
       expect(value, `locale=${locale} auto i18nMode 缺失`).toBeTruthy();

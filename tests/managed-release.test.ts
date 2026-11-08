@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createManagedReleaseManager, hashTree } from '../scripts/managed-release.mjs';
+import { createManagedReleaseManager, hashTree } from '../tooling/scripts/managed-release.mjs';
 
 const homes: string[] = [];
 function fixture(extraDeps: Record<string, unknown> = {}) {
@@ -167,7 +167,7 @@ describe('managed independent macOS releases',()=>{
     const f=fixture();f.manager.install(f.app('0.450.1'),{dataSource:f.candidate()});
     const next=f.app('0.450.2'),script=path.join(f.home,'crash-operation.mjs');
     fs.writeFileSync(script,`import fs from 'node:fs';
-      import {createManagedReleaseManager} from ${JSON.stringify(pathToFileURL(path.resolve('scripts/managed-release.mjs')).href)};
+      import {createManagedReleaseManager} from ${JSON.stringify(pathToFileURL(path.resolve('tooling/scripts/managed-release.mjs')).href)};
       const manager=createManagedReleaseManager({homeDir:${JSON.stringify(f.home)},deps:{
         inspectApp(app){return JSON.parse(fs.readFileSync(app+'/Contents/Info.plist','utf8'));},verifySignature(){},processes(){return [];},
         rename(from,to){fs.renameSync(from,to);if(from.includes('.hanaagent-stage-')&&to.endsWith('/Applications/hanaagent.app'))process.kill(process.pid,'SIGKILL');}
@@ -182,7 +182,7 @@ describe('managed independent macOS releases',()=>{
   it('archives data created by an interrupted first install without a data source and permits retry',()=>{
     const f=fixture(),input=f.app('0.450.1'),script=path.join(f.home,'crash-first-install.mjs');
     fs.writeFileSync(script,`import fs from 'node:fs';
-      import {createManagedReleaseManager} from ${JSON.stringify(pathToFileURL(path.resolve('scripts/managed-release.mjs')).href)};
+      import {createManagedReleaseManager} from ${JSON.stringify(pathToFileURL(path.resolve('tooling/scripts/managed-release.mjs')).href)};
       const originalRename=fs.renameSync;
       fs.renameSync=(from,to)=>{if(to.endsWith('/state.json')){
         fs.writeFileSync(${JSON.stringify(path.join(f.home,'.hanaagent/orphan-marker'))},'preserve generated data');process.kill(process.pid,'SIGKILL');

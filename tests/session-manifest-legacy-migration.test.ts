@@ -6,8 +6,8 @@ import {
   LEGACY_META_SCAN_LEDGER_KEY,
   listSkippedMetaSources,
   migrateLegacySessions,
-} from "../core/session-manifest/legacy-migration.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+} from "../packages/engine/core/session-manifest/legacy-migration.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 describe("session manifest legacy migration", () => {
   let hanaHome;

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { HanaEngine } from "../core/engine.ts";
-import { SettingsManager } from "../lib/pi-sdk/index.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
+import { SettingsManager } from "../packages/engine/lib/pi-sdk/index.ts";
 
 describe("HanaEngine resource loader options", () => {
   let tempRoot: string | null = null;

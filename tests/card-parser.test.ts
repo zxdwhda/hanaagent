@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CardParser } from '../core/events.ts';
+import { CardParser } from '../packages/engine/core/events.ts';
 
 function collect(parser, input) {
   const events = [];

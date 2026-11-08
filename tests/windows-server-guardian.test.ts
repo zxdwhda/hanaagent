@@ -6,7 +6,7 @@ import {
   requestWindowsServerGuardianStop,
   resolveBeforeQuitServerAction,
   resolveWindowsServerGuardian,
-} from "../desktop/src/shared/windows-server-guardian.cjs";
+} from "../apps/desktop/src/shared/windows-server-guardian.cjs";
 
 describe("Windows server guardian desktop contract", () => {
   it("prefers explicit guardian and resolves packaged/dev helper locations", () => {

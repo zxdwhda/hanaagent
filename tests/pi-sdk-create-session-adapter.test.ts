@@ -39,7 +39,7 @@ vi.mock("@earendil-works/pi-ai/compat", async () => ({
   getModel: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/session-options.js", async () => ({
+vi.mock("../packages/engine/lib/pi-sdk/session-options.js", async () => ({
   PI_BUILTIN_TOOL_NAMES: Object.freeze(["read", "write", "edit", "exec_command", "write_stdin", "grep", "find", "ls"]),
   normalizeCreateAgentSessionOptions: vi.fn(opts => ({
     ...opts,
@@ -50,7 +50,7 @@ vi.mock("../lib/pi-sdk/session-options.js", async () => ({
 describe("Pi SDK createAgentSession adapter", () => {
   it("normalizes options before calling the raw SDK", async () => {
     const sdk = await import("@earendil-works/pi-coding-agent");
-    const adapter = await import("../lib/pi-sdk/index.ts");
+    const adapter = await import("../packages/engine/lib/pi-sdk/index.ts");
     const sessionOptions = {
       cwd: "/tmp/project",
       tools: [{ name: "read", execute: vi.fn() }],
@@ -68,7 +68,7 @@ describe("Pi SDK createAgentSession adapter", () => {
 
   it("uses the resource loader agentDir as the SDK agentDir when omitted", async () => {
     const sdk = await import("@earendil-works/pi-coding-agent");
-    const adapter = await import("../lib/pi-sdk/index.ts");
+    const adapter = await import("../packages/engine/lib/pi-sdk/index.ts");
     const resourceLoader = { agentDir: "/hana-home/runtime/pi-sdk/resource-loader/agent" };
 
     await adapter.createAgentSession({
@@ -89,7 +89,7 @@ describe("Pi SDK createAgentSession adapter", () => {
     const existingHook = vi.fn(async ({ isError }) => ({ isError }));
     const session = { agent: { afterToolCall: existingHook } };
     vi.mocked(sdk.createAgentSession).mockResolvedValueOnce({ session, modelFallbackMessage: null } as any);
-    const adapter = await import("../lib/pi-sdk/index.ts");
+    const adapter = await import("../packages/engine/lib/pi-sdk/index.ts");
 
     await adapter.createAgentSession({ cwd: "/tmp/project" });
     const result = {
@@ -113,7 +113,7 @@ describe("Pi SDK createAgentSession adapter", () => {
     const existingHook = vi.fn(async (..._args: any[]) => ({ isError: false, details: { recovered: true } }));
     const session = { agent: { afterToolCall: existingHook } };
     vi.mocked(sdk.createAgentSession).mockResolvedValueOnce({ session, modelFallbackMessage: null } as any);
-    const adapter = await import("../lib/pi-sdk/index.ts");
+    const adapter = await import("../packages/engine/lib/pi-sdk/index.ts");
 
     await adapter.createAgentSession({ cwd: "/tmp/project" });
     const patch = await session.agent.afterToolCall({

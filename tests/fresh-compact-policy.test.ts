@@ -4,7 +4,7 @@ import {
   buildFreshCompactSnapshot,
   getFreshCompactDate,
   shouldRunFreshCompact,
-} from "../lib/fresh-compact/policy.ts";
+} from "../packages/engine/lib/fresh-compact/policy.ts";
 
 describe("fresh compact policy", () => {
   it("uses the 4am logical day as the daily freshness bucket", () => {

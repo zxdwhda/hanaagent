@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TaskRegistry, ACTIVE_TASK_STATUSES } from "../../lib/task-registry.ts";
+import { TaskRegistry, ACTIVE_TASK_STATUSES } from "../../packages/engine/lib/task-registry.ts";
 
 describe("TaskRegistry.hasActiveForParentSession", () => {
   it("exports ACTIVE_TASK_STATUSES covering non-final states", () => {

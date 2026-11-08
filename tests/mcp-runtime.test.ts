@@ -11,9 +11,9 @@ import {
   normalizeMcpConfig,
   resolveMcpToolPermissionKind,
   toMcpToolId,
-} from "../core/mcp/manager.ts";
-import { McpHttpError } from "../core/mcp/clients/http-client.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+} from "../packages/engine/core/mcp/manager.ts";
+import { McpHttpError } from "../packages/engine/core/mcp/clients/http-client.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 /**
  * Build a manager with an in-memory config store. Production injects the

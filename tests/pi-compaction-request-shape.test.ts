@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import * as piSdk from "../lib/pi-sdk/index.ts";
+import * as piSdk from "../packages/engine/lib/pi-sdk/index.ts";
 
 function user(text: string, timestamp = 1) {
   return {

@@ -3,8 +3,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import YAML from "js-yaml";
-import { ProviderCatalogStore } from "../core/provider-catalog.ts";
-import { SEARCH_CAPABILITY_PROVIDERS } from "../shared/search-providers.ts";
+import { ProviderCatalogStore } from "../packages/engine/core/provider-catalog.ts";
+import { SEARCH_CAPABILITY_PROVIDERS } from "../packages/shared/search-providers.ts";
 
 let tmpDir: string;
 

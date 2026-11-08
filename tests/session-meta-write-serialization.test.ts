@@ -10,7 +10,7 @@ import fsp from "fs/promises";
 import path from "path";
 import os from "os";
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: vi.fn(),
   SessionManager: {
     create: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   },
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -30,8 +30,8 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
-import { SessionManager } from "../lib/pi-sdk/index.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
+import { SessionManager } from "../packages/engine/lib/pi-sdk/index.ts";
 
 function makeCoordinatorDeps( overrides: any = {}) {
   return {

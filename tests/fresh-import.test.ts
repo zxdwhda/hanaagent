@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { freshImport } from "../core/fresh-import.ts";
+import { freshImport } from "../packages/engine/core/fresh-import.ts";
 
 describe("freshImport", () => {
   let tmpDir;

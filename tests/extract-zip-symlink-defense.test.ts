@@ -4,7 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import archiver from "archiver";
 
-import { extractZip } from "../lib/extract-zip.ts";
+import { extractZip } from "../packages/engine/lib/extract-zip.ts";
 
 function buildZipWithSymlink(zipPath: any, { symlinkName, symlinkTarget, fileEntries = [] }: any) {
   return new Promise<void>((resolve, reject) => {
@@ -78,7 +78,7 @@ describe("lib/extract-zip", () => {
 
   it("keeps search tool zip downloads on the hardened wrapper", () => {
     const source = fs.readFileSync(
-      path.join(process.cwd(), "lib", "pi-sdk", "search-tools.ts"),
+      path.join(process.cwd(), "packages/engine/lib", "pi-sdk", "search-tools.ts"),
       "utf-8",
     );
 

@@ -1,6 +1,6 @@
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { createMaterializeTool } from "../lib/resource-io/materialize-tool.ts";
+import { createMaterializeTool } from "../packages/engine/lib/resource-io/materialize-tool.ts";
 
 // 相对 resource 会被解析成 cwd 下的绝对路径，而绝对路径的形态是平台相关的
 // （Windows 上 "/workspace" 会补上当前盘符）。用 path.resolve 构造 cwd 和期望值，

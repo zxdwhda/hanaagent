@@ -2,12 +2,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { HanaEngine } from "../core/engine.ts";
-import { SessionManifestResolver } from "../core/session-manifest/resolver.ts";
-import { LEGACY_SESSION_MANIFEST_MIGRATION_KEY } from "../core/session-manifest/startup-migration.ts";
-import { LEGACY_META_SCAN_LEDGER_KEY } from "../core/session-manifest/legacy-migration.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
+import { SessionManifestResolver } from "../packages/engine/core/session-manifest/resolver.ts";
+import { LEGACY_SESSION_MANIFEST_MIGRATION_KEY } from "../packages/engine/core/session-manifest/startup-migration.ts";
+import { LEGACY_META_SCAN_LEDGER_KEY } from "../packages/engine/core/session-manifest/legacy-migration.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
 
 describe("HanaEngine session manifest facade", () => {
   let tmpDir;

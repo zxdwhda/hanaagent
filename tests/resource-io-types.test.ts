@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizeResourceRef, resourceKeyForRef } from "../lib/resource-io/resource-refs.ts";
-import type { ResourceProvider, ResourceProviderCapability, ResourceProviderId } from "../lib/resource-io/types.ts";
+import { normalizeResourceRef, resourceKeyForRef } from "../packages/engine/lib/resource-io/resource-refs.ts";
+import type { ResourceProvider, ResourceProviderCapability, ResourceProviderId } from "../packages/engine/lib/resource-io/types.ts";
 
 describe("ResourceIO ResourceRef normalization", () => {
   it("normalizes path aliases to local-file refs", () => {

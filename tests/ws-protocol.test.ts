@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import * as wsProtocol from "../server/ws-protocol.ts";
+import * as wsProtocol from "../apps/server/ws-protocol.ts";
 
 type ProtocolHelper = (input: unknown) => unknown;
 

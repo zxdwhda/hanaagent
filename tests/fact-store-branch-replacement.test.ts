@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FactStore } from "../lib/memory/fact-store.ts";
+import { FactStore } from "../packages/engine/lib/memory/fact-store.ts";
 
 describe("FactStore.replaceBySession", () => {
   let tmpDir: string;

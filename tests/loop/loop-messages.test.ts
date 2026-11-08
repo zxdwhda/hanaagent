@@ -5,7 +5,7 @@ import {
   buildLoopKickoffMessage,
   buildLoopWakeupMessage,
   buildLoopNoticeMessage,
-} from "../../lib/loop/loop-messages.ts";
+} from "../../packages/engine/lib/loop/loop-messages.ts";
 
 const loop = {
   key: "sid-a",

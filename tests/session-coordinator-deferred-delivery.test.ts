@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 const MODEL = { id: "gpt-5.6-sol", provider: "openai-codex" };
 

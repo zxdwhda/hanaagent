@@ -40,7 +40,7 @@ describe("local user account store", () => {
   it("updates the default user profile without losing legacy fields", async () => {
     tmpDir = makeTmpDir();
     writeUsers(tmpDir);
-    const { updateLocalAccountProfile, getLocalAccountSummary } = await import("../core/local-user-account.ts");
+    const { updateLocalAccountProfile, getLocalAccountSummary } = await import("../packages/engine/core/local-user-account.ts");
 
     const profile = updateLocalAccountProfile(tmpDir, {
       username: "hana-owner",
@@ -76,7 +76,7 @@ describe("local user account store", () => {
       setLocalAccountPassword,
       verifyLocalAccountPassword,
       getLocalAccountSummary,
-    } = await import("../core/local-user-account.ts");
+    } = await import("../packages/engine/core/local-user-account.ts");
 
     setLocalAccountPassword(tmpDir, {
       password: "correct horse battery staple",

@@ -3,9 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveHanakoHome } from "../shared/hana-runtime-paths.ts";
-import { resolveCliHanaHome } from "../cli/local-server.ts";
-import { defaultDevHanaHome } from "../scripts/dev-env.js";
+import { resolveHanakoHome } from "../packages/shared/hana-runtime-paths.ts";
+import { resolveCliHanaHome } from "../apps/cli/local-server.ts";
+import { defaultDevHanaHome } from "../tooling/scripts/dev-env.js";
 
 const root = process.cwd();
 
@@ -29,7 +29,7 @@ describe("independent locally managed distribution", () => {
 
   it("blocks shared OTA checks, downloads and transports before network or filesystem work", () => {
     const result = runIsolated(`
-      const core = require('./shared/artifact-core/ota-core.cjs');
+      const core = require('./packages/shared/artifact-core/ota-core.cjs');
       let calls = 0;
       const fetchOnce = async () => { calls++; throw new Error('unexpected network'); };
       (async () => {
@@ -67,14 +67,14 @@ describe("independent locally managed distribution", () => {
       };
       global.setInterval=()=>{timers++;return {unref(){}}};
       (async()=>{
-        const shell = require('./desktop/auto-updater.cjs');
+        const shell = require('./apps/desktop/auto-updater.cjs');
         shell.initAutoUpdater(null,{hanakoHome:'/unused/home'});
         const automatic=await shell.checkForUpdatesAuto();
         const manual=await handlers['auto-update-check']();
         const invite=await handlers['invite:redeem'](null,'not-a-real-code');
         const activate=await handlers['invite:activate'](null,{feedUrl:'https://github.com/author/update'});
         const installed=await shell.installDownloadedUpdate();
-        const history = require('./desktop/src/shared/update-digest-history.cjs').createUpdateDigestHistoryLoader({fetchImpl:remote,normalize:x=>x,readBundledEntries:()=>[{version:'0.450.1'}]});
+        const history = require('./apps/desktop/src/shared/update-digest-history.cjs').createUpdateDigestHistoryLoader({fetchImpl:remote,normalize:x=>x,readBundledEntries:()=>[{version:'0.450.1'}]});
         const digest=await history();
         console.log(JSON.stringify({automatic,manual,invite,activate,installed,digest,remoteCalls,timers}));
       })().catch(e=>{console.error(e);process.exitCode=1;});

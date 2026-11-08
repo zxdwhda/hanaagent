@@ -6,7 +6,7 @@ import {
   renderFeishuCardKitCard,
   renderFeishuCardKitSettings,
   renderTelegramRichMessage,
-} from "../lib/bridge/bridge-presentation.ts";
+} from "../packages/engine/lib/bridge/bridge-presentation.ts";
 
 describe("bridge presentation renderers", () => {
   it("keeps rich markdown as the canonical bridge presentation", () => {

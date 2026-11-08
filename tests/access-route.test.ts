@@ -67,7 +67,7 @@ function localOwner() {
 }
 
 async function makeApp(root, runtimeState: any = {}) {
-  const { createAccessRoute } = await import("../server/routes/access.ts");
+  const { createAccessRoute } = await import("../apps/server/routes/access.ts");
   const app = new Hono();
   app.use("*", async (c, next) => {
     (c as any).set("authPrincipal", Object.freeze(localOwner()));

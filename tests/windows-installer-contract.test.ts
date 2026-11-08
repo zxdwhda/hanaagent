@@ -11,7 +11,7 @@ function extractMacro(source, name) {
 
 describe("Windows NSIS installer contract", () => {
   it("does not let stale old-uninstaller failures abort a HanaAgent-owned overlay", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "customUnInstallCheck");
 
     expect(macro).toContain("hanakoPrepareOwnedOverlay");
@@ -21,7 +21,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("bypasses the previous uninstaller in electron-updater mode", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const bypass = extractMacro(source, "hanakoBypassOldUninstallerForUpdate");
     const checkRunning = extractMacro(source, "customCheckAppRunning");
 
@@ -32,13 +32,13 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("cleans the retired scattered server tree left behind by pre-seed installs before overlaying new files", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
 
     expect(source).toContain('RMDir /r "$INSTDIR\\resources\\server"');
   });
 
   it("removes all versioned seed payloads before replacing the install surface", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "hanakoRemoveOwnedInstallTrees");
     const seedRemoval = 'RMDir /r "$INSTDIR\\resources\\seed"';
     const resourcesRemoval = 'RMDir "$INSTDIR\\resources"';
@@ -49,14 +49,14 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("removes legacy unpacked Electron app directories before overlaying new files", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "hanakoRemoveOwnedInstallTrees");
 
     expect(macro).toContain('RMDir /r "$INSTDIR\\resources\\app"');
   });
 
   it("cleans processes by install-directory ownership, not only fixed image names", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "hanakoStopInstallDirProcesses");
     const cleaner = extractMacro(source, "hanakoWriteInstallDirProcessCleaner");
 
@@ -68,7 +68,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("escapes PowerShell variables written through NSIS FileWrite", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const cleaner = extractMacro(source, "hanakoWriteInstallDirProcessCleaner");
     const fileWrites = cleaner
       .split("\n")
@@ -81,7 +81,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("does not classify the running installer as a stale app process via the /D argument", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const cleaner = extractMacro(source, "hanakoWriteInstallDirProcessCleaner");
     const finder = extractMacro(source, "hanakoWriteInstallDirProcessFinder");
 
@@ -93,7 +93,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("future uninstallers remove HanaAgent-owned install surfaces without atomic old-install staging", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "customRemoveFiles");
 
     expect(macro).toContain("hanakoRemoveOwnedInstallTrees");
@@ -103,7 +103,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("removes legacy Hanako-branded install entries without blind global shortcut deletion", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "hanakoRemoveOwnedInstallTrees");
     const overlay = extractMacro(source, "hanakoPrepareOwnedOverlay");
     const shortcutCleaner = extractMacro(source, "hanakoWriteLegacyShortcutCleaner");
@@ -125,7 +125,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("overrides app-running detection to close HanaAgent, legacy Hanako, and the bundled server explicitly", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "customCheckAppRunning");
 
     expect(macro).toContain("HanaAgent.exe");
@@ -157,7 +157,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("runs an install surface self-check and writes diagnostics before aborting", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const customInstall = extractMacro(source, "customInstall");
     const verify = extractMacro(source, "hanakoVerifyInstallSurface");
 
@@ -177,7 +177,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("resolves seed archive wildcards through FindFirst/FindClose without hardcoding a version", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const glob = extractMacro(source, "hanakoRequireInstallSurfaceGlob");
 
     expect(glob).toContain("FindFirst $R3 $R4");
@@ -186,7 +186,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("verifies the MinGit install surface without requiring the retired bundled bash", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const verify = extractMacro(source, "hanakoVerifyInstallSurface");
 
     // MinGit 不再打包 bash.exe；安装器与资源是同一个包的原子产物，自检要求 sh.exe 即可
@@ -195,7 +195,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("records installer phase timing without changing install success conditions", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const timing = extractMacro(source, "hanakoInstallTimingMark");
     const persist = extractMacro(source, "hanakoPersistInstallTiming");
     const customInit = extractMacro(source, "customInit");
@@ -224,7 +224,7 @@ describe("Windows NSIS installer contract", () => {
   });
 
   it("grants the restricted-app-packages sandbox ACE on the install directory during install", () => {
-    const source = fs.readFileSync(path.join(root, "build", "installer.nsh"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "tooling/build", "installer.nsh"), "utf-8");
     const macro = extractMacro(source, "hanakoGrantSandboxAce");
     const install = extractMacro(source, "customInstall");
 

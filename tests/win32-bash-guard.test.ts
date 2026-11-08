@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertSafeWin32BashCommand } from "../lib/sandbox/win32-bash-guard.ts";
+import { assertSafeWin32BashCommand } from "../packages/engine/lib/sandbox/win32-bash-guard.ts";
 
 describe("assertSafeWin32BashCommand", () => {
   it("rejects CMD nul redirection targets in bash syntax", () => {

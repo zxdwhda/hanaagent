@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { searchSessions } from "../lib/search/session-search.ts";
+import { searchSessions } from "../packages/engine/lib/search/session-search.ts";
 
 const baseSession = {
   firstMessage: "",

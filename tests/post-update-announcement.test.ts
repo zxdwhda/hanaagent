@@ -12,7 +12,7 @@ import {
   compareProductVersions,
   coerceDigestHistory,
   sliceDigestHistory,
-} from "../desktop/src/shared/post-update-announcement.cjs";
+} from "../apps/desktop/src/shared/post-update-announcement.cjs";
 
 describe("resolvePostUpdateAnnouncement", () => {
   it("dev 环境：不打扰也不写文件", () => {

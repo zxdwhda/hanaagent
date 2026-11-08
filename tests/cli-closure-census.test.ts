@@ -17,11 +17,11 @@ import {
   validateRuntimeAssets,
   writeCliRuntimeClosure,
   writeOpenBoundaryBaseline,
-} from "../scripts/compute-cli-closure.mjs";
+} from "../tooling/scripts/compute-cli-closure.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CLOSURE_PATH = path.join(ROOT, "build", "cli-runtime-closure.json");
-const BASELINE_PATH = path.join(ROOT, "build", "open-boundary-baseline.json");
+const CLOSURE_PATH = path.join(ROOT, "tooling/build", "cli-runtime-closure.json");
+const BASELINE_PATH = path.join(ROOT, "tooling/build", "open-boundary-baseline.json");
 
 function makeTempFile(contents: string, extension = ".ts") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-closure-fixture-"));
@@ -35,7 +35,7 @@ describe("compute-cli-closure: fail-closed validation", () => {
     await expect(
       traceSourceGraph({
         rootDir: REPOSITORY_ROOT,
-        root: { id: "missing-root", path: "cli/this-file-does-not-exist.ts", inputType: "source-graph", reason: "test" },
+        root: { id: "missing-root", path: "apps/cli/this-file-does-not-exist.ts", inputType: "source-graph", reason: "test" },
       }),
     ).rejects.toThrow(/does not exist on disk/);
   });
@@ -43,7 +43,7 @@ describe("compute-cli-closure: fail-closed validation", () => {
   it("throws when a declared runtime asset does not exist on disk", () => {
     expect(() => validateRuntimeAssets({
       rootDir: REPOSITORY_ROOT,
-      assets: [...RUNTIME_ASSETS, { path: "lib/this-asset-does-not-exist.json", kind: "file", reason: "test" }],
+      assets: [...RUNTIME_ASSETS, { path: "packages/engine/lib/this-asset-does-not-exist.json", kind: "file", reason: "test" }],
     })).toThrow(/declared runtime asset\(s\) do not exist/);
   });
 
@@ -210,33 +210,33 @@ describe("compute-cli-closure: fail-closed validation", () => {
 
 describe("compute-cli-closure: open/closed classification", () => {
   it("classifies confirmed closed-product routes", () => {
-    expect(classifyRepoPath("server/routes/desk.ts")).toMatchObject({ classification: "closed-product" });
-    expect(classifyRepoPath("server/routes/diary.ts")).toMatchObject({ classification: "closed-product" });
+    expect(classifyRepoPath("apps/server/routes/desk.ts")).toMatchObject({ classification: "closed-product" });
+    expect(classifyRepoPath("apps/server/routes/diary.ts")).toMatchObject({ classification: "closed-product" });
   });
 
   it("classifies closed-content (built-in plugins/skills)", () => {
-    expect(classifyRepoPath("plugins/beautify/index.ts")).toMatchObject({ classification: "closed-content" });
-    expect(classifyRepoPath("skills2set/whatever.md")).toMatchObject({ classification: "closed-content" });
+    expect(classifyRepoPath("extensions/plugins/beautify/index.ts")).toMatchObject({ classification: "closed-content" });
+    expect(classifyRepoPath("extensions/skills/whatever.md")).toMatchObject({ classification: "closed-content" });
   });
 
   it("classifies evidence-needed and provisional paths distinctly from closed-product/closed-content", () => {
-    expect(classifyRepoPath("server/routes/mobile-workbench.ts")).toMatchObject({ classification: "evidence-needed" });
-    expect(classifyRepoPath("desktop/src/shared/artifact-ota.cjs")).toMatchObject({ classification: "provisional" });
+    expect(classifyRepoPath("apps/server/routes/mobile-workbench.ts")).toMatchObject({ classification: "evidence-needed" });
+    expect(classifyRepoPath("apps/desktop/src/shared/artifact-ota.cjs")).toMatchObject({ classification: "provisional" });
   });
 
   it("treats the resolved theme-registry and suggestion-blocks rulings as redistributable", () => {
     // Resolved 2026-07-17: the theme registry manifest + lookup logic and
     // the automation suggestion wire-format builder carry no closed
     // product logic; both are listed in build/export-manifest.json.
-    expect(classifyRepoPath("desktop/src/shared/theme-registry.cjs")).toBeNull();
-    expect(classifyRepoPath("desktop/src/shared/theme-registry-data.json")).toBeNull();
-    expect(classifyRepoPath("server/suggestion-blocks.ts")).toBeNull();
+    expect(classifyRepoPath("apps/desktop/src/shared/theme-registry.cjs")).toBeNull();
+    expect(classifyRepoPath("apps/desktop/src/shared/theme-registry-data.json")).toBeNull();
+    expect(classifyRepoPath("apps/server/suggestion-blocks.ts")).toBeNull();
   });
 
   it("does not classify ordinary open source files", () => {
-    expect(classifyRepoPath("cli/entry.ts")).toBeNull();
-    expect(classifyRepoPath("core/engine.ts")).toBeNull();
-    expect(classifyRepoPath("server/index.ts")).toBeNull();
+    expect(classifyRepoPath("apps/cli/entry.ts")).toBeNull();
+    expect(classifyRepoPath("packages/engine/core/engine.ts")).toBeNull();
+    expect(classifyRepoPath("apps/server/index.ts")).toBeNull();
   });
 });
 

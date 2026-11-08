@@ -11,7 +11,7 @@ vi.mock("node:child_process", () => ({
 import {
   McpStdioClient,
   resolveMcpStdioSpawnSpec,
-} from "../core/mcp/clients/stdio-client.ts";
+} from "../packages/engine/core/mcp/clients/stdio-client.ts";
 
 class FakeProcess extends EventEmitter {
   declare exitCode: any;

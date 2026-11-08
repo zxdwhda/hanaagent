@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LocalFsProvider } from "../lib/resource-io/providers/local-fs-provider.ts";
-import { ResourceAccessPolicy } from "../lib/resource-io/resource-access-policy.ts";
+import { LocalFsProvider } from "../packages/engine/lib/resource-io/providers/local-fs-provider.ts";
+import { ResourceAccessPolicy } from "../packages/engine/lib/resource-io/resource-access-policy.ts";
 
 const CAPABILITY_KEYS = [
   "stat",

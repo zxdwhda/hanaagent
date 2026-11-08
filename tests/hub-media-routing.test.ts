@@ -4,11 +4,11 @@ const { submitDesktopSessionMessageMock } = vi.hoisted(() => ({
   submitDesktopSessionMessageMock: vi.fn(async () => ({ text: null, toolMedia: [] })),
 }));
 
-vi.mock("../core/desktop-session-submit.js", () => ({
+vi.mock("../packages/engine/core/desktop-session-submit.js", () => ({
   submitDesktopSessionMessage: submitDesktopSessionMessageMock,
 }));
 
-import { Hub } from "../hub/index.ts";
+import { Hub } from "../packages/engine/hub/index.ts";
 
 function createEngine(overrides = {}) {
   return {

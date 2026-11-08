@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { assertExecutionCwd, classifyExecutionCwd } from "../lib/shell/execution-cwd.ts";
+import { assertExecutionCwd, classifyExecutionCwd } from "../packages/engine/lib/shell/execution-cwd.ts";
 
 describe("classifyExecutionCwd", () => {
   let tmpDir: string;

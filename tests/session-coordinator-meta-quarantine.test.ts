@@ -8,7 +8,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: vi.fn(),
   emitSessionShutdown: vi.fn(),
   SessionManager: {
@@ -24,11 +24,11 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   refreshSessionModelFromRegistry: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 function minimalCoordinator() {
   return new SessionCoordinator({

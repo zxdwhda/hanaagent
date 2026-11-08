@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ComputerProviderRegistry } from "../core/computer-use/provider-registry.ts";
-import { createMockComputerProvider } from "../core/computer-use/providers/mock-provider.ts";
-import { COMPUTER_USE_ERRORS } from "../core/computer-use/errors.ts";
+import { ComputerProviderRegistry } from "../packages/engine/core/computer-use/provider-registry.ts";
+import { createMockComputerProvider } from "../packages/engine/core/computer-use/providers/mock-provider.ts";
+import { COMPUTER_USE_ERRORS } from "../packages/engine/core/computer-use/errors.ts";
 
 describe("ComputerProviderRegistry", () => {
   it("registers and retrieves providers by id", () => {

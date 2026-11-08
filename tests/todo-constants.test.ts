@@ -5,7 +5,7 @@
  * names and that "todo" (legacy) and "todo_write" (new) are both present.
  */
 import { describe, it, expect } from "vitest";
-import { TODO_TOOL_NAMES, TODO_WRITE_TOOL_NAME } from "../lib/tools/todo-constants.ts";
+import { TODO_TOOL_NAMES, TODO_WRITE_TOOL_NAME } from "../packages/engine/lib/tools/todo-constants.ts";
 
 describe("todo-constants", () => {
   it("exports TODO_TOOL_NAMES containing both legacy and new names", () => {

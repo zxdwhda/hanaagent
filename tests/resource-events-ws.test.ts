@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toResourceEventWsMessage } from "../server/resource-events-ws.ts";
+import { toResourceEventWsMessage } from "../apps/server/resource-events-ws.ts";
 
 describe("toResourceEventWsMessage", () => {
   it("forwards resource.changed events with their resource identity", () => {

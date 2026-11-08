@@ -7,7 +7,7 @@ import {
   submitDesktopSessionInterjection,
   submitDesktopSessionMessage,
   submitDesktopSessionMessageWithReceipt,
-} from "../core/desktop-session-submit.ts";
+} from "../packages/engine/core/desktop-session-submit.ts";
 import fs from "fs";
 import os from "os";
 import path from "path";

@@ -5,10 +5,10 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ExcelJS from "exceljs";
 
-import { execute as readDocument, parameters as readDocumentParameters } from "../plugins/office/tools/read-document.ts";
-import { execute as listCapabilities } from "../plugins/office/tools/list-capabilities.ts";
-import { renderHtmlToPdf } from "../plugins/office/lib/html-to-pdf.ts";
-import { isOfficeEnabledForAgentConfig } from "../plugins/office/lib/availability.ts";
+import { execute as readDocument, parameters as readDocumentParameters } from "../extensions/plugins/office/tools/read-document.ts";
+import { execute as listCapabilities } from "../extensions/plugins/office/tools/list-capabilities.ts";
+import { renderHtmlToPdf } from "../extensions/plugins/office/lib/html-to-pdf.ts";
+import { isOfficeEnabledForAgentConfig } from "../extensions/plugins/office/lib/availability.ts";
 
 function escapePdfText(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
@@ -160,7 +160,7 @@ describe("office plugin tools", () => {
   });
 
   it("declares ResourceIO materialize/read capabilities for Office document reads", () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), "plugins", "office", "manifest.json"), "utf-8"));
+    const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), "extensions/plugins", "office", "manifest.json"), "utf-8"));
 
     expect(manifest.capabilities).toEqual(expect.arrayContaining([
       "resource.read",

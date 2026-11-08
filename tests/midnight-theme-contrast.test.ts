@@ -30,7 +30,7 @@ function contrast(a, b) {
 
 describe('midnight theme contrast', () => {
   it('keeps small text and accent readable on dark surfaces', () => {
-    const css = fs.readFileSync(path.join(ROOT, 'desktop/src/themes/midnight.css'), 'utf8');
+    const css = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/themes/midnight.css'), 'utf8');
     const bg = readThemeToken(css, 'bg');
     const bgCard = readThemeToken(css, 'bg-card');
 
@@ -41,16 +41,16 @@ describe('midnight theme contrast', () => {
   });
 
   it('uses a dark text token for the light social-platform sidebar button', () => {
-    const styles = fs.readFileSync(path.join(ROOT, 'desktop/src/styles.css'), 'utf8');
-    const css = fs.readFileSync(path.join(ROOT, 'desktop/src/themes/midnight.css'), 'utf8');
+    const styles = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/styles.css'), 'utf8');
+    const css = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/themes/midnight.css'), 'utf8');
 
     expect(styles).toContain('color: var(--sidebar-bridge-card-text, var(--text-muted));');
     expect(contrast(readThemeToken(css, 'sidebar-bridge-card-text'), '#9DA6AC')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('adds a high-contrast dark variant with stronger readable colors', () => {
-    const styles = fs.readFileSync(path.join(ROOT, 'desktop/src/styles.css'), 'utf8');
-    const css = fs.readFileSync(path.join(ROOT, 'desktop/src/themes/midnight-contrast.css'), 'utf8');
+    const styles = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/styles.css'), 'utf8');
+    const css = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/themes/midnight-contrast.css'), 'utf8');
     const bg = readThemeToken(css, 'bg');
     const bgCard = readThemeToken(css, 'bg-card');
 
@@ -62,7 +62,7 @@ describe('midnight theme contrast', () => {
   });
 
   it('keeps dark theme cards aligned with their theme surfaces', () => {
-    const styles = fs.readFileSync(path.join(ROOT, 'desktop/src/react/settings/Settings.module.css'), 'utf8');
+    const styles = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/react/settings/Settings.module.css'), 'utf8');
 
     expect(styles).toContain('.theme-card[data-theme="midnight"]');
     expect(styles).toContain('background: #3B4A54;');

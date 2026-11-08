@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FactStore } from "../lib/memory/fact-store.ts";
-import { createMemorySearchTool } from "../lib/memory/memory-search.ts";
-import { applyConversationScopedMemorySearch } from "../lib/conversations/agent-phone-session.ts";
+import { FactStore } from "../packages/engine/lib/memory/fact-store.ts";
+import { createMemorySearchTool } from "../packages/engine/lib/memory/memory-search.ts";
+import { applyConversationScopedMemorySearch } from "../packages/engine/lib/conversations/agent-phone-session.ts";
 
 describe("search_memory 频道作用域（#1670 群聊记忆混淆）", () => {
   let tmpDir;

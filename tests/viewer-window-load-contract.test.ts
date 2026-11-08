@@ -16,8 +16,8 @@ import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
 
-const MAIN_PATH = path.join(process.cwd(), "desktop", "main.cjs");
-const PRELOAD_PATH = path.join(process.cwd(), "desktop", "preload.cjs");
+const MAIN_PATH = path.join(process.cwd(), "apps/desktop", "main.cjs");
+const PRELOAD_PATH = path.join(process.cwd(), "apps/desktop", "preload.cjs");
 
 function readSource(filePath: string): string {
   // Windows CI checks out with CRLF; contract tests match LF-shaped snippets.

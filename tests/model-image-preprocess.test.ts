@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   normalizeModelImageInput,
   prepareModelImageInputsForPrompt,
-} from "../core/model-image-preprocess.ts";
+} from "../packages/engine/core/model-image-preprocess.ts";
 
 const PNG_BASE64 = "iVBORw0KGgo=";
 const JPEG_BASE64 = "/9j/2wBD";

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createAutomationTool } from "../lib/tools/automation-tool.ts";
-import { buildBridgeContext } from "../lib/bridge/bridge-context.ts";
+import { createAutomationTool } from "../packages/engine/lib/tools/automation-tool.ts";
+import { buildBridgeContext } from "../packages/engine/lib/bridge/bridge-context.ts";
 
 const AGENT_SESSION_PATH = path.resolve("/sessions/agent-a.jsonl");
 const LEGACY_SESSION_PATH = path.resolve("/sessions/legacy.jsonl");

@@ -16,7 +16,7 @@ function between(text: string, start: string, end: string) {
 
 describe("fresh credential network boundaries", () => {
   it("uses the fresh utility resolver in both server text-generation bus handlers", () => {
-    const text = source("server/index.ts");
+    const text = source("apps/server/index.ts");
     const utilityHandler = between(
       text,
       'hub.eventBus.handle("utility:call-text"',
@@ -39,7 +39,7 @@ describe("fresh credential network boundaries", () => {
   });
 
   it("keeps the channel memory request behind the fresh utility boundary", () => {
-    const text = source("hub/channel-router.ts");
+    const text = source("packages/engine/hub/channel-router.ts");
     const handler = between(text, "async _memorySummarize", "_clearPreviousChannelMemoryFacts");
     expect(handler).toContain("await engine.resolveUtilityConfigFresh");
     expect(handler).not.toMatch(/engine\.resolveUtilityConfig\s*\(/);

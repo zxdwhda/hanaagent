@@ -15,7 +15,7 @@ const emitSessionShutdownMock = vi.fn(async (session) => {
   return false;
 });
 
-vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
+vi.mock("../packages/engine/lib/pi-sdk/index.js", async (importOriginal) => {
   const actual = await importOriginal() as any;
   return {
     ...actual,
@@ -29,10 +29,10 @@ vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
   };
 });
 
-import { runAgentSession, runAgentPhoneSession } from "../hub/agent-executor.ts";
-import { getAgentPhoneProjectionPath, readAgentPhoneProjection, updateAgentPhoneProjectionMeta } from "../lib/conversations/agent-phone-projection.ts";
-import { readAgentPhoneRuntime, updateAgentPhoneRuntime } from "../lib/conversations/agent-phone-runtime.ts";
-import { getAgentPhoneSessionDir } from "../lib/conversations/agent-phone-session.ts";
+import { runAgentSession, runAgentPhoneSession } from "../packages/engine/hub/agent-executor.ts";
+import { getAgentPhoneProjectionPath, readAgentPhoneProjection, updateAgentPhoneProjectionMeta } from "../packages/engine/lib/conversations/agent-phone-projection.ts";
+import { readAgentPhoneRuntime, updateAgentPhoneRuntime } from "../packages/engine/lib/conversations/agent-phone-runtime.ts";
+import { getAgentPhoneSessionDir } from "../packages/engine/lib/conversations/agent-phone-session.ts";
 
 let rootDir;
 

@@ -5,7 +5,7 @@ import {
   buildReviewedTurnPrompt,
   buildReviewerPrompt,
   buildSessionReferenceBlock,
-} from '../lib/agent-review/turn-coordinator.ts';
+} from '../packages/engine/lib/agent-review/turn-coordinator.ts';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

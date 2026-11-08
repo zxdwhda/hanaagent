@@ -11,7 +11,7 @@ import {
   removeSkillsFromBundles,
   reorderSkillBundles,
   updateSkillBundle,
-} from "../lib/skill-bundles/store.ts";
+} from "../packages/engine/lib/skill-bundles/store.ts";
 
 describe("skill bundle store", () => {
   let tempDir;

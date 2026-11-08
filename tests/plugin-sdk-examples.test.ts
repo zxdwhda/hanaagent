@@ -5,8 +5,8 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
-const exampleDir = path.join(root, "examples", "plugins", "sdk-showcase");
-const bundledSdkDir = path.join(root, "skills2set", "hana-plugin-creator", "assets", "sdk");
+const exampleDir = path.join(root, "extensions/examples", "plugins", "sdk-showcase");
+const bundledSdkDir = path.join(root, "extensions/skills", "hana-plugin-creator", "assets", "sdk");
 
 function readBundledSdkFile(tarballName: string, fileName: string) {
   return execFileSync("tar", [
@@ -18,7 +18,7 @@ function readBundledSdkFile(tarballName: string, fileName: string) {
 
 describe("plugin SDK examples and docs", () => {
   it("uses an absolute file URL for workspace SDK dependencies across Windows drives", () => {
-    const scriptPath = path.join(root, "skills2set", "hana-plugin-creator", "scripts", "create_hana_plugin.py");
+    const scriptPath = path.join(root, "extensions/skills", "hana-plugin-creator", "scripts", "create_hana_plugin.py");
     const result = execFileSync("python3", [
       "-c",
       [
@@ -59,7 +59,7 @@ describe("plugin SDK examples and docs", () => {
     const sdkGuide = fs.readFileSync(path.join(root, "docs/development/PLUGIN_SDK.md"), "utf-8");
     const zhGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS.md"), "utf-8");
     const enGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS_EN.md"), "utf-8");
-    const creatorSkill = fs.readFileSync(path.join(root, "skills2set", "hana-plugin-creator", "SKILL.md"), "utf-8");
+    const creatorSkill = fs.readFileSync(path.join(root, "extensions/skills", "hana-plugin-creator", "SKILL.md"), "utf-8");
 
     for (const doc of [sdkGuide, zhGuide, enGuide, creatorSkill]) {
       expect(doc).toContain("ctx.resources");
@@ -76,7 +76,7 @@ describe("plugin SDK examples and docs", () => {
     const sdkGuide = fs.readFileSync(path.join(root, "docs/development/PLUGIN_SDK.md"), "utf-8");
     const zhGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS.md"), "utf-8");
     const enGuide = fs.readFileSync(path.join(root, "docs/development/PLUGINS_EN.md"), "utf-8");
-    const creatorSkill = fs.readFileSync(path.join(root, "skills2set", "hana-plugin-creator", "SKILL.md"), "utf-8");
+    const creatorSkill = fs.readFileSync(path.join(root, "extensions/skills", "hana-plugin-creator", "SKILL.md"), "utf-8");
 
     for (const doc of [sdkGuide, zhGuide, enGuide, creatorSkill]) {
       expect(doc).toContain("sessionPermission");
@@ -170,7 +170,7 @@ describe("plugin SDK examples and docs", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-full-bundled-scaffold-"));
     try {
       execFileSync("python3", [
-        path.join(root, "skills2set", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
+        path.join(root, "extensions/skills", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
         "Runtime Resource Plugin",
         "--path",
         tmpDir,
@@ -202,7 +202,7 @@ describe("plugin SDK examples and docs", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-provider-scaffold-"));
     try {
       execFileSync("python3", [
-        path.join(root, "skills2set", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
+        path.join(root, "extensions/skills", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
         "Jimeng Provider",
         "--path",
         tmpDir,
@@ -243,7 +243,7 @@ describe("plugin SDK examples and docs", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-ui-scaffold-"));
     try {
       execFileSync("python3", [
-        path.join(root, "skills2set", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
+        path.join(root, "extensions/skills", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
         "SDK Panel",
         "--path",
         tmpDir,
@@ -276,7 +276,7 @@ describe("plugin SDK examples and docs", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-direct-ui-scaffold-"));
     try {
       execFileSync("python3", [
-        path.join(root, "skills2set", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
+        path.join(root, "extensions/skills", "hana-plugin-creator", "scripts", "create_hana_plugin.py"),
         "Direct API Panel",
         "--path",
         tmpDir,

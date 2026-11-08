@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DeferredResultCoordinator } from "../lib/deferred-result-coordinator.ts";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
+import { DeferredResultCoordinator } from "../packages/engine/lib/deferred-result-coordinator.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
 
 describe("DeferredResultCoordinator", () => {
   let store;

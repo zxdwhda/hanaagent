@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
-vi.mock("../core/llm-utils.js", () => ({
+vi.mock("../packages/engine/core/llm-utils.js", () => ({
   isToolCallBlock: (b) => (b.type === "tool_use" || b.type === "toolCall") && !!b.name,
   getToolArgs: (b) => b.input || b.arguments,
 }));
@@ -21,9 +21,9 @@ import {
   isActiveDesktopSessionPath,
   isArchivedDesktopSessionPath,
   isDesktopSessionPath,
-} from "../core/message-utils.ts";
-import { SessionManager } from "../lib/pi-sdk/index.ts";
-import { TURN_INPUT_CONSUMPTION_EVENT_TYPE } from "../lib/turn-input-presentation.ts";
+} from "../packages/engine/core/message-utils.ts";
+import { SessionManager } from "../packages/engine/lib/pi-sdk/index.ts";
+import { TURN_INPUT_CONSUMPTION_EVENT_TYPE } from "../packages/engine/lib/turn-input-presentation.ts";
 
 let tmpDir;
 

@@ -18,52 +18,52 @@
     "telegram",
     "personal-assistant"
   ],
-  "main": "desktop/bootstrap.cjs",
+  "main": "apps/desktop/bootstrap.cjs",
   "bin": {
-    "hana": "cli/entry.ts"
+    "hana": "apps/cli/entry.ts"
   },
   "engines": {
     "node": ">=24.12.0 <25"
   },
   "scripts": {
-    "start": "node scripts/ensure-windows-sandbox-helper.mjs && npm run build:preload && npm run build:renderer && npm run build:splash && npm run build:theme && node scripts/launch.js electron",
-    "start:dev": "node scripts/ensure-windows-sandbox-helper.mjs && npm run build:preload && npm run build:renderer && npm run build:splash && npm run build:theme && node scripts/launch.js electron-dev",
-    "start:vite": "node scripts/ensure-windows-sandbox-helper.mjs && npm run build:preload && node scripts/launch.js electron-vite",
-    "dev:web": "node scripts/dev-web.js",
-    "dev:renderer": "vite --config config/vite.config.ts",
-    "build:renderer": "vite build --config config/vite.config.ts",
-    "build:splash": "vite build --config config/vite.config.splash.ts",
-    "build:theme": "vite build --config config/vite.config.theme.js",
-    "build:preload": "vite build --config config/vite.config.preload.js",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p config/tsconfig.node.json && tsc --noEmit -p config/tsconfig.test.json",
-    "cli": "node scripts/launch.js cli",
-    "server": "node scripts/launch.js server",
-    "build:main": "vite build --config config/vite.config.main.js",
-    "build:computer-use-helper": "node scripts/build-computer-use-helper.mjs",
-    "build:windows-sandbox-helper": "node scripts/build-windows-sandbox-helper.mjs",
+    "start": "node tooling/scripts/ensure-windows-sandbox-helper.mjs && npm run build:preload && npm run build:renderer && npm run build:splash && npm run build:theme && node tooling/scripts/launch.js electron",
+    "start:dev": "node tooling/scripts/ensure-windows-sandbox-helper.mjs && npm run build:preload && npm run build:renderer && npm run build:splash && npm run build:theme && node tooling/scripts/launch.js electron-dev",
+    "start:vite": "node tooling/scripts/ensure-windows-sandbox-helper.mjs && npm run build:preload && node tooling/scripts/launch.js electron-vite",
+    "dev:web": "node tooling/scripts/dev-web.js",
+    "dev:renderer": "vite --config tooling/config/vite.config.ts",
+    "build:renderer": "vite build --config tooling/config/vite.config.ts",
+    "build:splash": "vite build --config tooling/config/vite.config.splash.ts",
+    "build:theme": "vite build --config tooling/config/vite.config.theme.js",
+    "build:preload": "vite build --config tooling/config/vite.config.preload.js",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tooling/config/tsconfig.node.json && tsc --noEmit -p tooling/config/tsconfig.test.json",
+    "cli": "node tooling/scripts/launch.js cli",
+    "server": "node tooling/scripts/launch.js server",
+    "build:main": "vite build --config tooling/config/vite.config.main.js",
+    "build:computer-use-helper": "node tooling/scripts/build-computer-use-helper.mjs",
+    "build:windows-sandbox-helper": "node tooling/scripts/build-windows-sandbox-helper.mjs",
     "build:client": "npm run build:main && npm run build:preload && npm run build:renderer && npm run build:splash && npm run build:theme",
-    "build:shell": "node scripts/build-shell.mjs",
+    "build:shell": "node tooling/scripts/build-shell.mjs",
     "build:packages": "npm run build --workspaces --if-present",
-    "generate:windows-icon": "node scripts/generate-windows-icon.cjs",
+    "generate:windows-icon": "node tooling/scripts/generate-windows-icon.cjs",
     "pack": "npm run build:computer-use-helper && npm run build:client && npm run build:server && npm run verify:seed-kit && electron-builder --dir",
-    "install:local": "node scripts/managed-release.mjs install --app dist/mac-arm64/hanaagent.app",
-    "managed:release": "node scripts/managed-release.mjs",
+    "install:local": "node tooling/scripts/managed-release.mjs install --app dist/mac-arm64/hanaagent.app",
+    "managed:release": "node tooling/scripts/managed-release.mjs",
     "dist": "npm run build:computer-use-helper && npm run build:client && npm run build:server && npm run verify:seed-kit && electron-builder --mac dmg",
     "dist:win": "npm run build:computer-use-helper && npm run build:windows-sandbox-helper && npm run generate:windows-icon && npm run build:client && npm run build:server && npm run verify:seed-kit && npm run pack:server:standalone && npm run verify:standalone:server && electron-builder --win nsis",
     "dist:linux": "npm run build:client && npm run build:server && npm run verify:seed-kit && electron-builder --linux AppImage deb",
-    "verify:seed-kit": "node scripts/verify-seed-kit.mjs",
-    "pack:server:standalone": "node scripts/build-standalone-server-artifact.mjs x64",
-    "verify:standalone:server": "node scripts/verify-standalone-server-artifact.mjs x64 --smoke",
-    "test": "vitest run --config config/vitest.config.js --exclude '**/.claude/**' --exclude '**/.cache/**' --exclude '**/dist/**' --exclude '**/dist-server/**' --exclude '**/dist-computer-use/**' --exclude '**/dist-sandbox/**'",
-    "build:server": "node scripts/build-server.mjs",
-    "build:server:open": "node scripts/build-server-open.mjs",
-    "smoke:server:open": "node scripts/smoke-open-server.mjs",
-    "export:open": "node scripts/export-open-tree.mjs",
-    "rehearse:open": "node scripts/rehearse-open-export.mjs",
-    "lint": "eslint --config config/eslint.config.js .",
-    "lint:boundary": "node scripts/lint-open-boundary.mjs",
-    "test:watch": "vitest --config config/vitest.config.js --exclude '**/.claude/**' --exclude '**/.cache/**' --exclude '**/dist/**' --exclude '**/dist-server/**' --exclude '**/dist-computer-use/**' --exclude '**/dist-sandbox/**'",
-    "postinstall": "node scripts/patch-pi-sdk.cjs"
+    "verify:seed-kit": "node tooling/scripts/verify-seed-kit.mjs",
+    "pack:server:standalone": "node tooling/scripts/build-standalone-server-artifact.mjs x64",
+    "verify:standalone:server": "node tooling/scripts/verify-standalone-server-artifact.mjs x64 --smoke",
+    "test": "vitest run --config tooling/config/vitest.config.js --exclude '**/.claude/**' --exclude '**/.cache/**' --exclude '**/dist/**' --exclude '**/dist-server/**' --exclude '**/dist-computer-use/**' --exclude '**/dist-sandbox/**'",
+    "build:server": "node tooling/scripts/build-server.mjs",
+    "build:server:open": "node tooling/scripts/build-server-open.mjs",
+    "smoke:server:open": "node tooling/scripts/smoke-open-server.mjs",
+    "export:open": "node tooling/scripts/export-open-tree.mjs",
+    "rehearse:open": "node tooling/scripts/rehearse-open-export.mjs",
+    "lint": "eslint --config tooling/config/eslint.config.js .",
+    "lint:boundary": "node tooling/scripts/lint-open-boundary.mjs",
+    "test:watch": "vitest --config tooling/config/vitest.config.js --exclude '**/.claude/**' --exclude '**/.cache/**' --exclude '**/dist/**' --exclude '**/dist-server/**' --exclude '**/dist-computer-use/**' --exclude '**/dist-sandbox/**'",
+    "postinstall": "node tooling/scripts/patch-pi-sdk.cjs"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",
@@ -143,27 +143,27 @@
     "productName": "hanaagent",
     "asar": true,
     "npmRebuild": false,
-    "afterPack": "./scripts/fix-modules.cjs",
+    "afterPack": "./tooling/scripts/fix-modules.cjs",
     "extraMetadata": {
-      "main": "desktop/bootstrap.cjs"
+      "main": "apps/desktop/bootstrap.cjs"
     },
     "files": [
-      "desktop/main.bundle.cjs",
-      "desktop/bootstrap.cjs",
-      "desktop/src/office-pdf-helper.cjs",
-      "desktop/src/office-pdf-fonts.cjs",
-      "desktop/src/shared/launch-integrity.cjs",
-      "desktop/src/shared/managed-launch-guard.cjs",
-      "desktop/src/shared/windows-system-ca.cjs",
-      "shared/hana-runtime-paths.cjs",
-      "desktop/preload.bundle.cjs",
-      "desktop/dist-splash/**",
-      "desktop/src/**/*.{html,icns,ico,png,svg,json}",
-      "desktop/src/assets/**",
+      "apps/desktop/main.bundle.cjs",
+      "apps/desktop/bootstrap.cjs",
+      "apps/desktop/src/office-pdf-helper.cjs",
+      "apps/desktop/src/office-pdf-fonts.cjs",
+      "apps/desktop/src/shared/launch-integrity.cjs",
+      "apps/desktop/src/shared/managed-launch-guard.cjs",
+      "apps/desktop/src/shared/windows-system-ca.cjs",
+      "packages/shared/hana-runtime-paths.cjs",
+      "apps/desktop/preload.bundle.cjs",
+      "apps/desktop/dist-splash/**",
+      "apps/desktop/src/**/*.{html,icns,ico,png,svg,json}",
+      "apps/desktop/src/assets/**",
       "package.json",
-      "build/releases/release-digest.v1.json",
-      "build/releases/release-digest.v2.json",
-      "!packages/**",
+      "tooling/build/releases/release-digest.v1.json",
+      "tooling/build/releases/release-digest.v2.json",
+      "!packages/plugin-*/**",
       "!**/node_modules/**",
       "node_modules/ws/**"
     ],
@@ -173,27 +173,27 @@
         "to": "seed/"
       },
       {
-        "from": "desktop/src/screenshot-themes/",
+        "from": "apps/desktop/src/screenshot-themes/",
         "to": "screenshot-themes/"
       },
       {
-        "from": "desktop/src/assets/",
+        "from": "apps/desktop/src/assets/",
         "to": "assets/"
       }
     ],
-    "afterSign": "./scripts/notarize.cjs",
+    "afterSign": "./tooling/scripts/notarize.cjs",
     "mac": {
       "target": [
         "dmg",
         "zip"
       ],
       "category": "public.app-category.productivity",
-      "icon": "desktop/src/icon.icns",
+      "icon": "apps/desktop/src/icon.icns",
       "artifactName": "${productName}-${version}-macOS-${arch}.${ext}",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "desktop/entitlements.mac.plist",
-      "entitlementsInherit": "desktop/entitlements.mac.plist",
+      "entitlements": "apps/desktop/entitlements.mac.plist",
+      "entitlementsInherit": "apps/desktop/entitlements.mac.plist",
       "extraResources": [
         {
           "from": "dist-computer-use/mac-${arch}/",
@@ -225,7 +225,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "desktop/src/icon.ico",
+      "icon": "apps/desktop/src/icon.ico",
       "executableName": "HanaAgent",
       "artifactName": "${productName}-${version}-Windows-${arch}.${ext}",
       "requestedExecutionLevel": "asInvoker",
@@ -244,9 +244,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": false,
       "shortcutName": "HanaAgent",
-      "include": "build/installer.nsh",
-      "installerIcon": "desktop/src/icon.ico",
-      "uninstallerIcon": "desktop/src/icon.ico"
+      "include": "tooling/build/installer.nsh",
+      "installerIcon": "apps/desktop/src/icon.ico",
+      "uninstallerIcon": "apps/desktop/src/icon.ico"
     },
     "linux": {
       "target": [
@@ -255,7 +255,7 @@
       ],
       "maintainer": "liliMozi <liliMozi@users.noreply.github.com>",
       "category": "Utility",
-      "icon": "desktop/src/icon.png",
+      "icon": "apps/desktop/src/icon.png",
       "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
     }
   },

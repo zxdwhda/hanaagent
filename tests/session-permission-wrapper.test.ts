@@ -1,8 +1,8 @@
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createApprovalGateway } from "../lib/approval-gateway.ts";
-import { createAutomationTool } from "../lib/tools/automation-tool.ts";
-import { wrapWithSessionPermission } from "../lib/tools/session-permission-wrapper.ts";
+import { createApprovalGateway } from "../packages/engine/lib/approval-gateway.ts";
+import { createAutomationTool } from "../packages/engine/lib/tools/automation-tool.ts";
+import { wrapWithSessionPermission } from "../packages/engine/lib/tools/session-permission-wrapper.ts";
 
 const SESSION_PATH = path.resolve("/tmp/session.jsonl");
 const DIRECT_SESSION_PATH = path.resolve("/tmp/direct-session.jsonl");

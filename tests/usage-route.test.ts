@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { createUsageRoute } from "../server/routes/usage.ts";
+import { createUsageRoute } from "../apps/server/routes/usage.ts";
 
 describe("usage route", () => {
   it("does not apply the latest-500 default cap to explicit date-window queries", async () => {

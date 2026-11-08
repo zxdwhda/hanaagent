@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { appendMessage, createChannel } from "../lib/channels/channel-store.ts";
-import { buildConversationMarkdownExport } from "../lib/channels/conversation-export.ts";
+import { appendMessage, createChannel } from "../packages/engine/lib/channels/channel-store.ts";
+import { buildConversationMarkdownExport } from "../packages/engine/lib/channels/conversation-export.ts";
 
 describe("current conversation Markdown export", () => {
   let root: string;

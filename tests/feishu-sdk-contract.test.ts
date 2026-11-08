@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Client, type HttpInstance } from "@larksuiteoapi/node-sdk";
-import { renderFeishuCardKitSettings } from "../lib/bridge/bridge-presentation.ts";
+import { renderFeishuCardKitSettings } from "../packages/engine/lib/bridge/bridge-presentation.ts";
 
 function createClientHarness() {
   const request = vi.fn(async () => ({ data: { card_id: "card_1" } }));

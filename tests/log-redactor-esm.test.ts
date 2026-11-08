@@ -5,7 +5,7 @@ import {
   redactLogValue,
   redactLogLabel,
   formatLogArgs,
-} from "../shared/log-redactor.ts";
+} from "../packages/shared/log-redactor.ts";
 
 describe("ESM log redaction", () => {
   it("exports the same browser-safe redaction helpers without CommonJS globals", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveSessionThinkingLevelState } from "../server/session-thinking-level-state.ts";
+import { resolveSessionThinkingLevelState } from "../apps/server/session-thinking-level-state.ts";
 
 describe("session thinking level state", () => {
   it("reads pending new-session drafts from the model default instead of the active session", () => {

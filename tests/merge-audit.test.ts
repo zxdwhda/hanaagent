@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-const AUDIT_SCRIPT = path.join(process.cwd(), "scripts", "merge-audit.mjs");
+const AUDIT_SCRIPT = path.join(process.cwd(), "tooling/scripts", "merge-audit.mjs");
 
 const tempDirs: string[] = [];
 

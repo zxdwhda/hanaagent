@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { evaluateToolSafetyPolicy } from "../lib/permission/safety-policy.ts";
+import { evaluateToolSafetyPolicy } from "../packages/engine/lib/permission/safety-policy.ts";
 
 function request(overrides = {}) {
   return {

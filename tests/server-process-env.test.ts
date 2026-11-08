@@ -7,7 +7,7 @@ const {
   buildWin32ServerEnv,
   normalizeWin32ProcessEnv,
   readWin32RegistryPathEntries,
-} = require("../desktop/src/shared/server-process-env.cjs");
+} = require("../apps/desktop/src/shared/server-process-env.cjs");
 
 describe("Windows server process environment", () => {
   it("canonicalizes duplicate PATH keys and keeps package runner lookup paths", () => {

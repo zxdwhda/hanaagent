@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { deriveSandboxPolicy } from "../lib/sandbox/policy.ts";
-import { AccessLevel, PathGuard } from "../lib/sandbox/path-guard.ts";
+import { deriveSandboxPolicy } from "../packages/engine/lib/sandbox/policy.ts";
+import { AccessLevel, PathGuard } from "../packages/engine/lib/sandbox/path-guard.ts";
 
 describe("sandbox workspace roots", () => {
   let tempRoot;

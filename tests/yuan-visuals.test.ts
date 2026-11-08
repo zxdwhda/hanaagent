@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getYuanVisual, moodLabelForYuan, normalizeYuan } from "../shared/yuan-visuals.ts";
+import { getYuanVisual, moodLabelForYuan, normalizeYuan } from "../packages/shared/yuan-visuals.ts";
 
 describe("yuan visuals", () => {
   it("keeps the desktop and CLI yuan symbolism in one place", () => {

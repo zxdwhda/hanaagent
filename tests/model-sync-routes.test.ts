@@ -10,7 +10,7 @@ const probeProvider = vi.fn();
 
 const saveConfig = vi.fn();
 
-vi.mock("../lib/memory/config-loader.js", () => ({
+vi.mock("../packages/engine/lib/memory/config-loader.js", () => ({
   clearConfigCache,
   saveConfig,
   getRawConfig: () => ({}),
@@ -27,11 +27,11 @@ function makeAgentDir(agentId: string, configYaml: string) {
   return dir;
 }
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText,
 }));
 
-vi.mock("../lib/llm/provider-client.js", async (importOriginal) => ({
+vi.mock("../packages/engine/lib/llm/provider-client.js", async (importOriginal) => ({
   ...(await importOriginal() as Record<string, unknown>),
   probeProvider,
 }));
@@ -73,7 +73,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider-only config updates trigger model registry sync", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const app = new Hono();
     const saveProvider = vi.fn();
     const reload = vi.fn();
@@ -121,7 +121,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider-only config updates return an error and emit no event when provider refresh fails", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const app = new Hono();
     const engine = {
       config: {},
@@ -158,7 +158,7 @@ describe("model sync related routes", () => {
   });
 
   it("shared model preference updates trigger model registry sync", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({})),
@@ -195,7 +195,7 @@ describe("model sync related routes", () => {
   });
 
   it("auxiliary vision toggle updates shared prefs without refreshing the model registry", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({ vision_enabled: false })),
@@ -232,7 +232,7 @@ describe("model sync related routes", () => {
   });
 
   it("shared model preference updates return an error and emit no event when model refresh fails", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({})),
@@ -268,7 +268,7 @@ describe("model sync related routes", () => {
   });
 
   it("shared model preference updates reject providerless refs before saving", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({})),
@@ -302,7 +302,7 @@ describe("model sync related routes", () => {
   });
 
   it("shared vision model preference updates are provider-aware and image-capable", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({ vision: null })),
@@ -345,7 +345,7 @@ describe("model sync related routes", () => {
   });
 
   it("shared vision model preference rejects text-only models", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({ vision: null })),
@@ -383,7 +383,7 @@ describe("model sync related routes", () => {
   });
 
   it("inline 凭证缺少显式 provider 时返回 400", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const agentDir = makeAgentDir("hana", "agent:\n  name: Hana\n");
     const engine = {
@@ -421,7 +421,7 @@ describe("model sync related routes", () => {
   });
 
   it("inline 空 api_key 也会同步到 provider 配置，用于真正清空凭证", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const saveProvider = vi.fn();
     const agentDir = makeAgentDir("hana", "agent:\n  name: Hana\napi:\n  provider: openai\n");
@@ -470,7 +470,7 @@ describe("model sync related routes", () => {
   });
 
   it("global locale config updates emit locale-changed after success", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const app = new Hono();
     const engine = {
       config: {},
@@ -499,7 +499,7 @@ describe("model sync related routes", () => {
   });
 
   it("model routes expose stable ids and readable display names", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const engine = {
       availableModels: [
@@ -558,7 +558,7 @@ describe("model sync related routes", () => {
   });
 
   it("auxiliary vision route exposes availability without settings secrets", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const engine = {
       availableModels: [],
@@ -602,7 +602,7 @@ describe("model sync related routes", () => {
   });
 
   it("auxiliary vision route reports text-only configured models as unavailable", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const engine = {
       availableModels: [],
@@ -634,7 +634,7 @@ describe("model sync related routes", () => {
   });
 
   it("model health accepts explicit model refs and uses the utility LLM path", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const resolved = {
       model: {
@@ -684,7 +684,7 @@ describe("model sync related routes", () => {
   });
 
   it("bills the model health probe to the global utility account, not the focused agent", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const resolved = {
       model: { id: "probe-model", provider: "deepseek" },
@@ -722,7 +722,7 @@ describe("model sync related routes", () => {
   });
 
   it("model health forwards resolved Grok OAuth provider and model headers to callText", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const resolved = {
       model: {
@@ -768,8 +768,8 @@ describe("model sync related routes", () => {
   });
 
   it("model health reports empty-after-thinking as a diagnostic failure", async () => {
-    const { AppError } = await import("../shared/errors.ts");
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { AppError } = await import("../packages/shared/errors.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const resolved = {
       model: {
@@ -812,7 +812,7 @@ describe("model sync related routes", () => {
   });
 
   it("classifies expected session model switch failures instead of returning a generic 500", async () => {
-    const { createModelsRoute } = await import("../server/routes/models.ts");
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();
     const engine = {
       availableModels: [],
@@ -871,7 +871,7 @@ describe("model sync related routes", () => {
   });
 
   it("oauth provider with empty baseUrl falls back to registry", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([
@@ -907,7 +907,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider model delete refreshes runtime models and notifies the app", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const removeModel = vi.fn();
     const engine = {
@@ -933,7 +933,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider model update refreshes runtime models and notifies the app", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const updateModelEntry = vi.fn();
     const engine = {
@@ -963,7 +963,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider model update returns a declared 400 validation error", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const validationError = Object.assign(new Error("Invalid thinkingLevelMap for model"), {
       statusCode: 400,
@@ -988,7 +988,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider connection test resolves fresh credentials before probing", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     probeProvider.mockResolvedValue({ ok: true });
     const resolveProviderCredentialsFresh = vi.fn(async () => ({
@@ -1032,7 +1032,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider connection test probes a configured model matching the active protocol", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     probeProvider.mockResolvedValue({ ok: true, status: 200 });
     const engine = {
@@ -1070,7 +1070,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider connection test treats explicit body headers as the only credentials", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     probeProvider.mockResolvedValue({ ok: true });
     const resolveProviderCredentialsFresh = vi.fn();
@@ -1110,7 +1110,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider connection test never probes after fresh credential resolution fails", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const engine = {
       resolveProviderCredentialsFresh: vi.fn(async () => { throw new Error("refresh failed"); }),
@@ -1133,7 +1133,7 @@ describe("model sync related routes", () => {
   });
 
   it("providers summary treats no-auth providers as credential-ready without api_key", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const allowsMissingApiKey = vi.fn(() => true);
     const engine = {
@@ -1183,7 +1183,7 @@ describe("model sync related routes", () => {
   });
 
   it("providers summary exposes invalid models config while runtime models stay disabled", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const engine = {
       providerRegistry: {
@@ -1225,8 +1225,8 @@ describe("model sync related routes", () => {
   });
 
   it("providers summary distinguishes configured providers from registry-only setup entries", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
-    const { ProviderRegistry } = await import("../core/provider-registry.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
+    const { ProviderRegistry } = await import("../packages/engine/core/provider-registry.ts");
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-provider-summary-"));
     try {
       fs.writeFileSync(path.join(tmpHome, "added-models.yaml"), [
@@ -1289,7 +1289,7 @@ describe("model sync related routes", () => {
   });
 
   it("oauth provider with empty registry falls back to defaults", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
@@ -1316,7 +1316,7 @@ describe("model sync related routes", () => {
   });
 
   it("legacy sdk-auth-alias discovery stays on the Pi runtime catalog without probing remotely", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -1360,7 +1360,7 @@ describe("model sync related routes", () => {
   });
 
   it("fetch-models resolves fresh saved credentials before a remote catalog request", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1416,7 +1416,7 @@ describe("model sync related routes", () => {
   });
 
   it("fetch-models treats explicit body headers as authoritative and never mixes saved secrets", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1465,7 +1465,7 @@ describe("model sync related routes", () => {
   });
 
   it("fetch-models never probes after fresh credential resolution fails", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -1494,7 +1494,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider with explicit api_key uses remote catalog", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1538,7 +1538,7 @@ describe("model sync related routes", () => {
   });
 
   it("marks discovered Ollama vision model families as image-capable", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1587,7 +1587,7 @@ describe("model sync related routes", () => {
   });
 
   it("provider fetch-models uses saved request headers as credentials", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1633,7 +1633,7 @@ describe("model sync related routes", () => {
   });
 
   it("fetch-models does not expose the official DeepSeek provider id as a model", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1676,7 +1676,7 @@ describe("model sync related routes", () => {
   });
 
   it("discovered-models filters cached official DeepSeek provider ids", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-test-model-cache-"));
     try {
       fs.writeFileSync(
@@ -1715,7 +1715,7 @@ describe("model sync related routes", () => {
   });
 
   it("api-key provider with saved credentials uses remote catalog", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1758,7 +1758,7 @@ describe("model sync related routes", () => {
   });
 
   it("codex oauth model discovery uses the local catalog and never probes ChatGPT backend /models", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -1801,7 +1801,7 @@ describe("model sync related routes", () => {
   });
 
   it("codex oauth discovery still exposes Hana defaults when the runtime allowlist is explicitly empty", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -1840,7 +1840,7 @@ describe("model sync related routes", () => {
   });
 
   it("remote 404 falls back to registry for ordinary remote catalogs", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" }));
 
@@ -1872,7 +1872,7 @@ describe("model sync related routes", () => {
   });
 
   it("remote 401 returns error without fallback", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, statusText: "Unauthorized" }));
 
@@ -1902,7 +1902,7 @@ describe("model sync related routes", () => {
   });
 
   it("defaults fallback uses authJsonKey when provider ID has no defaults", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
 
     const engine = withResolveCreds({
@@ -1933,7 +1933,7 @@ describe("model sync related routes", () => {
   });
 
   it("anthropic-messages hits /v1/models and normalizes Anthropic fields", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1986,7 +1986,7 @@ describe("model sync related routes", () => {
   });
 
   it("anthropic-messages model discovery does not duplicate /v1 in base URLs", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -2024,7 +2024,7 @@ describe("model sync related routes", () => {
   });
 
   it("google-generative-ai hits native Gemini /models with x-goog-api-key and normalizes fields", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -2082,7 +2082,7 @@ describe("model sync related routes", () => {
   });
 
   it("zhipu model discovery supplements incomplete remote catalogs with curated current GLM defaults", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -2128,7 +2128,7 @@ describe("model sync related routes", () => {
   });
 
   it("anthropic-messages falls back to defaults when remote 404s", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" }));
 
@@ -2157,7 +2157,7 @@ describe("model sync related routes", () => {
   });
 
   it("normalizes MiniMax CN v1 base URLs for Anthropic-compatible model discovery", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -2192,7 +2192,7 @@ describe("model sync related routes", () => {
   });
 
   it("normalizes MiniMax Token Plan v1 base URLs to the shared Anthropic endpoint", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -2227,7 +2227,7 @@ describe("model sync related routes", () => {
   });
 
   it("request body api_key overrides saved credentials", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

@@ -5,7 +5,7 @@ import {
   isRetryableNodeError,
   normalizeRunLimits,
   retryDelayMs,
-} from "../lib/workflow/run-limits.ts";
+} from "../packages/engine/lib/workflow/run-limits.ts";
 
 afterEach(() => vi.useRealTimers());
 

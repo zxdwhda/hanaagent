@@ -12,7 +12,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { OPTIONAL_TOOL_NAMES, DEFAULT_DISABLED_TOOL_NAMES } from "../shared/tool-categories.ts";
+import { OPTIONAL_TOOL_NAMES, DEFAULT_DISABLED_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -20,7 +20,7 @@ describe("OPTIONAL_TOOL_NAMES frontend/backend drift", () => {
   it("frontend copy in AgentToolsSection.tsx matches shared/tool-categories.js", () => {
     const tsxPath = resolve(
       __dirname,
-      "../desktop/src/react/settings/tabs/agent/AgentToolsSection.tsx"
+      "../apps/desktop/src/react/settings/tabs/agent/AgentToolsSection.tsx"
     );
     const src = readFileSync(tsxPath, "utf8");
 
@@ -53,7 +53,7 @@ describe("OPTIONAL_TOOL_NAMES frontend/backend drift", () => {
     // the same initial state the backend will compute.
     const tsxPath = resolve(
       __dirname,
-      "../desktop/src/react/settings/tabs/AgentTab.tsx"
+      "../apps/desktop/src/react/settings/tabs/AgentTab.tsx"
     );
     const src = readFileSync(tsxPath, "utf8");
 

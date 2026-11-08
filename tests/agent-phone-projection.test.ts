@@ -9,7 +9,7 @@ import {
   readAgentPhoneProjection,
   resetAgentPhoneProjection,
   updateAgentPhoneProjectionMeta,
-} from "../lib/conversations/agent-phone-projection.ts";
+} from "../packages/engine/lib/conversations/agent-phone-projection.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-agent-phone-test-"));

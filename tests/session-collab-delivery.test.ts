@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-vi.mock("../core/desktop-session-submit.ts", async (importOriginal) => {
+vi.mock("../packages/engine/core/desktop-session-submit.ts", async (importOriginal) => {
   const mod: any = await importOriginal();
   return {
     ...mod,
@@ -7,8 +7,8 @@ vi.mock("../core/desktop-session-submit.ts", async (importOriginal) => {
     submitDesktopSessionInterjection: vi.fn(),
   };
 });
-import { submitDesktopSessionMessageWithReceipt, submitDesktopSessionInterjection } from "../core/desktop-session-submit.ts";
-import { deliverAgentMessage, AGENT_MESSAGE_SOURCE } from "../lib/session-collab/delivery.ts";
+import { submitDesktopSessionMessageWithReceipt, submitDesktopSessionInterjection } from "../packages/engine/core/desktop-session-submit.ts";
+import { deliverAgentMessage, AGENT_MESSAGE_SOURCE } from "../packages/engine/lib/session-collab/delivery.ts";
 
 const FROM = { agentId: "hana", agentName: "Hana" };
 function makeEngine(streaming = false) {

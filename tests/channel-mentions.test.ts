@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractMentionedAgentIds } from "../lib/channels/channel-mentions.ts";
+import { extractMentionedAgentIds } from "../packages/engine/lib/channels/channel-mentions.ts";
 
 describe("channel mention extraction", () => {
   it("resolves multi-word display names without also matching a shorter prefix alias", () => {

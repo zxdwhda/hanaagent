@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCompactTranscript } from "../lib/session-collab/transcript.ts";
+import { buildCompactTranscript } from "../packages/engine/lib/session-collab/transcript.ts";
 
 const META = { sessionId: "s-1", title: "测试会话", agentId: "hana", agentName: "Hana", isStreaming: false };
 

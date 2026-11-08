@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { upsertStudioMount } from "../core/studio-mounts.ts";
+import { upsertStudioMount } from "../packages/engine/core/studio-mounts.ts";
 
 const extractZipMock = vi.fn(async (zipPath, destDir) => {
   const skillDir = path.join(destDir, "sample-skill");
@@ -13,7 +13,7 @@ const extractZipMock = vi.fn(async (zipPath, destDir) => {
   fs.writeFileSync(path.join(skillDir, "references", "guide.md"), "# Guide\n", "utf-8");
 });
 
-vi.mock("../lib/extract-zip.js", () => ({
+vi.mock("../packages/engine/lib/extract-zip.js", () => ({
   extractZip: extractZipMock,
 }));
 
@@ -48,7 +48,7 @@ describe("desk route", () => {
         })),
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -90,7 +90,7 @@ describe("desk route", () => {
         })),
         syncWorkspaceSkillPaths: vi.fn(async () => {}),
       };
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -129,7 +129,7 @@ describe("desk route", () => {
         syncWorkspaceSkillPaths,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -178,7 +178,7 @@ describe("desk route", () => {
         syncWorkspaceSkillPaths,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -226,7 +226,7 @@ describe("desk route", () => {
         syncWorkspaceSkillPaths,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -283,7 +283,7 @@ describe("desk route", () => {
         isApprovedWorkspaceDir: vi.fn((dir) => dir === cwd || dir === extra),
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -316,7 +316,7 @@ describe("desk route", () => {
         getHomeCwd: vi.fn((agentId) => (agentId === "mio" ? selectedHome : currentHome)),
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -350,7 +350,7 @@ describe("desk route", () => {
         isApprovedWorkspaceDir: vi.fn(() => false),
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -401,7 +401,7 @@ describe("desk route", () => {
         getActivityStore: () => activityStore,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -437,7 +437,7 @@ describe("desk route", () => {
   });
 
   it("returns a route error when heartbeat is unavailable", async () => {
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute({
       listAgents: () => [],
@@ -474,7 +474,7 @@ describe("desk route", () => {
         homeCwd: cwd,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -514,7 +514,7 @@ describe("desk route", () => {
         homeCwd: cwd,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -557,7 +557,7 @@ describe("desk route", () => {
         homeCwd: cwd,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.use("*", async (c, next) => {
         (c as any).set("authPrincipal", Object.freeze({
@@ -632,7 +632,7 @@ describe("desk route", () => {
         homeCwd: cwd,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.route("/api", createDeskRoute(engine, null));
 
@@ -669,7 +669,7 @@ describe("desk route", () => {
         homeCwd: cwd,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.use("*", async (c, next) => {
         (c as any).set("authPrincipal", Object.freeze({
@@ -714,7 +714,7 @@ describe("desk route", () => {
         homeCwd: cwd,
       };
 
-      const { createDeskRoute } = await import("../server/routes/desk.ts");
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
       const app = new Hono();
       app.use("*", async (c, next) => {
         (c as any).set("authPrincipal", Object.freeze({

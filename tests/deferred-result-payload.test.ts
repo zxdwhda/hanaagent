@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeDeferredResolveResult } from "../lib/deferred-result-payload.ts";
+import { normalizeDeferredResolveResult } from "../packages/engine/lib/deferred-result-payload.ts";
 
 describe("normalizeDeferredResolveResult", () => {
   it("preserves sessionFiles when a deferred media task resolves with files", () => {

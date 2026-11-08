@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import policy from "../desktop/src/shared/desktop-notification-policy.cjs";
+import policy from "../apps/desktop/src/shared/desktop-notification-policy.cjs";
 
 const {
   normalizeDesktopNotificationOptions,

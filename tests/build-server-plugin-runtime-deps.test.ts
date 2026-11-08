@@ -9,8 +9,8 @@ import {
   collectBundledPluginPackageDependencies,
   collectBundledPluginRuntimeDependencies,
   copyBundledPluginRuntimeDependencies,
-} from "../scripts/build-server-plugin-runtime-deps.mjs";
-import { pruneServerNodeModulesViaNft } from "../scripts/build-server-phases.mjs";
+} from "../tooling/scripts/build-server-plugin-runtime-deps.mjs";
+import { pruneServerNodeModulesViaNft } from "../tooling/scripts/build-server-phases.mjs";
 
 describe("bundled plugin runtime dependencies", () => {
   let tempDir;
@@ -22,46 +22,46 @@ describe("bundled plugin runtime dependencies", () => {
     rootDir = path.join(tempDir, "root");
     outDir = path.join(tempDir, "dist-server", "mac-arm64");
 
-    fs.mkdirSync(path.join(rootDir, "plugins", "bridge-plugin", "lib"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "bridge-plugin", "lib"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "bridge-plugin", "index.js"),
+      path.join(rootDir, "extensions/plugins", "bridge-plugin", "index.js"),
       'import { loadRuntime } from "./lib/runtime.js";\nexport default loadRuntime;\n',
       "utf-8",
     );
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "bridge-plugin", "lib", "runtime.js"),
-      'import { createSettingsUpdate } from "../../../lib/tools/settings-update-result.ts";\nexport function loadRuntime() { return createSettingsUpdate; }\n',
+      path.join(rootDir, "extensions/plugins", "bridge-plugin", "lib", "runtime.js"),
+      'import { createSettingsUpdate } from "../../../../packages/engine/lib/tools/settings-update-result.ts";\nexport function loadRuntime() { return createSettingsUpdate; }\n',
       "utf-8",
     );
 
-    fs.mkdirSync(path.join(rootDir, "plugins", "sample-plugin", "lib"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "sample-plugin", "lib"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "sample-plugin", "lib", "local-cli-wrapper.js"),
-      'import { buildCliArgs } from "../../../core/media-runtime-contract.ts";\nexport { buildCliArgs };\n',
+      path.join(rootDir, "extensions/plugins", "sample-plugin", "lib", "local-cli-wrapper.js"),
+      'import { buildCliArgs } from "../../../../packages/engine/core/media-runtime-contract.ts";\nexport { buildCliArgs };\n',
       "utf-8",
     );
-    fs.mkdirSync(path.join(rootDir, "plugins", "sample-plugin", "tests"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "sample-plugin", "tests"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "sample-plugin", "tests", "fixture.test.js"),
-      'import "../../../server/test-only.js";\n',
+      path.join(rootDir, "extensions/plugins", "sample-plugin", "tests", "fixture.test.js"),
+      'import "../../../../apps/server/test-only.js";\n',
       "utf-8",
     );
 
-    fs.mkdirSync(path.join(rootDir, "lib", "tools"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "packages/engine/lib", "tools"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "lib", "tools", "settings-update-result.ts"),
-      'import { redactLogText } from "../../shared/log-redactor.ts";\nexport function createSettingsUpdate(value?) { return redactLogText(value || "ok"); }\n',
+      path.join(rootDir, "packages/engine/lib", "tools", "settings-update-result.ts"),
+      'import { redactLogText } from "../../../shared/log-redactor.ts";\nexport function createSettingsUpdate(value?) { return redactLogText(value || "ok"); }\n',
       "utf-8",
     );
-    fs.mkdirSync(path.join(rootDir, "shared"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "packages/shared"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "shared", "log-redactor.ts"),
+      path.join(rootDir, "packages/shared", "log-redactor.ts"),
       "export function redactLogText(value) { return value; }\n",
       "utf-8",
     );
-    fs.mkdirSync(path.join(rootDir, "core"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "packages/engine/core"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "core", "media-runtime-contract.ts"),
+      path.join(rootDir, "packages/engine/core", "media-runtime-contract.ts"),
       "export function buildCliArgs() { return []; }\n",
       "utf-8",
     );
@@ -75,41 +75,41 @@ describe("bundled plugin runtime dependencies", () => {
     const deps = await collectBundledPluginRuntimeDependencies({ rootDir });
 
     expect(deps).toEqual([
-      path.join("core", "media-runtime-contract.ts"),
-      path.join("lib", "tools", "settings-update-result.ts"),
-      path.join("shared", "log-redactor.ts"),
+      path.join("packages/engine/core", "media-runtime-contract.ts"),
+      path.join("packages/engine/lib", "tools", "settings-update-result.ts"),
+      path.join("packages/shared", "log-redactor.ts"),
     ]);
 
     const copied = await copyBundledPluginRuntimeDependencies({ rootDir, outDir });
 
     expect(copied).toEqual(deps);
-    expect(fs.readFileSync(path.join(outDir, "lib", "tools", "settings-update-result.ts"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "packages/engine/lib", "tools", "settings-update-result.ts"), "utf-8"))
       .toContain("createSettingsUpdate");
-    expect(fs.readFileSync(path.join(outDir, "core", "media-runtime-contract.ts"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "packages/engine/core", "media-runtime-contract.ts"), "utf-8"))
       .toContain("buildCliArgs");
-    expect(fs.readFileSync(path.join(outDir, "shared", "log-redactor.ts"), "utf-8"))
+    expect(fs.readFileSync(path.join(outDir, "packages/shared", "log-redactor.ts"), "utf-8"))
       .toContain("redactLogText");
-    expect(fs.existsSync(path.join(outDir, "plugins", "bridge-plugin", "index.js"))).toBe(false);
+    expect(fs.existsSync(path.join(outDir, "extensions/plugins", "bridge-plugin", "index.js"))).toBe(false);
   });
 
   it("includes host modules used by the bundled media generation plugin", async () => {
     const deps = await collectBundledPluginRuntimeDependencies({ rootDir: path.resolve(".") });
 
     expect(deps).toEqual(expect.arrayContaining([
-      path.join("core", "media", "media-parameters.ts"),
-      path.join("lib", "i18n.ts"),
+      path.join("packages/engine/core", "media", "media-parameters.ts"),
+      path.join("packages/engine/lib", "i18n.ts"),
     ]));
   });
 
   it("collects npm packages imported by bundled plugin source for packaged server installs", async () => {
-    fs.mkdirSync(path.join(rootDir, "plugins", "beautify", "lib"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "beautify", "lib"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "beautify", "index.js"),
+      path.join(rootDir, "extensions/plugins", "beautify", "index.js"),
       'import "./lib/markdown-cover-service.js";\nexport default class Beautify {}\n',
       "utf-8",
     );
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "beautify", "lib", "markdown-cover-service.js"),
+      path.join(rootDir, "extensions/plugins", "beautify", "lib", "markdown-cover-service.js"),
       'import YAML from "js-yaml";\nexport function parse(value) { return YAML.load(value); }\n',
       "utf-8",
     );
@@ -130,15 +130,15 @@ describe("bundled plugin runtime dependencies", () => {
   });
 
   it("collects the Office PDF reader package import for packaged server installs", async () => {
-    fs.mkdirSync(path.join(rootDir, "plugins", "office", "lib"), { recursive: true });
-    fs.mkdirSync(path.join(rootDir, "plugins", "office", "tools"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "office", "lib"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "office", "tools"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "office", "tools", "read-document.ts"),
+      path.join(rootDir, "extensions/plugins", "office", "tools", "read-document.ts"),
       'import { readPdfDocument } from "../lib/read-pdf.ts";\nexport const read = readPdfDocument;\n',
       "utf-8",
     );
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "office", "lib", "read-pdf.ts"),
+      path.join(rootDir, "extensions/plugins", "office", "lib", "read-pdf.ts"),
       'export async function readPdfDocument() { const { getDocumentProxy } = await import("unpdf"); return getDocumentProxy; }\n',
       "utf-8",
     );
@@ -159,14 +159,14 @@ describe("bundled plugin runtime dependencies", () => {
   });
 
   it("collects npm packages imported by host modules reached from bundled plugins", async () => {
-    fs.mkdirSync(path.join(rootDir, "lib", "i18n"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "packages/engine/lib", "i18n"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "bridge-plugin", "index.js"),
-      'import { t } from "../../lib/i18n/index.ts";\nexport default t;\n',
+      path.join(rootDir, "extensions/plugins", "bridge-plugin", "index.js"),
+      'import { t } from "../../../packages/engine/lib/i18n/index.ts";\nexport default t;\n',
       "utf-8",
     );
     fs.writeFileSync(
-      path.join(rootDir, "lib", "i18n", "index.ts"),
+      path.join(rootDir, "packages/engine/lib", "i18n", "index.ts"),
       'import YAML from "js-yaml";\nexport function t(value?) { return YAML.dump({ value }); }\n',
       "utf-8",
     );
@@ -191,21 +191,21 @@ describe("bundled plugin runtime dependencies", () => {
     fs.writeFileSync(path.join(outDir, "bundle", "index.js"), "export {};\n", "utf-8");
     fs.writeFileSync(path.join(outDir, "package.json"), JSON.stringify({ type: "module" }), "utf-8");
 
-    fs.mkdirSync(path.join(outDir, "plugins", "markdown", "tools"), { recursive: true });
+    fs.mkdirSync(path.join(outDir, "extensions/plugins", "markdown", "tools"), { recursive: true });
     fs.writeFileSync(
-      path.join(outDir, "plugins", "markdown", "tools", "validate.ts"),
+      path.join(outDir, "extensions/plugins", "markdown", "tools", "validate.ts"),
       [
         'import MarkdownIt from "markdown-it";',
-        'import { expectedHeading } from "../../../lib/markdown-runtime.mjs";',
+        'import { expectedHeading } from "../../../../packages/engine/lib/markdown-runtime.mjs";',
         "const source: string = '# packaged';",
         "const rendered = new MarkdownIt().render(source);",
         "if (rendered !== expectedHeading) throw new Error(`unexpected render: ${rendered}`);",
       ].join("\n"),
       "utf-8",
     );
-    fs.mkdirSync(path.join(outDir, "lib"), { recursive: true });
+    fs.mkdirSync(path.join(outDir, "packages/engine/lib"), { recursive: true });
     fs.writeFileSync(
-      path.join(outDir, "lib", "markdown-runtime.mjs"),
+      path.join(outDir, "packages/engine/lib", "markdown-runtime.mjs"),
       "export const expectedHeading = '<h1>/packaged#packed</h1>';\n",
       "utf-8",
     );
@@ -244,8 +244,8 @@ describe("bundled plugin runtime dependencies", () => {
 
     const pluginRoots = await collectBundledPluginNftRoots({ rootDir: outDir });
     expect(pluginRoots).toEqual([
-      "lib/markdown-runtime.mjs",
-      "plugins/markdown/tools/validate.ts",
+      "extensions/plugins/markdown/tools/validate.ts",
+      "packages/engine/lib/markdown-runtime.mjs",
     ]);
 
     await pruneServerNodeModulesViaNft({
@@ -259,19 +259,19 @@ describe("bundled plugin runtime dependencies", () => {
     for (const transitive of ["mdurl", "linkify-it", "uc.micro"]) {
       expect(fs.existsSync(path.join(outDir, "node_modules", transitive, "index.js"))).toBe(true);
     }
-    expect(() => execFileSync(process.execPath, ["plugins/markdown/tools/validate.ts"], { cwd: outDir }))
+    expect(() => execFileSync(process.execPath, ["extensions/plugins/markdown/tools/validate.ts"], { cwd: outDir }))
       .not.toThrow();
   });
 
   it("rejects plugin imports into host paths that are not explicit runtime surfaces", async () => {
-    fs.mkdirSync(path.join(rootDir, "plugins", "bad"), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, "extensions/plugins", "bad"), { recursive: true });
     fs.writeFileSync(
-      path.join(rootDir, "plugins", "bad", "index.js"),
-      'import "../../server/private.ts";\n',
+      path.join(rootDir, "extensions/plugins", "bad", "index.js"),
+      'import "../../../apps/server/private.ts";\n',
       "utf-8",
     );
-    fs.mkdirSync(path.join(rootDir, "server"), { recursive: true });
-    fs.writeFileSync(path.join(rootDir, "server", "private.ts"), "export {};\n", "utf-8");
+    fs.mkdirSync(path.join(rootDir, "apps/server"), { recursive: true });
+    fs.writeFileSync(path.join(rootDir, "apps/server", "private.ts"), "export {};\n", "utf-8");
 
     await expect(collectBundledPluginRuntimeDependencies({ rootDir }))
       .rejects.toThrow(/server[/\\]private\.ts/);

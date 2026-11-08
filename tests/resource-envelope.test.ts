@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("ResourceEnvelope", () => {
   it("derives a path-free file resource envelope from a SessionFile", async () => {
-    const { createSessionFileResourceEnvelope } = await import("../lib/resources/resource-envelope.ts");
+    const { createSessionFileResourceEnvelope } = await import("../packages/engine/lib/resources/resource-envelope.ts");
 
     const resource = createSessionFileResourceEnvelope({
       id: "sf_abc123",
@@ -65,7 +65,7 @@ describe("ResourceEnvelope", () => {
   });
 
   it("omits content links for directory resources", async () => {
-    const { createSessionFileResourceEnvelope } = await import("../lib/resources/resource-envelope.ts");
+    const { createSessionFileResourceEnvelope } = await import("../packages/engine/lib/resources/resource-envelope.ts");
 
     const resource = createSessionFileResourceEnvelope({
       id: "sf_dir",
@@ -84,7 +84,7 @@ describe("ResourceEnvelope", () => {
   });
 
   it("returns null when the SessionFile has no stable file id", async () => {
-    const { createSessionFileResourceEnvelope } = await import("../lib/resources/resource-envelope.ts");
+    const { createSessionFileResourceEnvelope } = await import("../packages/engine/lib/resources/resource-envelope.ts");
 
     expect(createSessionFileResourceEnvelope({
       filePath: "/tmp/no-id.txt",

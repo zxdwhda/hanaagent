@@ -6,7 +6,7 @@ import {
   resolveAgentWorkspaceOutputDirs,
   resolveWorkspaceOutputDir,
   sanitizeWorkspaceOutputSegment,
-} from "../shared/workspace-output.ts";
+} from "../packages/shared/workspace-output.ts";
 
 describe("workspace output directory contract", () => {
   it("places i18n output folders under a single OH-Works root", () => {

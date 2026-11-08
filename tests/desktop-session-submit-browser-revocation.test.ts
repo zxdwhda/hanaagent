@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // 该 session 收到下一条用户消息时必须解除这个拒绝标记——本文件锁定这个契约。
 const browserMock = vi.hoisted(() => ({ clearRevocation: vi.fn() }));
 
-vi.mock("../lib/browser/browser-manager.ts", () => ({
+vi.mock("../packages/engine/lib/browser/browser-manager.ts", () => ({
   BrowserManager: {
     instance: () => ({ clearBrowserAuthorizationRevocation: browserMock.clearRevocation }),
   },
@@ -13,7 +13,7 @@ vi.mock("../lib/browser/browser-manager.ts", () => ({
 import {
   submitDesktopSessionInterjection,
   submitDesktopSessionMessage,
-} from "../core/desktop-session-submit.ts";
+} from "../packages/engine/core/desktop-session-submit.ts";
 
 const SESSION_PATH = "/tmp/desk-revocation.jsonl";
 

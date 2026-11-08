@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { createSpeechRecognitionRoute } from "../server/routes/speech-recognition.ts";
+import { createSpeechRecognitionRoute } from "../apps/server/routes/speech-recognition.ts";
 
 describe("speech recognition route", () => {
   it("returns runnable providers and persisted config from the speech service", async () => {

@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { materializeBridgeInboundFiles } from "../lib/session-files/bridge-inbound-files.ts";
+import { materializeBridgeInboundFiles } from "../packages/engine/lib/session-files/bridge-inbound-files.ts";
 
 describe("materializeBridgeInboundFiles", () => {
   let tmpDir = null;

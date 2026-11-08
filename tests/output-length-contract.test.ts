@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { callTextWithLengthContract } from "../core/output-length-contract.ts";
+import { callTextWithLengthContract } from "../packages/engine/core/output-length-contract.ts";
 
 describe("output length contract", () => {
   it("repairs overlong text with the same request config and no output cap", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCommandRunner } from "../lib/shell/command-runner.ts";
-import { resolveWin32DefaultPowerShellExecutable } from "../lib/shell/shell-utils.ts";
+import { createCommandRunner } from "../packages/engine/lib/shell/command-runner.ts";
+import { resolveWin32DefaultPowerShellExecutable } from "../packages/engine/lib/shell/shell-utils.ts";
 
 describe("createCommandRunner", () => {
   it("invokes the POSIX shell profile with executable and argv", async () => {

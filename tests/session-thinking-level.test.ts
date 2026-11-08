@@ -8,7 +8,7 @@ import {
   normalizePiSdkThinkingLevel,
   normalizeThinkingLevelForModel,
   resolveModelDefaultThinkingLevel,
-} from "../core/session-thinking-level.ts";
+} from "../packages/engine/core/session-thinking-level.ts";
 
 describe("session thinking level capabilities", () => {
   it("keeps model-agnostic legacy auto compatibility at medium", () => {

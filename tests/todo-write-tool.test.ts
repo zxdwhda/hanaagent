@@ -11,9 +11,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Value } from "typebox/value";
-import { loadLocale } from "../lib/i18n.ts";
-import { createTodoTool } from "../lib/tools/todo.ts";
-import { TODO_WRITE_TOOL_NAME } from "../lib/tools/todo-constants.ts";
+import { loadLocale } from "../packages/engine/lib/i18n.ts";
+import { createTodoTool } from "../packages/engine/lib/tools/todo.ts";
+import { TODO_WRITE_TOOL_NAME } from "../packages/engine/lib/tools/todo-constants.ts";
 
 beforeEach(() => {
   loadLocale("en");

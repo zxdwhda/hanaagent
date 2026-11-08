@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getThinkingFormat,
   normalizeProviderPayload,
-} from "../../core/provider-compat.ts";
+} from "../../packages/engine/core/provider-compat.ts";
 
 const volcengineModel = {
   id: "doubao-seed-2-0-pro-260215",

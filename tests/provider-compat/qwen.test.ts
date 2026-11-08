@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as qwen from "../../core/provider-compat/qwen.ts";
+import * as qwen from "../../packages/engine/core/provider-compat/qwen.ts";
 
 describe("provider-compat/qwen 模块导出形态", () => {
   it("导出 matches 函数", () => {

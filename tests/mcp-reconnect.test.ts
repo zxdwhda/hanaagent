@@ -15,8 +15,8 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { McpManager } from "../core/mcp/manager.ts";
-import { McpHttpError } from "../core/mcp/clients/http-client.ts";
+import { McpManager } from "../packages/engine/core/mcp/manager.ts";
+import { McpHttpError } from "../packages/engine/core/mcp/clients/http-client.ts";
 
 /**
  * 一个可被 runtime 通过 onClose 回调驱动的 fake client。

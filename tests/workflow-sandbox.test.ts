@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runWorkflowScript } from "../lib/workflow/sandbox.ts";
+import { runWorkflowScript } from "../packages/engine/lib/workflow/sandbox.ts";
 
 const META = `export const meta = { name: 't', description: 'd' }\n`;
 

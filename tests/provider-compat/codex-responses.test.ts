@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
-import * as codexResponses from "../../core/provider-compat/codex-responses.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
+import * as codexResponses from "../../packages/engine/core/provider-compat/codex-responses.ts";
 
 const CODEX_MODEL = {
   id: "gpt-5.5",

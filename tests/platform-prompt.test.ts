@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getPlatformPromptNote } from "../core/platform-prompt.ts";
-import { SANDBOX_MODE_LABEL } from "../lib/sandbox/policy.ts";
+import { getPlatformPromptNote } from "../packages/engine/core/platform-prompt.ts";
+import { SANDBOX_MODE_LABEL } from "../packages/engine/lib/sandbox/policy.ts";
 
 const baseOpts = { osType: "TestOS", osRelease: "1.2.3" };
 

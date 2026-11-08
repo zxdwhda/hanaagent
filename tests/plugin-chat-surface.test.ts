@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizePluginChatSurfaceBlocks } from "../server/plugin-chat-surface.ts";
+import { normalizePluginChatSurfaceBlocks } from "../apps/server/plugin-chat-surface.ts";
 
 describe("plugin chat surface normalization", () => {
   it("resolves chat.surface cards to plugin-owned private session refs", () => {

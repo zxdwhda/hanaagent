@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import YAML from "js-yaml";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolvePersonaSource } from "../core/persona-source.ts";
+import { resolvePersonaSource } from "../packages/engine/core/persona-source.ts";
 
 describe("first run default workspace", () => {
   let tmpDir;
@@ -42,7 +42,7 @@ describe("first run default workspace", () => {
   });
 
   it("seeds hanako with the desktop OH-WorkSpace, enabled memory, and disabled patrol defaults", async () => {
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     ensureFirstRun(hanakoHome, productDir);
 
@@ -70,7 +70,7 @@ describe("first run default workspace", () => {
       "AGENTS.md template\n",
       "utf-8",
     );
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     ensureFirstRun(hanakoHome, productDir);
 
@@ -89,7 +89,7 @@ describe("first run default workspace", () => {
       "# {{agentName}}\n\n{{userName}}的个人助手。\n",
       "utf-8",
     );
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     ensureFirstRun(hanakoHome, productDir);
 
@@ -110,7 +110,7 @@ describe("first run default workspace", () => {
 
   it("repairs a half-initialized default hanako agent directory", async () => {
     fs.mkdirSync(path.join(hanakoHome, "agents", "hanako", "memory"), { recursive: true });
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     ensureFirstRun(hanakoHome, productDir);
 
@@ -123,7 +123,7 @@ describe("first run default workspace", () => {
   it("keeps startup alive and reports non-default agent directories without config.yaml", async () => {
     // 历史脏目录：旧版物理删除残留 / phone projection 复活的目录，只有 phone/，没有 config.yaml
     fs.mkdirSync(path.join(hanakoHome, "agents", "kon", "phone", "conversations"), { recursive: true });
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     const report = ensureFirstRun(hanakoHome, productDir);
 
@@ -143,7 +143,7 @@ describe("first run default workspace", () => {
     const brokenDir = path.join(hanakoHome, "agents", "broken-agent");
     fs.mkdirSync(brokenDir, { recursive: true });
     fs.writeFileSync(path.join(brokenDir, "config.yaml"), "agent: [unclosed\n", "utf-8");
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     const report = ensureFirstRun(hanakoHome, productDir);
 
@@ -160,7 +160,7 @@ describe("first run default workspace", () => {
     fs.mkdirSync(legacyDir, { recursive: true });
     fs.writeFileSync(path.join(legacyDir, "config.yaml"), "agent:\n  name: Legacy Ming\n", "utf-8");
     const original = fs.readFileSync(path.join(legacyDir, "config.yaml"), "utf-8");
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     const report = ensureFirstRun(hanakoHome, productDir);
 
@@ -169,7 +169,7 @@ describe("first run default workspace", () => {
     expect(fs.existsSync(path.join(legacyDir, "pinned.md"))).toBe(false);
     expect(fs.existsSync(path.join(hanakoHome, "agents", "hanako", "config.yaml"))).toBe(true);
 
-    const { PreferencesManager } = await import("../core/preferences-manager.ts");
+    const { PreferencesManager } = await import("../packages/engine/core/preferences-manager.ts");
     const preferences = new PreferencesManager({
       userDir: path.join(hanakoHome, "user"),
       agentsDir: path.join(hanakoHome, "agents"),
@@ -182,7 +182,7 @@ describe("first run default workspace", () => {
     const legacyDir = path.join(hanakoHome, "agents", legacyId);
     fs.mkdirSync(legacyDir, { recursive: true });
     fs.writeFileSync(path.join(legacyDir, "config.yaml"), "agent:\n  name: Legacy Agent\n", "utf-8");
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     const report = ensureFirstRun(hanakoHome, productDir);
 
@@ -196,7 +196,7 @@ describe("first run default workspace", () => {
     const hanakoDir = path.join(hanakoHome, "agents", "hanako");
     fs.mkdirSync(hanakoDir, { recursive: true });
     fs.writeFileSync(path.join(hanakoDir, "config.yaml"), "agent: [unclosed\n", "utf-8");
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     const report = ensureFirstRun(hanakoHome, productDir);
 
@@ -216,7 +216,7 @@ describe("first run default workspace", () => {
     fs.mkdirSync(tombstoneDir, { recursive: true });
     fs.writeFileSync(path.join(tombstoneDir, "config.yaml"), "agent:\n  name: Gone\n", "utf-8");
     fs.writeFileSync(path.join(tombstoneDir, ".deleted-agent.json"), JSON.stringify({ version: 1 }), "utf-8");
-    const { ensureFirstRun } = await import("../core/first-run.ts");
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
 
     const report = ensureFirstRun(hanakoHome, productDir);
 

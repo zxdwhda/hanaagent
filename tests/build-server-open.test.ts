@@ -10,8 +10,8 @@ import {
   OPEN_BUNDLE_ENTRY,
   OPEN_LIB_DATA_FILES,
   OPEN_LIB_TEMPLATE_DIRS,
-} from "../scripts/build-server-open.mjs";
-import * as buildServerPhases from "../scripts/build-server-phases.mjs";
+} from "../tooling/scripts/build-server-open.mjs";
+import * as buildServerPhases from "../tooling/scripts/build-server-phases.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -49,23 +49,23 @@ describe("build-server-open: whitelist assertion (unit-level, no real build)", (
   it("rejects a closed-product route path with an attributable error listing it", () => {
     expect(() => assertOpenBuildInputsWhitelisted({
       rootDir: ROOT,
-      declaredPaths: ["server/routes/desk.ts"],
+      declaredPaths: ["apps/server/routes/desk.ts"],
     })).toThrow(/server\/routes\/desk\.ts/);
   });
 
   it("rejects a fabricated path that exists in neither the whitelist nor runtime-asset evidence", () => {
     expect(() => assertOpenBuildInputsWhitelisted({
       rootDir: ROOT,
-      declaredPaths: ["lib/pinned.example.md", "desktop/src/locales"],
+      declaredPaths: ["packages/engine/lib/pinned.example.md", "apps/desktop/src/locales"],
     })).toThrow(/lib\/pinned\.example\.md/);
   });
 
   it("accepts a fixture manifest + fixture runtime-asset list without touching the real repo", () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-open-whitelist-fixture-"));
     try {
-      fs.mkdirSync(path.join(tempDir, "build"), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, "tooling/build"), { recursive: true });
       fs.writeFileSync(
-        path.join(tempDir, "build/export-manifest.json"),
+        path.join(tempDir, "tooling/build/export-manifest.json"),
         JSON.stringify({ version: 1, paths: ["only/whitelisted.ts"] }),
       );
       expect(() => assertOpenBuildInputsWhitelisted({
@@ -84,7 +84,7 @@ describe("build-server-open: whitelist assertion (unit-level, no real build)", (
 
 describe("build-server-phases.mjs: open/full parameter separation (no hidden behavior switches)", () => {
   it("does not export or reference an isOpen/isFull-style identity flag anywhere in its code", () => {
-    const rawSource = fs.readFileSync(path.join(ROOT, "scripts", "build-server-phases.mjs"), "utf-8");
+    const rawSource = fs.readFileSync(path.join(ROOT, "tooling/scripts", "build-server-phases.mjs"), "utf-8");
     const code = stripComments(rawSource);
     // Every open/full difference must be expressed by caller-supplied data
     // (entry paths, file lists, extra package names, nft roots) — never by
@@ -99,7 +99,7 @@ describe("build-server-phases.mjs: open/full parameter separation (no hidden beh
   it("every exported primitive takes explicit parameters and no boolean named after a composition", () => {
     const exportNames = Object.keys(buildServerPhases).filter((name) => typeof buildServerPhases[name] === "function");
     expect(exportNames.length).toBeGreaterThan(0);
-    const source = fs.readFileSync(path.join(ROOT, "scripts", "build-server-phases.mjs"), "utf-8");
+    const source = fs.readFileSync(path.join(ROOT, "tooling/scripts", "build-server-phases.mjs"), "utf-8");
     for (const name of exportNames) {
       // Locate this export's parameter destructuring block and make sure it
       // never spells out a composition-identity parameter name.
@@ -115,7 +115,7 @@ describe("build-server-phases.mjs: open/full parameter separation (no hidden beh
 });
 
 describe("server/main-open.ts: open composition entry (static check)", () => {
-  const mainOpenPath = path.join(ROOT, "server", "main-open.ts");
+  const mainOpenPath = path.join(ROOT, "apps/server", "main-open.ts");
   const source = fs.readFileSync(mainOpenPath, "utf-8");
 
   it("exists and imports only server/index.ts", () => {
@@ -136,17 +136,17 @@ describe("server/main-open.ts: open composition entry (static check)", () => {
   });
 
   it("is listed in build/export-manifest.json's whitelist", () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "build/export-manifest.json"), "utf-8"));
-    expect(manifest.paths).toContain("server/main-open.ts");
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "tooling/build/export-manifest.json"), "utf-8"));
+    expect(manifest.paths).toContain("apps/server/main-open.ts");
   });
 
   it("OPEN_BUNDLE_ENTRY matches the actual file used as the Vite bundle entry override", () => {
-    expect(OPEN_BUNDLE_ENTRY).toBe("server/main-open.ts");
+    expect(OPEN_BUNDLE_ENTRY).toBe("apps/server/main-open.ts");
   });
 });
 
 describe("build-server-open.mjs: never imports build-server-artifact.mjs or reads HANA_SIGN_KEY", () => {
-  const rawSource = fs.readFileSync(path.join(ROOT, "scripts", "build-server-open.mjs"), "utf-8");
+  const rawSource = fs.readFileSync(path.join(ROOT, "tooling/scripts", "build-server-open.mjs"), "utf-8");
   // The module docstring explains, in prose, everything this file
   // deliberately does NOT do (naming build-server-artifact.mjs,
   // HANA_SIGN_KEY, plugins/, skills2set/ to say so) — check comment-stripped

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { ComputerHost } from "../core/computer-use/computer-host.ts";
-import { ComputerProviderRegistry } from "../core/computer-use/provider-registry.ts";
-import { createMockComputerProvider } from "../core/computer-use/providers/mock-provider.ts";
-import { createComputerUseTool } from "../lib/tools/computer-use-tool.ts";
-import { COMPUTER_USE_ERRORS } from "../core/computer-use/errors.ts";
-import { approveComputerUseApp } from "../core/computer-use/settings.ts";
+import { ComputerHost } from "../packages/engine/core/computer-use/computer-host.ts";
+import { ComputerProviderRegistry } from "../packages/engine/core/computer-use/provider-registry.ts";
+import { createMockComputerProvider } from "../packages/engine/core/computer-use/providers/mock-provider.ts";
+import { createComputerUseTool } from "../packages/engine/lib/tools/computer-use-tool.ts";
+import { COMPUTER_USE_ERRORS } from "../packages/engine/core/computer-use/errors.ts";
+import { approveComputerUseApp } from "../packages/engine/core/computer-use/settings.ts";
 
 function makeTool(
   model = { id: "gpt-5.5", provider: "openai", input: ["text", "image"] },

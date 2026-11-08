@@ -27,7 +27,7 @@ const {
   },
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   emitSessionShutdown: emitSessionShutdownMock,
   estimateTokens: estimateTokensMock,
@@ -45,18 +45,18 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   refreshSessionModelFromRegistry: refreshSessionModelFromRegistryMock,
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => moduleLogMock,
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
-import { EnvChangeLedger } from "../core/env-change-ledger.ts";
-import { VisionBridge, VISION_CONTEXT_START } from "../core/vision-bridge.ts";
-import { createUsageLedger } from "../lib/llm/usage-ledger.ts";
-import { BrowserManager } from "../lib/browser/browser-manager.ts";
-import { DEEPSEEK_ROLEPLAY_REASONING_PATCH_EXPERIMENT_ID } from "../lib/experiments/registry.ts";
-import { SessionManager } from "../lib/pi-sdk/index.js";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
+import { EnvChangeLedger } from "../packages/engine/core/env-change-ledger.ts";
+import { VisionBridge, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
+import { createUsageLedger } from "../packages/engine/lib/llm/usage-ledger.ts";
+import { BrowserManager } from "../packages/engine/lib/browser/browser-manager.ts";
+import { DEEPSEEK_ROLEPLAY_REASONING_PATCH_EXPERIMENT_ID } from "../packages/engine/lib/experiments/registry.ts";
+import { SessionManager } from "../packages/engine/lib/pi-sdk/index.js";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 const PNG_BASE64 = "iVBORw0KGgo=";
 
@@ -4021,7 +4021,7 @@ Continue the restored transcript.
       expect(options.requireSessionIdentity).toBe(true);
       return { tools: [], customTools };
     });
-    const piSdk = await import("../lib/pi-sdk/index.ts");
+    const piSdk = await import("../packages/engine/lib/pi-sdk/index.ts");
     (piSdk.SessionManager.open as any).mockReturnValue({
       getCwd: () => tempDir,
       getSessionFile: () => resumeFile,
@@ -4080,7 +4080,7 @@ Continue the restored transcript.
       resetLeaf: vi.fn(),
       branch: vi.fn(),
     };
-    const piSdk = await import("../lib/pi-sdk/index.ts");
+    const piSdk = await import("../packages/engine/lib/pi-sdk/index.ts");
     (piSdk.SessionManager.open as any).mockReturnValue(manager);
     const codexModel = {
       id: "gpt-test",
@@ -4157,7 +4157,7 @@ Continue the restored transcript.
       expect(options.requireSessionIdentity).toBe(true);
       return { tools: [], customTools };
     });
-    const piSdk = await import("../lib/pi-sdk/index.ts");
+    const piSdk = await import("../packages/engine/lib/pi-sdk/index.ts");
     (piSdk.SessionManager.open as any).mockReturnValue({
       getCwd: () => tempDir,
       getSessionFile: () => resumeFile,
@@ -4192,7 +4192,7 @@ Continue the restored transcript.
   it("executeIsolated: resume 实例被 abort 不删持久文件（cleanup 保护，对照临时 session 会删）", async () => {
     const resumeFile = path.join(tempDir, "reuse-keep.jsonl");
     fs.writeFileSync(resumeFile, '{"type":"user","content":"hi"}\n');
-    const piSdk = await import("../lib/pi-sdk/index.ts");
+    const piSdk = await import("../packages/engine/lib/pi-sdk/index.ts");
     (piSdk.SessionManager.open as any).mockReturnValue({ getCwd: () => tempDir, getSessionFile: () => resumeFile });
     const controller = new AbortController();
     createAgentSessionMock.mockImplementation(async () => {

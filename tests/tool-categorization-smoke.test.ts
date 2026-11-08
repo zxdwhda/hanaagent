@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertAllToolsCategorized } from "../shared/tool-categories.ts";
+import { assertAllToolsCategorized } from "../packages/shared/tool-categories.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -34,8 +34,8 @@ function scanDir(dir) {
 }
 
 function collectAllNames() {
-  const toolsDir = resolve(__dirname, "../lib/tools");
-  const memoryDir = resolve(__dirname, "../lib/memory");
+  const toolsDir = resolve(__dirname, "../packages/engine/lib/tools");
+  const memoryDir = resolve(__dirname, "../packages/engine/lib/memory");
   const tools = scanDir(toolsDir);
   const memory = scanDir(memoryDir);
 

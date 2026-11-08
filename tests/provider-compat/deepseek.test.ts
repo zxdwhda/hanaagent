@@ -3,8 +3,8 @@ import { convertMessages } from "../../node_modules/@earendil-works/pi-ai/dist/a
 import {
   normalizeProviderContextMessages,
   normalizeProviderPayload,
-} from "../../core/provider-compat.ts";
-import * as deepseek from "../../core/provider-compat/deepseek.ts";
+} from "../../packages/engine/core/provider-compat.ts";
+import * as deepseek from "../../packages/engine/core/provider-compat/deepseek.ts";
 
 describe("provider-compat/deepseek — matches", () => {
   it("导出 matches 函数", () => {

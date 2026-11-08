@@ -3,7 +3,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
 
-import { spawnAndStream } from "../lib/sandbox/exec-helper.ts";
+import { spawnAndStream } from "../packages/engine/lib/sandbox/exec-helper.ts";
 
 describe("spawnAndStream", () => {
   it("returns when the direct child exits even if a background descendant still holds stdio", async () => {

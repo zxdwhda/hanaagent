@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getThinkingFormat,
   normalizeProviderPayload,
-} from "../../core/provider-compat.ts";
+} from "../../packages/engine/core/provider-compat.ts";
 
 const longcatModel = {
   id: "LongCat-2.0-Preview",

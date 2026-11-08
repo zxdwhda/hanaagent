@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("serializeSessionFile", () => {
   it("keeps legacy fields while adding a derived ResourceEnvelope when studioId is available", async () => {
-    const { serializeSessionFile } = await import("../lib/session-files/session-file-response.ts");
+    const { serializeSessionFile } = await import("../packages/engine/lib/session-files/session-file-response.ts");
 
     const serialized = serializeSessionFile({
       id: "sf_response",
@@ -53,7 +53,7 @@ describe("serializeSessionFile", () => {
   });
 
   it("does not add a ResourceEnvelope when space identity is unavailable", async () => {
-    const { serializeSessionFile } = await import("../lib/session-files/session-file-response.ts");
+    const { serializeSessionFile } = await import("../packages/engine/lib/session-files/session-file-response.ts");
 
     const serialized = serializeSessionFile({
       id: "sf_no_space",
@@ -64,7 +64,7 @@ describe("serializeSessionFile", () => {
   });
 
   it("exposes fork aliases so unchanged history markers can resolve the child file", async () => {
-    const { serializeSessionFile } = await import("../lib/session-files/session-file-response.ts");
+    const { serializeSessionFile } = await import("../packages/engine/lib/session-files/session-file-response.ts");
 
     const serialized = serializeSessionFile({
       id: "sf_child",

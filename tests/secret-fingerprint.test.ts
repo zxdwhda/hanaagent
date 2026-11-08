@@ -4,7 +4,7 @@ import {
   fingerprintSecret,
   formatSecretFingerprintComparison,
   redactSecretsFromText,
-} from "../lib/secret-fingerprint.ts";
+} from "../packages/engine/lib/secret-fingerprint.ts";
 
 describe("process-scoped secret fingerprints", () => {
   it("compares secrets with length and keyed HMAC only", () => {

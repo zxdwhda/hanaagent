@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: vi.fn(),
   emitSessionShutdown: vi.fn(async () => false),
   SessionManager: { create: vi.fn(), list: vi.fn(async () => []), open: vi.fn() },
@@ -12,12 +12,12 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   formatModelImageDimensionNote: vi.fn(() => undefined),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 describe("resolveSessionOwnership", () => {
   let tempDir;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("remote execution boundary", () => {
   it("validates a cloud Studio link to a local resource and execution node", async () => {
-    const { validateServerNodeLink } = await import("../core/remote-execution-boundary.ts");
+    const { validateServerNodeLink } = await import("../packages/engine/core/remote-execution-boundary.ts");
 
     expect(validateServerNodeLink({
       schemaVersion: 1,
@@ -25,7 +25,7 @@ describe("remote execution boundary", () => {
   });
 
   it("rejects unknown server node capabilities", async () => {
-    const { validateServerNodeLink } = await import("../core/remote-execution-boundary.ts");
+    const { validateServerNodeLink } = await import("../packages/engine/core/remote-execution-boundary.ts");
 
     expect(() => validateServerNodeLink({
       schemaVersion: 1,
@@ -42,7 +42,7 @@ describe("remote execution boundary", () => {
   });
 
   it("validates an unexpired read-only execution lease", async () => {
-    const { validateExecutionLease } = await import("../core/remote-execution-boundary.ts");
+    const { validateExecutionLease } = await import("../packages/engine/core/remote-execution-boundary.ts");
 
     expect(validateExecutionLease({
       schemaVersion: 1,
@@ -68,7 +68,7 @@ describe("remote execution boundary", () => {
   });
 
   it("requires backup policy for write-capable execution leases", async () => {
-    const { validateExecutionLease } = await import("../core/remote-execution-boundary.ts");
+    const { validateExecutionLease } = await import("../packages/engine/core/remote-execution-boundary.ts");
 
     expect(() => validateExecutionLease({
       schemaVersion: 1,
@@ -87,7 +87,7 @@ describe("remote execution boundary", () => {
   });
 
   it("rejects expired execution leases", async () => {
-    const { validateExecutionLease } = await import("../core/remote-execution-boundary.ts");
+    const { validateExecutionLease } = await import("../packages/engine/core/remote-execution-boundary.ts");
 
     expect(() => validateExecutionLease({
       schemaVersion: 1,

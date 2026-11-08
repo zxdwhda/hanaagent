@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 
-const MAIN_PATH = path.join(process.cwd(), "desktop", "main.cjs");
+const MAIN_PATH = path.join(process.cwd(), "apps/desktop", "main.cjs");
 
 describe("desktop onboarding completion contract", () => {
   it("does not write setupComplete directly from desktop main", () => {
@@ -12,7 +12,7 @@ describe("desktop onboarding completion contract", () => {
   });
 
   it("opens the main window only after the server accepts setup completion", async () => {
-    const { completeOnboardingAndOpenMain } = await import("../desktop/src/shared/onboarding-completion.cjs");
+    const { completeOnboardingAndOpenMain } = await import("../apps/desktop/src/shared/onboarding-completion.cjs");
     const createMainWindow = vi.fn();
     const fetchImpl = vi.fn(async () => ({
       ok: true,
@@ -38,7 +38,7 @@ describe("desktop onboarding completion contract", () => {
   });
 
   it("rejects and keeps the main window closed when setup completion persistence fails", async () => {
-    const { completeOnboardingAndOpenMain } = await import("../desktop/src/shared/onboarding-completion.cjs");
+    const { completeOnboardingAndOpenMain } = await import("../apps/desktop/src/shared/onboarding-completion.cjs");
     const createMainWindow = vi.fn();
     const fetchImpl = vi.fn(async () => ({
       ok: false,
@@ -57,7 +57,7 @@ describe("desktop onboarding completion contract", () => {
   });
 
   it("rejects and keeps the main window closed when server does not confirm setupComplete", async () => {
-    const { completeOnboardingAndOpenMain } = await import("../desktop/src/shared/onboarding-completion.cjs");
+    const { completeOnboardingAndOpenMain } = await import("../apps/desktop/src/shared/onboarding-completion.cjs");
     const createMainWindow = vi.fn();
     const fetchImpl = vi.fn(async () => ({
       ok: true,

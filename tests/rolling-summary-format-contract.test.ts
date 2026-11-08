@@ -19,15 +19,15 @@ import path from "path";
 
 const loggers = vi.hoisted(() => new Map());
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   initDebugLog: vi.fn(),
   createModuleLogger: (name) => {
@@ -47,16 +47,16 @@ import {
   hasFactSectionHeading,
   extractFactSection,
   isEmptyFactSection,
-} from "../lib/memory/rolling-summary-format.ts";
+} from "../packages/engine/lib/memory/rolling-summary-format.ts";
 import {
   runMemoryReflection,
   buildMemoryReflectionSuffix,
-} from "../lib/memory/memory-reflection-runner.ts";
-import { buildRollingSummaryPrompt } from "../lib/memory/prompts/rolling-summary.ts";
-import { SessionSummaryManager } from "../lib/memory/session-summary.ts";
-import { compileEditableFacts } from "../lib/memory/compile.ts";
-import { buildSessionCacheSnapshot } from "../core/session-cache-snapshot.ts";
-import { callText } from "../core/llm-client.ts";
+} from "../packages/engine/lib/memory/memory-reflection-runner.ts";
+import { buildRollingSummaryPrompt } from "../packages/engine/lib/memory/prompts/rolling-summary.ts";
+import { SessionSummaryManager } from "../packages/engine/lib/memory/session-summary.ts";
+import { compileEditableFacts } from "../packages/engine/lib/memory/compile.ts";
+import { buildSessionCacheSnapshot } from "../packages/engine/core/session-cache-snapshot.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
 
 const VALID_ZH_SUMMARY = "### 重要事实\n- 用户长期关注记忆系统\n\n### 事情经过\n- [2026-06-03 10:00] 用户在调缓存快照。";
 const VALID_EN_SUMMARY = "### Key Facts\n- The user cares about memory systems\n\n### Timeline\n- [2026-06-03 10:00] The user tuned cache snapshots.";

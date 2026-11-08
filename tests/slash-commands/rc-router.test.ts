@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { promptAttachedDesktopSession } from "../../core/slash-commands/rc-router.ts";
+import { promptAttachedDesktopSession } from "../../packages/engine/core/slash-commands/rc-router.ts";
 
 function makeFakeSession({ model = null, deltas = ["hel", "lo"], toolMediaOnEnd = [], toolMediaDetails = null } = {}) {
   const subscribers = [];

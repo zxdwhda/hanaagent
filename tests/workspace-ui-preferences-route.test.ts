@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { createPreferencesRoute } from "../server/routes/preferences.ts";
-import { mergeSidebarUiPrefs } from "../shared/sidebar-ui-state.ts";
+import { createPreferencesRoute } from "../apps/server/routes/preferences.ts";
+import { mergeSidebarUiPrefs } from "../packages/shared/sidebar-ui-state.ts";
 
 function makeApp(engine) {
   const app = new Hono();

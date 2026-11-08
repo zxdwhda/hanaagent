@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
 
 describe("provider-compat/openai-video-url", () => {
   it("converts Moonshot Kimi data:video image_url blocks to video_url", () => {

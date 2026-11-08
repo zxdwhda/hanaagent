@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { PluginManager } from "../core/plugin-manager.ts";
-import { PluginDevService } from "../core/plugin-dev-service.ts";
+import { PluginManager } from "../packages/engine/core/plugin-manager.ts";
+import { PluginDevService } from "../packages/engine/core/plugin-dev-service.ts";
 
 function makeBus() {
   return {
@@ -321,7 +321,7 @@ describe("PluginDevService", () => {
   });
 
   it("registers EventBus dev capabilities and request handlers", async () => {
-    const { EventBus } = await import("../hub/event-bus.ts");
+    const { EventBus } = await import("../packages/engine/hub/event-bus.ts");
     const eventBus = new EventBus();
     const sourcePath = writeDevPlugin(sourceRoot, "bus-dev", {
       prefix: "Bus",

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifySessionPermission,
   normalizeSessionPermissionMode,
-} from "../core/session-permission-mode.ts";
+} from "../packages/engine/core/session-permission-mode.ts";
 
 describe("session permission modes", () => {
   it("normalizes missing and legacy fields", () => {

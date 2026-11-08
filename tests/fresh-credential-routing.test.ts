@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ExecutionRouter } from "../core/execution-router.ts";
+import { ExecutionRouter } from "../packages/engine/core/execution-router.ts";
 
 function createRouter(models, freshResolver = null) {
   const modelList = Object.values(models) as any[];

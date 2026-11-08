@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ThinkTagParser } from "../core/events.ts";
+import { ThinkTagParser } from "../packages/engine/core/events.ts";
 
 function collect(input, chunks = [input]) {
   const parser = new ThinkTagParser();

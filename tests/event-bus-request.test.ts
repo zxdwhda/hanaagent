@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { EventBus } from "../hub/event-bus.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
 
 let bus;
 beforeEach(() => { bus = new EventBus(); });

@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { wrapResourceIoFileTools, __resourceIoAgentToolsForTest } from "../lib/resource-io/agent-tools.ts";
-import { createResourceIoToolOperations } from "../lib/resource-io/pi-tool-operations.ts";
+import { wrapResourceIoFileTools, __resourceIoAgentToolsForTest } from "../packages/engine/lib/resource-io/agent-tools.ts";
+import { createResourceIoToolOperations } from "../packages/engine/lib/resource-io/pi-tool-operations.ts";
 
 describe("ResourceIO agent tools", () => {
   let tmpDir;

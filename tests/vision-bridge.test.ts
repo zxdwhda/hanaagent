@@ -8,7 +8,7 @@ import {
   VISUAL_PRIMITIVES_START,
   VISION_CONTEXT_END,
   VISION_CONTEXT_START,
-} from "../core/vision-bridge.ts";
+} from "../packages/engine/core/vision-bridge.ts";
 
 const PNG_BASE64 = "iVBORw0KGgo=";
 const JPEG_BASE64 = "/9j/2wBD";

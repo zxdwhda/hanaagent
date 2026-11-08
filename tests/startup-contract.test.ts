@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import viteServerConfig from "../config/vite.config.server.js";
-import { applyDevEnvironment, defaultDevHanaHome } from "../scripts/dev-env.js";
+import viteServerConfig from "../tooling/config/vite.config.server.js";
+import { applyDevEnvironment, defaultDevHanaHome } from "../tooling/scripts/dev-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,9 +17,9 @@ describe("local startup contract", () => {
   });
 
   it("dev Electron launcher passes a dedicated Node runtime to main process", () => {
-    const launchJs = fs.readFileSync(path.join(ROOT, "scripts", "launch.js"), "utf-8");
-    const devEnvJs = fs.readFileSync(path.join(ROOT, "scripts", "dev-env.js"), "utf-8");
-    const mainCjs = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
+    const launchJs = fs.readFileSync(path.join(ROOT, "tooling/scripts", "launch.js"), "utf-8");
+    const devEnvJs = fs.readFileSync(path.join(ROOT, "tooling/scripts", "dev-env.js"), "utf-8");
+    const mainCjs = fs.readFileSync(path.join(ROOT, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(launchJs).toContain('from "./dev-env.js"');
     expect(launchJs).toContain("applyDevEnvironment(process.env)");
@@ -57,22 +57,22 @@ describe("local startup contract", () => {
   });
 
   it("server keeps Pi SDK runtime paths explicit and CLI stays server-first", () => {
-    const cliSource = fs.readFileSync(path.join(ROOT, "cli", "index.js"), "utf-8");
-    const cliEntrySource = fs.readFileSync(path.join(ROOT, "cli", "entry.ts"), "utf-8");
-    const launchSource = fs.readFileSync(path.join(ROOT, "scripts", "launch.js"), "utf-8");
-    const serverSource = fs.readFileSync(path.join(ROOT, "server", "index.ts"), "utf-8");
+    const cliSource = fs.readFileSync(path.join(ROOT, "apps/cli", "index.js"), "utf-8");
+    const cliEntrySource = fs.readFileSync(path.join(ROOT, "apps/cli", "entry.ts"), "utf-8");
+    const launchSource = fs.readFileSync(path.join(ROOT, "tooling/scripts", "launch.js"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(ROOT, "apps/server", "index.ts"), "utf-8");
 
     expect(cliSource).toContain("./entry.ts");
     expect(cliSource).not.toContain("HanaEngine");
     expect(cliEntrySource).not.toContain("HanaEngine");
-    expect(launchSource).toContain('"cli/entry.ts"');
+    expect(launchSource).toContain('"apps/cli/entry.ts"');
     expect(serverSource).not.toContain("ensureHanaPiSdkDirs");
     expect(serverSource).not.toContain("configureProcessPiSdkEnv");
     expect(serverSource).not.toContain("PI_CODING_AGENT_DIR");
   });
 
   it("desktop main does not create Pi directories or propagate Pi's global agent directory", () => {
-    const mainCjs = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
+    const mainCjs = fs.readFileSync(path.join(ROOT, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainCjs).not.toContain("ensureHanaPiSdkDirs");
     expect(mainCjs).not.toContain("configureProcessPiSdkEnv");
@@ -81,14 +81,14 @@ describe("local startup contract", () => {
   });
 
   it("search tools do not import Pi's implicit agent-directory resolver", () => {
-    const searchTools = fs.readFileSync(path.join(ROOT, "lib", "pi-sdk", "search-tools.ts"), "utf-8");
+    const searchTools = fs.readFileSync(path.join(ROOT, "packages/engine/lib", "pi-sdk", "search-tools.ts"), "utf-8");
 
     expect(searchTools).not.toMatch(/\bgetAgentDir\b/);
     expect(searchTools).toContain('requireAbsoluteDirectory(options.managedBinDir, "managedBinDir")');
   });
 
   it("desktop main installs the client single-instance lock before app readiness", () => {
-    const mainCjs = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
+    const mainCjs = fs.readFileSync(path.join(ROOT, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainCjs).toContain("configureClientSingleInstance(app");
     expect(mainCjs).toContain("onSecondInstance: () => showPrimaryWindow()");
@@ -119,14 +119,14 @@ describe("local startup contract", () => {
   });
 
   it("smoke-tests the native document converter in the packaged runtime", () => {
-    const buildServerPhases = fs.readFileSync(path.join(ROOT, "scripts", "build-server-phases.mjs"), "utf-8");
+    const buildServerPhases = fs.readFileSync(path.join(ROOT, "tooling/scripts", "build-server-phases.mjs"), "utf-8");
 
     expect(buildServerPhases).toContain('externalPackageNames.includes("@firecrawl/anydoc")');
     expect(buildServerPhases).toContain("buildAnydocRuntimeSmokeScript()");
   });
 
   it("keeps workspace output helper statically bundleable in packaged server", () => {
-    const source = fs.readFileSync(path.join(ROOT, "shared", "workspace-output.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(ROOT, "packages/shared", "workspace-output.ts"), "utf-8");
 
     expect(source).toContain('from "./workspace-output.cjs"');
     expect(source).not.toContain("createRequire");
@@ -138,10 +138,10 @@ describe("local startup contract", () => {
     // shared parameterized primitives in scripts/build-server-phases.mjs
     // (shared with the open-composition builder); build-server.mjs
     // now just calls them with rootDir=ROOT/outDir.
-    const buildServerPhases = fs.readFileSync(path.join(ROOT, "scripts", "build-server-phases.mjs"), "utf-8");
+    const buildServerPhases = fs.readFileSync(path.join(ROOT, "tooling/scripts", "build-server-phases.mjs"), "utf-8");
 
     expect(buildServerPhases).toContain("bundle/cli.js");
-    expect(buildServerPhases).toContain('path.join(rootDir, "cli", "entry.ts")');
+    expect(buildServerPhases).toContain('path.join(rootDir, "apps", "cli", "entry.ts")');
     expect(buildServerPhases).toContain('path.join(outDir, "hana")');
     expect(buildServerPhases).toContain('path.join(outDir, "hana.cmd")');
   });
@@ -154,7 +154,7 @@ describe("local startup contract", () => {
     // "better-sqlite3" being in the resolved external package set) rather
     // than through the old runBetterSqliteRuntimeSmokeIfNeeded() wrapper
     // function, which no longer exists.
-    const buildServerPhases = fs.readFileSync(path.join(ROOT, "scripts", "build-server-phases.mjs"), "utf-8");
+    const buildServerPhases = fs.readFileSync(path.join(ROOT, "tooling/scripts", "build-server-phases.mjs"), "utf-8");
 
     expect(buildServerPhases).toContain("--ignore-scripts=false");
     expect(buildServerPhases).toContain('externalPackageNames.includes("better-sqlite3")');

@@ -3,7 +3,7 @@ import {
   CACHE_STRATEGIES,
   buildCacheStrategyMetadata,
   normalizeCacheStrategy,
-} from "../lib/llm/cache-strategy-contract.ts";
+} from "../packages/engine/lib/llm/cache-strategy-contract.ts";
 
 describe("cache strategy contract", () => {
   it("accepts only explicit cache strategy names", () => {

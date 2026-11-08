@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { PreferencesManager } from "../core/preferences-manager.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
 
 function makeUserDir() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-prefs-sandbox-network-"));

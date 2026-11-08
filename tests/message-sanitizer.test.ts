@@ -16,7 +16,7 @@ import {
   stripHistoricalInlineMediaForReplay,
   modelSupportsImage,
   modelSupportsVideo,
-} from "../core/message-sanitizer.ts";
+} from "../packages/engine/core/message-sanitizer.ts";
 
 const IMG_BLOCK = { type: "image", data: "BASE64DATA", mimeType: "image/png" };
 const VIDEO_BLOCK = { type: "video", data: "BASE64VIDEO", mimeType: "video/mp4" };

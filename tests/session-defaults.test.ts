@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultSettings } from "../core/session-defaults.ts";
+import { createDefaultSettings } from "../packages/engine/core/session-defaults.ts";
 
 describe("default session settings", () => {
   it("batches steering input while preserving follow-up and compaction defaults", () => {

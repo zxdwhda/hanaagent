@@ -34,15 +34,15 @@ function withPowerShellUtf8Prelude(command: string) {
   return `${powershellUtf8Prelude}; ${command}`;
 }
 
-vi.mock("../lib/sandbox/exec-helper.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/exec-helper.js", () => ({
   spawnAndStream,
 }));
 
-vi.mock("../lib/sandbox/win32-command-router.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/win32-command-router.js", () => ({
   classifyWin32Command,
 }));
 
-vi.mock("../lib/sandbox/win32-runtime-cache.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/win32-runtime-cache.js", () => ({
   prepareSandboxRuntime,
   getSandboxPowerShellProbeResult,
   setSandboxPowerShellProbeResult,
@@ -59,7 +59,7 @@ vi.mock("child_process", () => ({
 }));
 
 async function loadExecFactory() {
-  const mod = await import("../lib/sandbox/win32-exec.ts");
+  const mod = await import("../packages/engine/lib/sandbox/win32-exec.ts");
   return mod.createWin32Exec;
 }
 
@@ -2313,7 +2313,7 @@ describe("isShellSpawnError", () => {
   });
 
   async function loadTesting() {
-    const mod = await import("../lib/sandbox/win32-exec.ts");
+    const mod = await import("../packages/engine/lib/sandbox/win32-exec.ts");
     return mod.__testing as any;
   }
 

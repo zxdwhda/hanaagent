@@ -3,9 +3,9 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
-import { createDmRoute } from "../server/routes/dm.ts";
-import { appendMessage } from "../lib/channels/channel-store.ts";
-import { getAgentPhoneRuntimePath, updateAgentPhoneRuntime } from "../lib/conversations/agent-phone-runtime.ts";
+import { createDmRoute } from "../apps/server/routes/dm.ts";
+import { appendMessage } from "../packages/engine/lib/channels/channel-store.ts";
+import { getAgentPhoneRuntimePath, updateAgentPhoneRuntime } from "../packages/engine/lib/conversations/agent-phone-runtime.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-dm-route-test-"));

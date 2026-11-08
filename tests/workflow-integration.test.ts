@@ -1,8 +1,8 @@
 // tests/workflow-integration.test.ts
 import { describe, expect, it, vi } from "vitest";
-import { runWorkflowScript } from "../lib/workflow/sandbox.ts";
-import { createHostApi } from "../lib/workflow/host-api.ts";
-import { createLimiter } from "../lib/workflow/concurrency.ts";
+import { runWorkflowScript } from "../packages/engine/lib/workflow/sandbox.ts";
+import { createHostApi } from "../packages/engine/lib/workflow/host-api.ts";
+import { createLimiter } from "../packages/engine/lib/workflow/concurrency.ts";
 
 function makeHost(executeIsolated, over: any = {}) {
   return createHostApi({

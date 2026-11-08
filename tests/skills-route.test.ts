@@ -4,7 +4,7 @@ import path from "path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
-import { extractZip } from "../lib/extract-zip.ts";
+import { extractZip } from "../packages/engine/lib/extract-zip.ts";
 
 function expectAppEvent(emitEvent, type, payload) {
   expect(emitEvent).toHaveBeenCalledWith({
@@ -48,7 +48,7 @@ describe("skills route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
 
     const getAllSkills = vi.fn(() => [{ name: "global-skill", enabled: true }]);
@@ -90,7 +90,7 @@ describe("skills route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -125,7 +125,7 @@ describe("skills route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       agentsDir: tempRoot,
@@ -153,7 +153,7 @@ describe("skills route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     let enabled = [];
     const engine = {
@@ -216,7 +216,7 @@ describe("skills route", () => {
       ],
     }), "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     let enabled = ["existing"];
     const engine = {
@@ -255,7 +255,7 @@ describe("skills route", () => {
   });
 
   it("emits global skills-changed after reloading skills", async () => {
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       reloadSkills: vi.fn().mockResolvedValue(undefined),
@@ -277,7 +277,7 @@ describe("skills route", () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const skills = [
       { name: "literary-craft", filePath: path.join(tempRoot, "literary-craft", "SKILL.md") },
@@ -342,7 +342,7 @@ describe("skills route", () => {
       ],
     }, null, 2), "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       hanakoHome: tempRoot,
@@ -381,7 +381,7 @@ describe("skills route", () => {
 
   it("refuses to answer bundle requests that do not say which agent they are about", async () => {
     makeBundleAgent();
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       hanakoHome: tempRoot,
@@ -410,7 +410,7 @@ describe("skills route", () => {
 
   it("creates, updates, and deletes skill bundles through the skills route", async () => {
     const agentId = makeBundleAgent();
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       hanakoHome: tempRoot,
@@ -469,7 +469,7 @@ describe("skills route", () => {
 
   it("persists skill bundle ordering through the skills route", async () => {
     const agentId = makeBundleAgent();
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       hanakoHome: tempRoot,
@@ -514,7 +514,7 @@ describe("skills route", () => {
   });
 
   it("exports a skill bundle as a zip with only resolvable public skills", async () => {
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const userSkillsDir = path.join(tempRoot, "user-skills");
     const exportsDir = path.join(tempRoot, "exports");
@@ -600,7 +600,7 @@ describe("skills route", () => {
 
   it("rejects bundle membership for skills that are not installed", async () => {
     const agentId = makeBundleAgent();
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const engine = {
       hanakoHome: tempRoot,
@@ -626,7 +626,7 @@ describe("skills route", () => {
   });
 
   it("registers a session-scoped skill install source before installing", async () => {
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const srcDir = path.join(tempRoot, "incoming-skill");
     const userSkillsDir = path.join(tempRoot, "user-skills");
@@ -703,7 +703,7 @@ describe("skills route", () => {
   });
 
   it("installs an uploaded skill package without requiring a client-local path", async () => {
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     const userSkillsDir = path.join(tempRoot, "user-skills");
     const engine = {
@@ -802,7 +802,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
 
   async function readAgentEnabled(agentId) {
     // 跳过 config-loader 缓存以免 test 间污染
-    const { loadConfig, clearConfigCache } = await import("../lib/memory/config-loader.ts");
+    const { loadConfig, clearConfigCache } = await import("../packages/engine/lib/memory/config-loader.ts");
     clearConfigCache();
     const cfg = loadConfig(path.join(agentsDir, agentId, "config.yaml"));
     return cfg?.skills?.enabled || [];
@@ -824,7 +824,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
     const engine = buildEngine({ agents: ["agent-a"], currentAgentId: "agent-a" });
     writeUserSkill("my-skill");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     app.route("/api", createSkillsRoute(engine));
 
@@ -843,7 +843,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
     const learnedDir = writeLegacyLearnedSkill("agent-b", "test-skill");
     expect(fs.existsSync(learnedDir)).toBe(true);
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     app.route("/api", createSkillsRoute(engine));
 
@@ -863,7 +863,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
     expect(fs.existsSync(dirA)).toBe(true);
     expect(fs.existsSync(dirB)).toBe(true);
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     app.route("/api", createSkillsRoute(engine));
 
@@ -885,7 +885,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
     writeAgentConfigWithEnabled("agent-a", ["globalskill", "other"]);
     writeAgentConfigWithEnabled("agent-b", ["globalskill", "other"]);
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     app.route("/api", createSkillsRoute(engine));
 
@@ -936,7 +936,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
       ],
     }, null, 2), "utf-8");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     app.route("/api", createSkillsRoute(engine));
 
@@ -956,7 +956,7 @@ describe("DELETE /skills/:name — per-agent target selection", () => {
     const engine = buildEngine({ agents: ["agent-a"], currentAgentId: "agent-a" });
     writeUserSkill("my-skill");
 
-    const { createSkillsRoute } = await import("../server/routes/skills.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
     const app = new Hono();
     app.route("/api", createSkillsRoute(engine));
 

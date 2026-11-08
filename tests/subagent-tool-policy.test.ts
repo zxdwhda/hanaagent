@@ -3,7 +3,7 @@ import {
   resolveSubagentToolAccess,
   resolveSubagentToolStrategy,
   SubagentAccessDeniedError,
-} from "../lib/tools/subagent-tool-policy.ts";
+} from "../packages/engine/lib/tools/subagent-tool-policy.ts";
 
 describe("subagent 工具访问策略收口（Codex 式：显式 access + 继承父会话档）", () => {
   afterEach(() => { delete process.env.HANA_SUBAGENT_TOOL_STRATEGY; });

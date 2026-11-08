@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import redactor from "../shared/log-redactor.cjs";
+import redactor from "../packages/shared/log-redactor.cjs";
 
 const {
   redactLogText,

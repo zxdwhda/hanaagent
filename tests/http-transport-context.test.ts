@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("HTTP transport context", () => {
   it("classifies loopback hosts as local in loopback mode", async () => {
-    const { inferHttpConnectionKind } = await import("../server/http/transport-context.ts");
+    const { inferHttpConnectionKind } = await import("../apps/server/http/transport-context.ts");
 
     expect(inferHttpConnectionKind({
       hostHeader: "127.0.0.1:14500",
@@ -15,7 +15,7 @@ describe("HTTP transport context", () => {
   });
 
   it("rejects public host headers in loopback mode instead of treating them as local", async () => {
-    const { inferHttpConnectionKind } = await import("../server/http/transport-context.ts");
+    const { inferHttpConnectionKind } = await import("../apps/server/http/transport-context.ts");
 
     expect(inferHttpConnectionKind({
       hostHeader: "hana.example.com",
@@ -35,7 +35,7 @@ describe("HTTP transport context", () => {
   });
 
   it("classifies explicit LAN and custom remote modes from the server network config", async () => {
-    const { inferHttpConnectionKind } = await import("../server/http/transport-context.ts");
+    const { inferHttpConnectionKind } = await import("../apps/server/http/transport-context.ts");
 
     expect(inferHttpConnectionKind({
       hostHeader: "192.168.1.20:14500",
@@ -49,7 +49,7 @@ describe("HTTP transport context", () => {
   });
 
   it("does not let a non-loopback socket become local by spoofing the Host header", async () => {
-    const { inferHttpConnectionKind } = await import("../server/http/transport-context.ts");
+    const { inferHttpConnectionKind } = await import("../apps/server/http/transport-context.ts");
 
     expect(inferHttpConnectionKind({
       hostHeader: "localhost:14500",
@@ -65,7 +65,7 @@ describe("HTTP transport context", () => {
   });
 
   it("requires a real loopback socket before treating a LAN-mode request as local", async () => {
-    const { inferHttpConnectionKind } = await import("../server/http/transport-context.ts");
+    const { inferHttpConnectionKind } = await import("../apps/server/http/transport-context.ts");
 
     expect(inferHttpConnectionKind({
       hostHeader: "127.0.0.1:14500",

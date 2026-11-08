@@ -41,7 +41,7 @@ describe("package build order", () => {
       "GitHub release workflow",
       workflow,
       "npm run build:client",
-      "node scripts/build-server.mjs",
+      "node tooling/scripts/build-server.mjs",
     );
   });
 
@@ -57,26 +57,26 @@ describe("package build order", () => {
     expectTextBefore(
       "GitHub release workflow",
       workflow,
-      "node scripts/build-server.mjs",
-      "node scripts/build-standalone-server-artifact.mjs",
+      "node tooling/scripts/build-server.mjs",
+      "node tooling/scripts/build-standalone-server-artifact.mjs",
     );
     expectTextBefore(
       "GitHub release workflow",
       workflow,
-      "node scripts/build-windows-sandbox-helper.mjs",
-      "node scripts/build-standalone-server-artifact.mjs",
+      "node tooling/scripts/build-windows-sandbox-helper.mjs",
+      "node tooling/scripts/build-standalone-server-artifact.mjs",
     );
     expectTextBefore(
       "GitHub release workflow",
       workflow,
-      "node scripts/verify-standalone-server-artifact.mjs",
+      "node tooling/scripts/verify-standalone-server-artifact.mjs",
       "npx electron-builder --win nsis",
     );
     expectTextBefore(
       "GitHub release workflow",
       workflow,
-      "node scripts/build-standalone-server-artifact.mjs",
-      "node scripts/verify-standalone-server-artifact.mjs",
+      "node tooling/scripts/build-standalone-server-artifact.mjs",
+      "node tooling/scripts/verify-standalone-server-artifact.mjs",
     );
   });
 });

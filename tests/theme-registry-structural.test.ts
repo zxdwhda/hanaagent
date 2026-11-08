@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import registry from '../desktop/src/shared/theme-registry.cjs';
+import registry from '../apps/desktop/src/shared/theme-registry.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,9 +28,9 @@ const SKIP_DIRS = [
 //   (curated order and excluded advanced themes are product/UX choices, not
 //   data-mirroring bugs; see Task 8 of theme-registry refactor plan)
 const ALLOWED_FILES = new Set([
-  'desktop/src/shared/theme-registry.cjs',
-  'desktop/src/shared/theme-registry.d.cts',
-  'desktop/src/react/onboarding/constants.ts',
+  'apps/desktop/src/shared/theme-registry.cjs',
+  'apps/desktop/src/shared/theme-registry.d.cts',
+  'apps/desktop/src/react/onboarding/constants.ts',
   'tests/theme-registry.test.js',
   'tests/theme-registry-structural.test.js',
   'tests/theme-registry-contract.test.js',
@@ -58,7 +58,7 @@ function relPath(p) {
 
 describe('theme-registry structural constraint', () => {
   it('全局 styles.css 持有默认字体 token，主题可按需覆盖', () => {
-    const stylesPath = path.join(ROOT, 'desktop/src/styles.css');
+    const stylesPath = path.join(ROOT, 'apps/desktop/src/styles.css');
     const content = fs.readFileSync(stylesPath, 'utf8');
 
     expect(content).toContain("--font-ui: 'Inter'");
@@ -71,15 +71,15 @@ describe('theme-registry structural constraint', () => {
 
   it('除 registry 和白名单外，不允许任何文件出现主题 id 字符串字面量', () => {
     const SCAN_ROOTS = [
-      path.join(ROOT, 'desktop/src'),
-      path.join(ROOT, 'lib'),
-      path.join(ROOT, 'core'),
-      path.join(ROOT, 'server'),
+      path.join(ROOT, 'apps/desktop/src'),
+      path.join(ROOT, 'packages/engine/lib'),
+      path.join(ROOT, 'packages/engine/core'),
+      path.join(ROOT, 'apps/server'),
     ].filter((d) => fs.existsSync(d));
 
     const TOP_LEVEL_FILES = [
-      path.join(ROOT, 'desktop/main.cjs'),
-      path.join(ROOT, 'desktop/preload.cjs'),
+      path.join(ROOT, 'apps/desktop/main.cjs'),
+      path.join(ROOT, 'apps/desktop/preload.cjs'),
     ].filter((f) => fs.existsSync(f));
 
     const files = [
@@ -115,8 +115,8 @@ describe('theme-registry structural constraint', () => {
 
   it('renderer TypeScript 不直接导入 CommonJS registry', () => {
     const SCAN_ROOTS = [
-      path.join(ROOT, 'desktop/src/shared'),
-      path.join(ROOT, 'desktop/src/react'),
+      path.join(ROOT, 'apps/desktop/src/shared'),
+      path.join(ROOT, 'apps/desktop/src/react'),
     ].filter((d) => fs.existsSync(d));
 
     const files = SCAN_ROOTS.flatMap((d) => walk(d));

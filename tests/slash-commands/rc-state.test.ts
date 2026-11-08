@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RcStateStore } from "../../core/slash-commands/rc-state.ts";
+import { RcStateStore } from "../../packages/engine/core/slash-commands/rc-state.ts";
 
 describe("RcStateStore pending-selection", () => {
   let store;

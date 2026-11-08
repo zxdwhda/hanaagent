@@ -5,7 +5,7 @@ import {
   finishSessionStream,
   appendSessionStreamEvent,
   resumeSessionStream,
-} from "../server/session-stream-store.ts";
+} from "../apps/server/session-stream-store.ts";
 
 describe("session-stream-store", () => {
   it("按 seq 返回缺失事件", () => {

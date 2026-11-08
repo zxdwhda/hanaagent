@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createLossyLocalCompactionResult } from "../core/lossy-local-compaction.ts";
-import { computeSessionLineageMetadata } from "../lib/session-jsonl.ts";
+import { createLossyLocalCompactionResult } from "../packages/engine/core/lossy-local-compaction.ts";
+import { computeSessionLineageMetadata } from "../packages/engine/lib/session-jsonl.ts";
 
 function entry(id: string, parentId: string | null, role: string, content: any, timestamp: string) {
   return { id, parentId, type: "message", timestamp, message: { role, content, timestamp } };

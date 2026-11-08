@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCliArgs } from "../cli/args.ts";
+import { parseCliArgs } from "../apps/cli/args.ts";
 
 describe("CLI args", () => {
   it("defaults to help when no command is provided", () => {

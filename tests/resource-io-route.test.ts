@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { createResourceIoRoute } from "../server/routes/resource-io.ts";
+import { createResourceIoRoute } from "../apps/server/routes/resource-io.ts";
 
 describe("resource-io route", () => {
   it("returns retained resource events for catch-up by cursor", async () => {

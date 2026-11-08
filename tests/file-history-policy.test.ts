@@ -3,7 +3,7 @@ import {
   MAX_SNAPSHOT_BYTES,
   isIgnoredRelPath,
   isTrackedFile,
-} from "../lib/file-history/text-file-policy.ts";
+} from "../packages/engine/lib/file-history/text-file-policy.ts";
 
 describe("file-history text policy", () => {
   it("tracks common code and text extensions", () => {

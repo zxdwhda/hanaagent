@@ -7,7 +7,7 @@ import {
   appendDigestToHistory,
   validateReleaseDigest,
   validateReleaseDigestHistory,
-} from "../scripts/release-digest-schema.mjs";
+} from "../tooling/scripts/release-digest-schema.mjs";
 
 function validDigest() {
   return {

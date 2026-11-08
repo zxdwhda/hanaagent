@@ -15,15 +15,15 @@ import {
   resetPersistenceSchemaCaches,
   validateSchemaChangeDeclaration,
   writePersistenceSchemaFingerprint,
-} from "../scripts/generate-persistence-schema-fingerprint.mjs";
+} from "../tooling/scripts/generate-persistence-schema-fingerprint.mjs";
 import {
   PRODUCTION_ROOTS,
   scanPersistentStores,
-} from "../scripts/scan-persistent-stores.mjs";
+} from "../tooling/scripts/scan-persistent-stores.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const FINGERPRINT_PATH = path.join(ROOT, "build", "persistence-schema-fingerprint.json");
-const INVENTORY_PATH = path.join(ROOT, "build", "persistence-store-inventory.json");
+const FINGERPRINT_PATH = path.join(ROOT, "tooling/build", "persistence-schema-fingerprint.json");
+const INVENTORY_PATH = path.join(ROOT, "tooling/build", "persistence-store-inventory.json");
 const tempDirs: string[] = [];
 
 afterEach(() => {
@@ -71,7 +71,7 @@ describe("persistence schema tripwire", () => {
     expect(first.registry.length).toBeGreaterThan(20);
     expect(first.siteMappings.length).toBeGreaterThan(500);
     expect(first.exemptions.length).toBeGreaterThan(0);
-    expect(first.inventoryReceipt.sourceRoots).toEqual(expect.arrayContaining(["desktop", "cli"]));
+    expect(first.inventoryReceipt.sourceRoots).toEqual(expect.arrayContaining(["apps/desktop", "apps/cli"]));
     expect(first.inventoryReceipt.sourceExclusions).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "desktop-generated-bundles" }),
       expect.objectContaining({ id: "desktop-renderer-react" }),
@@ -81,7 +81,7 @@ describe("persistence schema tripwire", () => {
     const manifest = first.schemas.find((entry) => entry.storeId === "session-manifest-sqlite");
     expect(manifest).toMatchObject({
       kind: "sqlite-runtime",
-      module: "core/session-manifest/store.ts",
+      module: "packages/engine/core/session-manifest/store.ts",
       runtimeSchema: { userVersion: 5 },
     });
     expect(manifest.runtimeSchema.objects.some((entry) => entry.name === "session_manifests")).toBe(true);
@@ -90,7 +90,7 @@ describe("persistence schema tripwire", () => {
     const facts = first.schemas.find((entry) => entry.storeId === "agent-facts-sqlite");
     expect(facts).toMatchObject({
       kind: "sqlite-runtime",
-      module: "lib/memory/fact-store.ts",
+      module: "packages/engine/lib/memory/fact-store.ts",
       runtimeSchema: { userVersion: 2 },
     });
     expect(facts.runtimeSchema.objects.some((entry) => entry.name === "facts_fts")).toBe(true);
@@ -109,15 +109,15 @@ describe("persistence schema tripwire", () => {
     });
     expect(sessions.packageIntegrity).toMatch(/^sha512-/);
     expect(sessions.extensions.map((entry) => entry.module)).toEqual([
-      "core/session-coordinator.ts",
-      "core/session-jsonl-file.ts",
+      "packages/engine/core/session-coordinator.ts",
+      "packages/engine/core/session-jsonl-file.ts",
     ]);
     expect(sessions.extensions.every((entry) => entry.sourceHash.startsWith("sha256:"))).toBe(true);
 
     const epochJournal = first.schemas.find((entry) => entry.storeId === "data-epoch-transition-journal");
     expect(epochJournal.protocolModules).toEqual([
-      expect.objectContaining({ module: "core/data-epoch-coordinator.ts", sourceHash: expect.stringMatching(/^sha256:/) }),
-      expect.objectContaining({ module: "core/data-epoch-migrations.ts", sourceHash: expect.stringMatching(/^sha256:/) }),
+      expect.objectContaining({ module: "packages/engine/core/data-epoch-coordinator.ts", sourceHash: expect.stringMatching(/^sha256:/) }),
+      expect.objectContaining({ module: "packages/engine/core/data-epoch-migrations.ts", sourceHash: expect.stringMatching(/^sha256:/) }),
     ]);
 
     const serialized = JSON.stringify(first);
@@ -128,7 +128,7 @@ describe("persistence schema tripwire", () => {
   it("fails with both review paths when a runtime contract source drifts", async () => {
     const committed = JSON.parse(fs.readFileSync(FINGERPRINT_PATH, "utf-8"));
     const inventory = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
-    const module = "shared/data-epoch.cjs";
+    const module = "packages/shared/data-epoch.cjs";
     const mutatedSource = `${fs.readFileSync(path.join(ROOT, module), "utf-8")}\nexport const schemaDriftProbe = 1;\n`;
 
     await expect(assertCommittedPersistenceSchemaFingerprint({
@@ -138,7 +138,7 @@ describe("persistence schema tripwire", () => {
       sourceOverrides: new Map([[module, mutatedSource]]),
     })).rejects.toThrow(/persistence schema fingerprint mismatch[\s\S]*compatible addition[\s\S]*breaking change/);
 
-    const coordinatorModule = "core/data-epoch-coordinator.ts";
+    const coordinatorModule = "packages/engine/core/data-epoch-coordinator.ts";
     const mutatedCoordinator = `${fs.readFileSync(path.join(ROOT, coordinatorModule), "utf-8")}\nexport const protocolDriftProbe = 1;\n`;
     await expect(assertCommittedPersistenceSchemaFingerprint({
       rootDir: ROOT,
@@ -158,7 +158,7 @@ describe("persistence schema tripwire", () => {
     const committed = JSON.parse(fs.readFileSync(FINGERPRINT_PATH, "utf-8"));
     const inventory = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
 
-    for (const module of ["shared/data-epoch.cjs", "core/data-epoch-coordinator.ts", "server/index.ts"]) {
+    for (const module of ["packages/shared/data-epoch.cjs", "packages/engine/core/data-epoch-coordinator.ts", "apps/server/index.ts"]) {
       const original = fs.readFileSync(path.join(ROOT, module), "utf-8");
       const commented = `// leading comment mutation\n${original}\n/* trailing block mutation */\n`;
       await expect(assertCommittedPersistenceSchemaFingerprint({
@@ -180,8 +180,8 @@ describe("persistence schema tripwire", () => {
     const inventory = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
 
     const markers: Array<[string, string]> = [
-      ["server/index.ts", "HanaAgent Server — HTTP + WebSocket API"],
-      ["shared/data-epoch.cjs", "Reads both the legacy v1 high-water stamp"],
+      ["apps/server/index.ts", "HanaAgent Server — HTTP + WebSocket API"],
+      ["packages/shared/data-epoch.cjs", "Reads both the legacy v1 high-water stamp"],
     ];
     for (const [module, marker] of markers) {
       const original = fs.readFileSync(path.join(ROOT, module), "utf-8");
@@ -219,7 +219,7 @@ describe("persistence schema tripwire", () => {
 
     const mkdtempSync = vi.spyOn(fs, "mkdtempSync");
     try {
-      for (const module of ["shared/data-epoch.cjs", "core/data-epoch-coordinator.ts", "server/index.ts"]) {
+      for (const module of ["packages/shared/data-epoch.cjs", "packages/engine/core/data-epoch-coordinator.ts", "apps/server/index.ts"]) {
         const original = fs.readFileSync(path.join(ROOT, module), "utf-8");
         await assertCommittedPersistenceSchemaFingerprint({
           rootDir: ROOT,
@@ -254,7 +254,7 @@ describe("persistence schema tripwire", () => {
     resetPersistenceSchemaCaches();
     const parsesPerRound: number[] = [];
     let before = persistenceSchemaCacheStats().sourceParses;
-    for (const module of ["shared/data-epoch.cjs", "core/data-epoch-coordinator.ts", "server/index.ts"]) {
+    for (const module of ["packages/shared/data-epoch.cjs", "packages/engine/core/data-epoch-coordinator.ts", "apps/server/index.ts"]) {
       const original = fs.readFileSync(path.join(ROOT, module), "utf-8");
       await assertCommittedPersistenceSchemaFingerprint({
         rootDir: ROOT,
@@ -318,7 +318,7 @@ describe("persistence schema tripwire", () => {
     // must encode the parse tree, not just its leaves.
     const committed = JSON.parse(fs.readFileSync(FINGERPRINT_PATH, "utf-8"));
     const inventory = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
-    const module = "shared/data-epoch.cjs";
+    const module = "packages/shared/data-epoch.cjs";
     const original = fs.readFileSync(path.join(ROOT, module), "utf-8");
     const target = 'return { status: "corrupt", filePath, detail };';
     expect(original).toContain(target);
@@ -337,7 +337,7 @@ describe("persistence schema tripwire", () => {
     // it is content that can reach disk, so it has to stay hashed.
     const committed = JSON.parse(fs.readFileSync(FINGERPRINT_PATH, "utf-8"));
     const inventory = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
-    const module = "core/data-epoch-coordinator.ts";
+    const module = "packages/engine/core/data-epoch-coordinator.ts";
     const original = fs.readFileSync(path.join(ROOT, module), "utf-8");
 
     await expect(assertCommittedPersistenceSchemaFingerprint({
@@ -418,7 +418,7 @@ describe("persistence schema tripwire", () => {
     const digestOf = (module: string, code: string) => (
       executableSourceHash(ROOT, module, new Map([[module, code]]))
     );
-    const M = "core/digest-invariant-probe.ts";
+    const M = "packages/engine/core/digest-invariant-probe.ts";
 
     // Restricted productions: same token stream, different program.
     expect(digestOf(M, "function f(){ return { ok: true }; }"))
@@ -437,8 +437,8 @@ describe("persistence schema tripwire", () => {
     // Formatting between tokens is invisible; content inside tokens is not.
     expect(digestOf(M, "export  const x =\n  1;")).toBe(digestOf(M, "export const x = 1;"));
     expect(digestOf(M, "export const t = `a  b`;")).not.toBe(digestOf(M, "export const t = `a b`;"));
-    expect(digestOf("core/probe.cjs", "#!/usr/bin/env node\nconsole.log(1);"))
-      .not.toBe(digestOf("core/probe.cjs", "#!/usr/bin/env other\nconsole.log(1);"));
+    expect(digestOf("packages/engine/core/probe.cjs", "#!/usr/bin/env node\nconsole.log(1);"))
+      .not.toBe(digestOf("packages/engine/core/probe.cjs", "#!/usr/bin/env other\nconsole.log(1);"));
   });
 
   it("pins parse-behavior snapshots so toolchain drift is separable from module drift", () => {
@@ -448,15 +448,15 @@ describe("persistence schema tripwire", () => {
     // On mismatch, the committed module hashes changed for toolchain reasons,
     // not because any guarded module was edited.
     const snapshots: Array<{ name: string; module: string; code: string; digest: string }> = [
-      { name: "return-object", module: "core/digest-snap.ts", code: "function f(){ return { ok: true }; }", digest: "sha256:6dbf8d2bcadf21826429d2a8ff4c9c4fe4ed1f6a2899d1134ff3fcbc92504a75" },
-      { name: "return-split-asi", module: "core/digest-snap.ts", code: "function f(){ return\n{ ok: true }; }", digest: "sha256:259416511ba3964de4766bd855385c4d4d52975bfd016cfe4fc269280a992ae9" },
-      { name: "jsdoc-invisible", module: "core/digest-snap.ts", code: "/** doc */ export function g(){}", digest: "sha256:fa76a67ae833821e5d21c2b0cfefd2dd56119a092ea895157fd7ba45b2f8a682" },
-      { name: "template-content", module: "core/digest-snap.ts", code: "export const t = `a  b ${1} c`;", digest: "sha256:3d0506278b4e662266b09a9e07453e582435851dbf877dc84354d2478444c0da" },
-      { name: "optional-chain", module: "core/digest-snap.ts", code: "export const v = globalThis?.process?.[\"argv\"];", digest: "sha256:08fce65a4301dcb051938b4b07e195f01a648a97fe28f8ee07c067057cde27b6" },
-      { name: "decorator-class", module: "core/digest-snap.ts", code: "declare const dec: ClassDecorator;\n@dec class C { #p = 1; static { void 0; } }", digest: "sha256:b6427d533ec54746dc5646d17b3cfdb6e1b3538258b9a8573e3c0ff83c923083" },
-      { name: "jsx-element", module: "core/digest-snap.tsx", code: "export const el = <div a={1}>t x</div>;", digest: "sha256:26e03cb6af00d200b24c49dd338c3be1cdaa877921b0c9a0d6435b3643be7840" },
-      { name: "cjs-script", module: "core/digest-snap.cjs", code: "\"use strict\";\nmodule.exports = { n: 1 };", digest: "sha256:6e8af28a51bd5fcb4b9aa85334bac8a8da09623d576da8a2d2fb979469cef803" },
-      { name: "shebang", module: "core/digest-snap.cjs", code: "#!/usr/bin/env node\nconsole.log(1);", digest: "sha256:ea6740a08ee7145dc59e84cef6118e5029b944899163e60f81fab54c57966eb4" },
+      { name: "return-object", module: "packages/engine/core/digest-snap.ts", code: "function f(){ return { ok: true }; }", digest: "sha256:6dbf8d2bcadf21826429d2a8ff4c9c4fe4ed1f6a2899d1134ff3fcbc92504a75" },
+      { name: "return-split-asi", module: "packages/engine/core/digest-snap.ts", code: "function f(){ return\n{ ok: true }; }", digest: "sha256:259416511ba3964de4766bd855385c4d4d52975bfd016cfe4fc269280a992ae9" },
+      { name: "jsdoc-invisible", module: "packages/engine/core/digest-snap.ts", code: "/** doc */ export function g(){}", digest: "sha256:fa76a67ae833821e5d21c2b0cfefd2dd56119a092ea895157fd7ba45b2f8a682" },
+      { name: "template-content", module: "packages/engine/core/digest-snap.ts", code: "export const t = `a  b ${1} c`;", digest: "sha256:3d0506278b4e662266b09a9e07453e582435851dbf877dc84354d2478444c0da" },
+      { name: "optional-chain", module: "packages/engine/core/digest-snap.ts", code: "export const v = globalThis?.process?.[\"argv\"];", digest: "sha256:08fce65a4301dcb051938b4b07e195f01a648a97fe28f8ee07c067057cde27b6" },
+      { name: "decorator-class", module: "packages/engine/core/digest-snap.ts", code: "declare const dec: ClassDecorator;\n@dec class C { #p = 1; static { void 0; } }", digest: "sha256:b6427d533ec54746dc5646d17b3cfdb6e1b3538258b9a8573e3c0ff83c923083" },
+      { name: "jsx-element", module: "packages/engine/core/digest-snap.tsx", code: "export const el = <div a={1}>t x</div>;", digest: "sha256:26e03cb6af00d200b24c49dd338c3be1cdaa877921b0c9a0d6435b3643be7840" },
+      { name: "cjs-script", module: "packages/engine/core/digest-snap.cjs", code: "\"use strict\";\nmodule.exports = { n: 1 };", digest: "sha256:6e8af28a51bd5fcb4b9aa85334bac8a8da09623d576da8a2d2fb979469cef803" },
+      { name: "shebang", module: "packages/engine/core/digest-snap.cjs", code: "#!/usr/bin/env node\nconsole.log(1);", digest: "sha256:ea6740a08ee7145dc59e84cef6118e5029b944899163e60f81fab54c57966eb4" },
     ];
     const drifted = snapshots
       .map((snapshot) => ({
@@ -476,7 +476,7 @@ describe("persistence schema tripwire", () => {
   it("rejects a repinned payload until the committed review pins that exact payload", async () => {
     const committed = JSON.parse(fs.readFileSync(FINGERPRINT_PATH, "utf-8"));
     const inventory = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf-8"));
-    const module = "shared/data-epoch.cjs";
+    const module = "packages/shared/data-epoch.cjs";
     const mutatedSource = `${fs.readFileSync(path.join(ROOT, module), "utf-8")}\nexports.reviewedSchemaProbe = 1;\n`;
     const sourceOverrides = new Map([[module, mutatedSource]]);
     const reviewedMutation = await generatePersistenceSchemaFingerprint({
@@ -582,7 +582,7 @@ describe("persistence schema tripwire", () => {
 
   it("keeps the unregistered-write mutation as the first tripwire", () => {
     const root = temporaryRepository();
-    fs.writeFileSync(path.join(root, "core", "unregistered-schema-write.ts"), `
+    fs.writeFileSync(path.join(root, "packages/engine/core", "unregistered-schema-write.ts"), `
       import fs from "node:fs";
       fs.writeFileSync("unregistered-state.json", "{}");
     `, "utf-8");

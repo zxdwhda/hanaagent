@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveWin32DefaultPowerShellExecutable } from "../lib/shell/shell-utils.ts";
-import { profileLabel, resolveShellProfile } from "../lib/shell/shell-profile.ts";
+import { resolveWin32DefaultPowerShellExecutable } from "../packages/engine/lib/shell/shell-utils.ts";
+import { profileLabel, resolveShellProfile } from "../packages/engine/lib/shell/shell-profile.ts";
 
 describe("resolveShellProfile", () => {
   it("uses the user shell on macOS", () => {

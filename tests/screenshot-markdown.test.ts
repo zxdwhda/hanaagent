@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('screenshot markdown renderer helpers', () => {
   it('resolves relative markdown image paths from the source markdown file', () => {
-    const { resolveScreenshotMarkdownImageSrc } = require('../desktop/src/shared/screenshot-markdown.cjs');
+    const { resolveScreenshotMarkdownImageSrc } = require('../apps/desktop/src/shared/screenshot-markdown.cjs');
 
     expect(resolveScreenshotMarkdownImageSrc('文本附件/Cover Image.png', {
       sourceFilePath: '/vault/notes/day.md',
@@ -17,7 +17,7 @@ describe('screenshot markdown renderer helpers', () => {
   });
 
   it('renders code articles as escaped preformatted code instead of markdown paragraphs', () => {
-    const { renderScreenshotCodeArticle } = require('../desktop/src/shared/screenshot-markdown.cjs');
+    const { renderScreenshotCodeArticle } = require('../apps/desktop/src/shared/screenshot-markdown.cjs');
 
     expect(renderScreenshotCodeArticle('<div>x</div>', 'html')).toBe(
       '<pre><code class="language-html">&lt;div&gt;x&lt;/div&gt;</code></pre>',
@@ -25,7 +25,7 @@ describe('screenshot markdown renderer helpers', () => {
   });
 
   it('drops unsupported explicit image protocols in screenshot markdown', () => {
-    const { resolveScreenshotMarkdownImageSrc } = require('../desktop/src/shared/screenshot-markdown.cjs');
+    const { resolveScreenshotMarkdownImageSrc } = require('../apps/desktop/src/shared/screenshot-markdown.cjs');
 
     expect(resolveScreenshotMarkdownImageSrc('javascript:alert(1)', {
       sourceFilePath: '/vault/notes/day.md',
@@ -33,7 +33,7 @@ describe('screenshot markdown renderer helpers', () => {
   });
 
   it('renders markdown cover before article body for screenshots', () => {
-    const { renderScreenshotMarkdownArticle } = require('../desktop/src/shared/screenshot-markdown.cjs');
+    const { renderScreenshotMarkdownArticle } = require('../apps/desktop/src/shared/screenshot-markdown.cjs');
     const md = { render: vi.fn(() => '<h1>Demo</h1>') };
     const html = renderScreenshotMarkdownArticle(md, [
       '---',
@@ -58,7 +58,7 @@ describe('screenshot markdown renderer helpers', () => {
 
   it('wraps markdown tables for screenshot rendering', () => {
     const MarkdownIt = require('markdown-it');
-    const { decorateScreenshotMarkdownIt } = require('../desktop/src/shared/screenshot-markdown.cjs');
+    const { decorateScreenshotMarkdownIt } = require('../apps/desktop/src/shared/screenshot-markdown.cjs');
     const md = new MarkdownIt();
     decorateScreenshotMarkdownIt(md);
 
@@ -74,14 +74,14 @@ describe('screenshot markdown renderer helpers', () => {
   });
 
   it('keeps screenshot cover bleed as an explicit layout contract', () => {
-    const mainSource = fs.readFileSync(path.resolve(__dirname, '../desktop/main.cjs'), 'utf-8');
+    const mainSource = fs.readFileSync(path.resolve(__dirname, '../apps/desktop/main.cjs'), 'utf-8');
 
     expect(mainSource).toContain('.screenshot-cover.screenshot-cover-bleed-x');
     expect(mainSource).toContain('.screenshot-cover.screenshot-cover-top');
   });
 
   it('bleeds screenshot covers to the screenshot canvas edges, not theme padding edges', () => {
-    const mainSource = fs.readFileSync(path.resolve(__dirname, '../desktop/main.cjs'), 'utf-8');
+    const mainSource = fs.readFileSync(path.resolve(__dirname, '../apps/desktop/main.cjs'), 'utf-8');
 
     expect(mainSource).not.toContain('const coverBleedX');
     expect(mainSource).not.toContain('--screenshot-cover-bleed-x');

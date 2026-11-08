@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SessionCoordinator } from "../core/session-coordinator.ts";
-import { EnvChangeLedger } from "../core/env-change-ledger.ts";
-import { REFERENCE_BLOCK_PREFIX } from "../core/session-reminders.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
+import { EnvChangeLedger } from "../packages/engine/core/env-change-ledger.ts";
+import { REFERENCE_BLOCK_PREFIX } from "../packages/engine/core/session-reminders.ts";
 
 const MANIFEST_TEXT = "GitHub（2）\n- github_create_issue — Create an issue.\n- github_list_issues — List issues.";
 

@@ -7,7 +7,7 @@ import path from "node:path";
 function runAudit(root: string) {
   const output = execFileSync(
     process.execPath,
-    ["scripts/session-path-identity-audit.mjs", root, "--json"],
+    ["tooling/scripts/session-path-identity-audit.mjs", root, "--json"],
     { cwd: process.cwd(), encoding: "utf8" },
   );
   return JSON.parse(output);
@@ -16,7 +16,7 @@ function runAudit(root: string) {
 function runAuditProcess(root: string, ...args: string[]) {
   return spawnSync(
     process.execPath,
-    ["scripts/session-path-identity-audit.mjs", root, ...args],
+    ["tooling/scripts/session-path-identity-audit.mjs", root, ...args],
     { cwd: process.cwd(), encoding: "utf8" },
   );
 }
@@ -248,169 +248,169 @@ describe("session path identity audit", () => {
   it("allows verified sessionId-first runtime adapters while still flagging new path-keyed maps", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-session-audit-runtime-adapters-"));
     const files = {
-      "lib/session-files/session-file-registry.ts": `
+      "packages/engine/lib/session-files/session-file-registry.ts": `
         const key = this._sessionKeyForPath(sessionPath, sessionId);
         const keys = sessionId
           ? new Set([sessionId])
           : new Set([entry.sessionPath, requestedSessionPath].filter(Boolean));
         return normalizeSessionId(sessionId) || this._resolveSessionIdForPath(sessionPath) || sessionPath;
       `,
-      "core/vision-bridge.ts": `
+      "packages/engine/core/vision-bridge.ts": `
         const existing = this._lookupNote(sessionPath, key);
         this._rememberNote(sessionPath, key, entry);
         if (sessionPath) this._persistNote(sessionPath, key, entry);
         for (const key of this._noteCacheKeys(sessionPath, imagePath)) {}
       `,
-      "lib/memory/memory-ticker.ts": `
+      "packages/engine/lib/memory/memory-ticker.ts": `
         return sessionIdFromFilename(path.basename(sessionPath));
         _turnCounts.set(_sessionIdentityForPath(sessionPath), 1);
       `,
-      "lib/terminal/terminal-session-manager.ts": `
+      "packages/engine/lib/terminal/terminal-session-manager.ts": `
         const key = this._sessionKeyForPath(entry.sessionPath);
       `,
-      "lib/session-files/bridge-inbound-files.ts": `
+      "packages/engine/lib/session-files/bridge-inbound-files.ts": `
         const dir = sessionFilesCacheDir(hanakoHome, { sessionId, sessionPath });
       `,
-      "lib/session-files/browser-screenshot-file.ts": `
+      "packages/engine/lib/session-files/browser-screenshot-file.ts": `
         sessionFilesCacheDir(hanakoHome, { sessionId, sessionPath });
       `,
-      "lib/sandbox/read-office-media.ts": `
+      "packages/engine/lib/sandbox/read-office-media.ts": `
         function officeMediaResourceKey({ sessionId, sessionPath, docxPath, index, mimeType, hash }) {}
         key: officeMediaResourceKey({ sessionId, sessionPath, docxPath, index: image.index, mimeType: image.mimeType, hash: image.hash });
         const dir = sessionFilesCacheDir(hanakoHome, { sessionId, sessionPath });
       `,
-      "server/routes/upload.ts": `
+      "apps/server/routes/upload.ts": `
         const sessionId = engine?.getSessionIdForPath?.(sessionPath) || null;
         dir: sessionFilesCacheDir(engine.hanakoHome, { sessionId, sessionPath });
       `,
-      "core/engine.ts": `
+      "packages/engine/core/engine.ts": `
         const key = this._sessionRuntimeKeyForPath(sessionPath);
         if (key !== sessionPath) this._uiContextBySession.delete(sessionPath);
         return this._uiContextBySession.get(key)
           || (key !== sessionPath ? this._uiContextBySession.get(sessionPath) : null)
           || null;
       `,
-      "core/session-coordinator.ts": `
+      "packages/engine/core/session-coordinator.ts": `
         log.warn(\`session runtime key lookup failed for \${path.basename(sessionPath || "")}: \${err?.message || err}\`);
         return this._sessions.get(key) || (key !== sessionPath ? this._sessions.get(sessionPath) : null) || null;
         if (key !== sessionPath) map.delete(sessionPath);
         return map.get(key) || (key !== sessionPath ? map.get(sessionPath) : null) || null;
         return map.has(key) || (key !== sessionPath && map.has(sessionPath));
       `,
-      "core/migrations.ts": `
+      "packages/engine/core/migrations.ts": `
         function rememberChildSessionIdentity(sessionPath, identity, priority) {
           if (!sessionPath || !identity) return;
           childSessionCandidates.set(sessionPath, { identity, priority });
         }
         const sessionId = sessionIdFromFilename(path.basename(sessionPath));
       `,
-      "server/routes/chat.ts": `
+      "apps/server/routes/chat.ts": `
         const key = sessionStateKey(sessionPath);
         if (key !== sessionPath && sessionState.has(sessionPath) && !sessionState.has(key)) {
           sessionState.set(key, sessionState.get(sessionPath));
         }
       `,
-      "lib/tools/browser-tool.ts": `
+      "packages/engine/lib/tools/browser-tool.ts": `
         const key = actionLogKey(sessionPath);
         const snapshot = await browser.pressKey(params.key, sessionPath, params.tabId || null);
         return toolOk(t("error.browserKeyPressed", { key: params.key, snapshot }), { action: "key", key: params.key, ...await statusFields(sessionPath) });
       `,
-      "lib/tools/session-folders-tool.ts": `
+      "packages/engine/lib/tools/session-folders-tool.ts": `
         id: \`\${stableKey || sessionPath || "session"}:session_folders:\${Date.now()}\`,
       `,
-      "desktop/src/react/stores/session-slice.ts": `
+      "apps/desktop/src/react/stores/session-slice.ts": `
         return !!key && (list.includes(key) || (key !== sessionPath && list.includes(sessionPath)));
         const next = list.filter((item) => item !== key && item !== sessionPath);
         if (key !== sessionPath) delete next[sessionPath];
         (s.todosLiveVersionBySession[key] ?? s.todosLiveVersionBySession[sessionPath] ?? 0) + 1;
       `,
-      "desktop/src/react/stores/selection-slice.ts": `
+      "apps/desktop/src/react/stores/selection-slice.ts": `
         toggleMessageSelection: (sessionPath, messageId) => set((s) => {
         setMessageSelection: (sessionPath, messageIds) => set((s) => {
         addMessagesToSelection: (sessionPath, messageIds) => set((s) => {
         clearSelection: (sessionPath) => set((s) => {
       `,
-      "desktop/src/react/stores/computer-overlay-slice.ts": `
+      "apps/desktop/src/react/stores/computer-overlay-slice.ts": `
         setComputerOverlayForSession: (sessionPath, event) => set((state) => {
         if (key !== sessionPath) delete computerOverlayBySession[sessionPath];
         clearComputerOverlayForSession: (sessionPath) => set((state) => {
       `,
-      "desktop/src/react/stores/browser-slice.ts": `
+      "apps/desktop/src/react/stores/browser-slice.ts": `
         if (key !== sessionPath) delete browserBySession[sessionPath];
       `,
-      "desktop/src/react/stores/create-keyed-slice.ts": `
+      "apps/desktop/src/react/stores/create-keyed-slice.ts": `
         if (key !== sessionPath) delete keyed[sessionPath];
       `,
-      "desktop/src/react/stores/agent-activity-slice.ts": `
+      "apps/desktop/src/react/stores/agent-activity-slice.ts": `
         if (!s.agentActivitiesBySession[key] && !s.agentActivitiesBySession[sessionPath]) return {};
       `,
-      "core/agent.ts": `
+      "packages/engine/core/agent.ts": `
         getBridgeContext: (sessionPath) => this._cb?.getEngine?.()?.getBridgeContextForSessionPath?.(sessionPath, { agentId: this.id }) || null,
       `,
-      "core/slash-commands/rc-pending-handler.ts": `
+      "packages/engine/core/slash-commands/rc-pending-handler.ts": `
         summary = await summarizeSessionForRc(engine, agent, sessionPath);
       `,
-      "lib/browser/browser-manager.ts": `
+      "packages/engine/lib/browser/browser-manager.ts": `
         .map(([sessionPath, state]: [string, any]) => [sessionPath, state.url]),
       `,
-      "lib/confirm-store.ts": `
+      "packages/engine/lib/confirm-store.ts": `
         /** @type {Map<string, { resolve, timer, sessionId, sessionPath, kind, payload }>} */
       `,
-      "lib/tools/current-status-tool.ts": `
+      "packages/engine/lib/tools/current-status-tool.ts": `
         files: deps.listSessionFiles(sessionPath).map(normalizeSessionFile),
         ? deps.listOpenSubagentThreads(sessionPath).map(normalizeSubagentThread)
       `,
-      "lib/tools/workflow-tool.ts": `
+      "packages/engine/lib/tools/workflow-tool.ts": `
         hub?.upsert({ id: taskId, kind: "workflow", status: "running", sessionId: parentSessionId, sessionPath: parentSessionPath, agentId, summary, startedAt });
       `,
-      "server/routes/sessions.ts": `
+      "apps/server/routes/sessions.ts": `
         || sessionIdFromFilename(path.basename(sessionPath));
       `,
-      "desktop/src/react/components/ChannelsPanel.tsx": `
+      "apps/desktop/src/react/components/ChannelsPanel.tsx": `
         const sessionPath = history.map(activitySessionPath).find((path): path is string => !!path) || null;
       `,
-      "desktop/src/react/components/app/ChatPage.tsx": `
+      "apps/desktop/src/react/components/app/ChatPage.tsx": `
         <InputArea key={currentSessionPath || '__new'} surface={inputSurface} />
       `,
-      "desktop/src/react/components/chat/AssistantMessage.tsx": `
+      "apps/desktop/src/react/components/chat/AssistantMessage.tsx": `
         fn(message.id, sessionPath);
         }, [message.id, sessionPath]);
       `,
-      "desktop/src/react/components/chat/SubagentSessionPreview.tsx": `
+      "apps/desktop/src/react/components/chat/SubagentSessionPreview.tsx": `
         export function SubagentSessionPreview({ taskId, sessionId = null, sessionPath, agentId, streamStatus, summary, scrollContainerRef }: Props) {}
       `,
-      "desktop/src/react/components/chat/UserMessage.tsx": `
+      "apps/desktop/src/react/components/chat/UserMessage.tsx": `
         message.textHtml && <MarkdownContent html={message.textHtml} linkContext={{ origin: 'session', sessionPath, messageId: message.id }} />
       `,
-      "desktop/src/react/hooks/use-box-selection.ts": `
+      "apps/desktop/src/react/hooks/use-box-selection.ts": `
         setMessageSelection(sessionPath, Array.from(new Set([...drag.base, ...hit])));
         addMessagesToSelection(sessionPath, rangeIds(orderedIds, anchorRef.current, id));
         toggleMessageSelection(sessionPath, id);
       `,
-      "desktop/src/react/services/ws-message-handler.ts": `
+      "apps/desktop/src/react/services/ws-message-handler.ts": `
         useStore.getState().addStreamingSession(sessionPath, identity);
         : useStore.getState().removeStreamingSession(sessionPath, identity);
       `,
-      "desktop/src/react/stores/message-turn-actions.ts": `
+      "apps/desktop/src/react/stores/message-turn-actions.ts": `
         if (!sessionPath || !message?.id) return false;
       `,
-      "desktop/src/react/stores/selectors/file-refs.ts": `
+      "apps/desktop/src/react/stores/selectors/file-refs.ts": `
         if (cached.sessionPath === sessionPath || cached.sessionKey === sessionPath) cachedSession.delete(key);
         cachedSession.set(cacheKey, { sessionPath, sessionKey, includeUnlisted, items, registryFiles, result });
       `,
-      "desktop/src/react/stores/session-actions.ts": `
+      "apps/desktop/src/react/stores/session-actions.ts": `
         if (key !== sessionPath) delete next[sessionPath];
         return sessionPath !== key && sessionPath !== path;
       `,
-      "desktop/src/react/stores/session-project-actions.ts": `
+      "apps/desktop/src/react/stores/session-project-actions.ts": `
         const pathSet = new Set(sessionPaths);
         sessions: state.sessions.map(session => session.path === sessionPath
       `,
-      "desktop/src/react/stores/subagent-preview-slice.ts": `
+      "apps/desktop/src/react/stores/subagent-preview-slice.ts": `
         openSubagentPreview: (taskId, sessionPath = undefined) => set((s) => setEntry(s, taskId, current => ({})));
         setSubagentPreviewSessionPath: (taskId, sessionPath) => set((s) => setEntry(s, taskId, current => ({})));
       `,
-      "desktop/src/react/hooks/use-stream-buffer.ts": `
+      "apps/desktop/src/react/hooks/use-stream-buffer.ts": `
         const key = bufferKeyForSession(sessionPath, sessionId);
         this.bufferKeysByPath.set(sessionPath, key);
         if (key !== sessionPath) {

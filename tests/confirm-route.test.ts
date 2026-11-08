@@ -37,7 +37,7 @@ function makeApp({ pending, principal }) {
     getRuntimeContext: () => runtimeContext(),
     emitEvent: vi.fn(),
   };
-  return import("../server/routes/confirm.ts").then(({ createConfirmRoute }) => {
+  return import("../apps/server/routes/confirm.ts").then(({ createConfirmRoute }) => {
     const app = new Hono();
     app.use("*", async (c, next) => {
       (c as any).set("authPrincipal", principal);

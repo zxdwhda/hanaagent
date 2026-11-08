@@ -12,7 +12,7 @@ import {
   collectInstalledOptionalDependencyDirs,
   readPackageJsonWithRetry,
   verifyExternalEntrypoints,
-} from "../scripts/build-server-deps.mjs";
+} from "../tooling/scripts/build-server-deps.mjs";
 
 const tempDirs = [];
 

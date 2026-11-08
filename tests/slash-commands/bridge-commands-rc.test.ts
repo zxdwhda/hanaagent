@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { bridgeCommands } from "../../core/slash-commands/bridge-commands.ts";
-import { RcStateStore } from "../../core/slash-commands/rc-state.ts";
+import { bridgeCommands } from "../../packages/engine/core/slash-commands/bridge-commands.ts";
+import { RcStateStore } from "../../packages/engine/core/slash-commands/rc-state.ts";
 
 function cmd(name) { return bridgeCommands.find(c => c.name === name); }
 

@@ -1,8 +1,8 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
-import { extractDocument } from "../lib/document-extract/index.ts";
-import type { ExtractFailure } from "../lib/document-extract/types.ts";
+import { extractDocument } from "../packages/engine/lib/document-extract/index.ts";
+import type { ExtractFailure } from "../packages/engine/lib/document-extract/types.ts";
 
 // 这一组用真实的转换库跑真实的样本文件，验证"喂进去一份文档，出来一段能读的 Markdown"。
 // 断言只看属性（该出现的文字、该出现的表格分隔符），不做快照对比：转换库还在 0.x，

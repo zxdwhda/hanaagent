@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildUtilityPromptLayout } from "../lib/llm/prompt-layout.ts";
-import { buildRollingSummaryPrompt } from "../lib/memory/prompts/rolling-summary.ts";
+import { buildUtilityPromptLayout } from "../packages/engine/lib/llm/prompt-layout.ts";
+import { buildRollingSummaryPrompt } from "../packages/engine/lib/memory/prompts/rolling-summary.ts";
 import {
   buildCompileEditableFactsPrompt,
   buildCompileTodayPrompt,
-} from "../lib/memory/prompts/compile.ts";
-import { buildFactExtractionPrompt } from "../lib/memory/prompts/fact-extraction.ts";
+} from "../packages/engine/lib/memory/prompts/compile.ts";
+import { buildFactExtractionPrompt } from "../packages/engine/lib/memory/prompts/fact-extraction.ts";
 
 describe("cache-aware prompt layout", () => {
   it("keeps rolling summary semantic rules in the stable system prompt", () => {

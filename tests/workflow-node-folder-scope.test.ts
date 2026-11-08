@@ -7,7 +7,7 @@ import {
   assertNodeWriteFoldersShape,
   assertNodeWriteScopeDeclared,
   resolveNodeFolderScope,
-} from "../lib/workflow/node-folder-scope.ts";
+} from "../packages/engine/lib/workflow/node-folder-scope.ts";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-wfscope-"));
 const parentA = path.join(root, "parent-a");

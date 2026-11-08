@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ResourceAccessService } from "../core/resource-access-service.ts";
+import { ResourceAccessService } from "../packages/engine/core/resource-access-service.ts";
 
 function localContext() {
   return {

@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readSessionMessages } from "../lib/session-jsonl.ts";
+import { readSessionMessages } from "../packages/engine/lib/session-jsonl.ts";
 
 describe("readSessionMessages active branch", () => {
   const tempDirs: string[] = [];

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { createMemoryDreamRoute } from "../server/routes/memory-dream.ts";
+import { createMemoryDreamRoute } from "../apps/server/routes/memory-dream.ts";
 
 function mount(agent: any) {
   const engine = {

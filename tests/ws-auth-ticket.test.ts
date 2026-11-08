@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("websocket auth tickets", () => {
   it("issues one-time tickets scoped to the websocket transport", async () => {
-    const { createWebSocketTicketService } = await import("../core/ws-auth-ticket.ts");
+    const { createWebSocketTicketService } = await import("../packages/engine/core/ws-auth-ticket.ts");
     const service = createWebSocketTicketService({
       now: () => "2026-06-20T00:00:00.000Z",
       ttlMs: 30_000,
@@ -30,7 +30,7 @@ describe("websocket auth tickets", () => {
   });
 
   it("rejects tickets replayed on a different transport or route", async () => {
-    const { createWebSocketTicketService } = await import("../core/ws-auth-ticket.ts");
+    const { createWebSocketTicketService } = await import("../packages/engine/core/ws-auth-ticket.ts");
     const service = createWebSocketTicketService({
       now: () => "2026-06-20T00:00:00.000Z",
       ttlMs: 30_000,
@@ -52,8 +52,8 @@ describe("websocket auth tickets", () => {
   });
 
   it("lets websocket principal resolution consume a valid ticket once", async () => {
-    const { createWebSocketTicketService } = await import("../core/ws-auth-ticket.ts");
-    const { resolveHttpRequestPrincipal } = await import("../server/http/request-principal.ts");
+    const { createWebSocketTicketService } = await import("../packages/engine/core/ws-auth-ticket.ts");
+    const { resolveHttpRequestPrincipal } = await import("../apps/server/http/request-principal.ts");
     const service = createWebSocketTicketService({
       now: () => "2026-06-20T00:00:00.000Z",
       ttlMs: 30_000,

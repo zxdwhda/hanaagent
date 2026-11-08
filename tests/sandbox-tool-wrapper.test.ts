@@ -9,7 +9,7 @@ const describeUnlessWindows = process.platform === "win32" ? describe.skip : des
 async function importToolWrapperAsWin32() {
   Object.defineProperty(process, "platform", { value: "win32" });
   vi.resetModules();
-  return import("../lib/sandbox/tool-wrapper.ts");
+  return import("../packages/engine/lib/sandbox/tool-wrapper.ts");
 }
 
 afterEach(() => {
@@ -72,7 +72,7 @@ describe("wrapBashTool Windows PathGuard preflight", () => {
 
 describeUnlessWindows("wrapBashTool POSIX redirection preflight", () => {
   it("allows redirection to the POSIX null device without treating it as a workspace write", async () => {
-    const { wrapBashTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapBashTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const tool = { execute: vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] })) };
     const guard = {
       check: vi.fn((_filePath, operation) => (
@@ -93,7 +93,7 @@ describeUnlessWindows("wrapBashTool POSIX redirection preflight", () => {
   });
 
   it("still checks destructive operations targeting the POSIX null device", async () => {
-    const { wrapBashTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapBashTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const tool = { execute: vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] })) };
     const guard = {
       check: vi.fn(() => ({ allowed: false, reason: "blocked" })),
@@ -112,7 +112,7 @@ describeUnlessWindows("wrapBashTool POSIX redirection preflight", () => {
 
 describe("sandbox wrapper dynamic external read grants", () => {
   it("bypasses PathGuard for path tools when sandbox is disabled", async () => {
-    const { wrapPathTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapPathTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const tool = { execute: vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] })) };
     const guard = {
       check: vi.fn(() => ({ allowed: false, reason: "blocked" })),
@@ -129,7 +129,7 @@ describe("sandbox wrapper dynamic external read grants", () => {
   });
 
   it("uses the unsandboxed bash fallback and skips PathGuard when sandbox is disabled", async () => {
-    const { wrapBashTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapBashTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const sandboxedTool = { execute: vi.fn(async () => ({ content: [{ type: "text", text: "sandboxed" }] })) };
     const fallbackTool = { execute: vi.fn(async () => ({ content: [{ type: "text", text: "fallback" }] })) };
     const guard = {
@@ -151,7 +151,7 @@ describe("sandbox wrapper dynamic external read grants", () => {
   });
 
   it("blocks managed config writes before using the unsandboxed bash fallback", async () => {
-    const { wrapBashTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapBashTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-wrapper-managed-config-"));
     try {
       const configPath = path.join(tempRoot, "home", "agents", "hana", "config.yaml");
@@ -187,7 +187,7 @@ describe("sandbox wrapper dynamic external read grants", () => {
   });
 
   it("lets read tools access explicitly granted external session files", async () => {
-    const { wrapPathTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapPathTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-wrapper-read-grant-"));
     try {
       const externalFile = path.join(tempRoot, "outside.md");
@@ -211,7 +211,7 @@ describe("sandbox wrapper dynamic external read grants", () => {
   });
 
   it("lets bash read explicitly granted external session files", async () => {
-    const { wrapBashTool } = await import("../lib/sandbox/tool-wrapper.ts");
+    const { wrapBashTool } = await import("../packages/engine/lib/sandbox/tool-wrapper.ts");
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-wrapper-bash-grant-"));
     try {
       const externalFile = path.join(tempRoot, "outside.md");

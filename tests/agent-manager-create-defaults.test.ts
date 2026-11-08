@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import YAML from "js-yaml";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { deepMerge } from "../lib/memory/config-loader.ts";
+import { deepMerge } from "../packages/engine/lib/memory/config-loader.ts";
 
 // ── Mocks ──────────────────────────────────────────────────────
 //
@@ -11,7 +11,7 @@ import { deepMerge } from "../lib/memory/config-loader.ts";
 // init which we don't care about here. The mock only implements the minimum
 // for createAgent's flow: init (read config.yaml), updateConfig (merge + write),
 // and no-op setters.
-vi.mock("../core/agent.js", () => ({
+vi.mock("../packages/engine/core/agent.js", () => ({
   Agent: vi.fn().mockImplementation(function (opts) {
     // 对齐真实 Agent 构造：id 是唯一信源，agentDir 从 agentsDir + id 派生
     this.id = opts.id;
@@ -42,27 +42,27 @@ vi.mock("../core/agent.js", () => ({
   }),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-vi.mock("../lib/desk/activity-store.js", () => ({
+vi.mock("../packages/engine/lib/desk/activity-store.js", () => ({
   ActivityStore: vi.fn(),
 }));
 
-vi.mock("../lib/memory/config-loader.js", async (importOriginal) => {
+vi.mock("../packages/engine/lib/memory/config-loader.js", async (importOriginal) => {
   const actual = await importOriginal() as any;
   return { ...actual, clearConfigCache: vi.fn() };
 });
 
-vi.mock("../core/llm-utils.js", () => ({
+vi.mock("../packages/engine/core/llm-utils.js", () => ({
   generateAgentId: vi.fn().mockImplementation(async (_u: any, name: any) => `agent-${name.toLowerCase()}`),
   generateDescription: vi.fn(),
 }));
 
 // Import AFTER vi.mock calls so the mocks take effect.
-import { AgentManager } from "../core/agent-manager.ts";
-import { resolvePersonaSource } from "../core/persona-source.ts";
+import { AgentManager } from "../packages/engine/core/agent-manager.ts";
+import { resolvePersonaSource } from "../packages/engine/core/persona-source.ts";
 
 // ── Test suite ─────────────────────────────────────────────────
 describe("AgentManager.createAgent default skills.enabled", () => {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   SESSION_MANIFEST_DB_USER_VERSION,
   SessionManifestStore,
-} from "../core/session-manifest/store.ts";
+} from "../packages/engine/core/session-manifest/store.ts";
 
 describe("SessionManifestStore branch heads", () => {
   let tmpDir: string;

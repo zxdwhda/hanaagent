@@ -8,7 +8,7 @@ import {
   PluginSurfaceSessionError,
   issuePluginSurfaceSession,
   verifyPluginSurfaceSession,
-} from "../core/plugin-surface-session-service.ts";
+} from "../packages/engine/core/plugin-surface-session-service.ts";
 
 let tmpHome = "";
 
@@ -128,8 +128,8 @@ describe("plugin surface session service", () => {
   });
 
   it("does not accept plugin iframe tickets or asset session tokens", async () => {
-    const { issuePluginIframeTicket } = await import("../core/plugin-iframe-ticket-service.ts");
-    const { issuePluginAssetSession } = await import("../core/plugin-asset-session-service.ts");
+    const { issuePluginIframeTicket } = await import("../packages/engine/core/plugin-iframe-ticket-service.ts");
+    const { issuePluginAssetSession } = await import("../packages/engine/core/plugin-asset-session-service.ts");
 
     const ticket = issuePluginIframeTicket({
       hanakoHome: tmpHome,

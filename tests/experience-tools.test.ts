@@ -7,8 +7,8 @@ import {
   listExperienceDocuments,
   recordEntry,
   rebuildIndex,
-} from "../lib/tools/experience.ts";
-import { loadLocale } from "../lib/i18n.ts";
+} from "../packages/engine/lib/tools/experience.ts";
+import { loadLocale } from "../packages/engine/lib/i18n.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-experience-"));

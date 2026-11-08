@@ -9,7 +9,7 @@ const { createAgentSessionMock, sessionManagerCreateMock, sessionManagerOpenMock
   sessionManagerOpenMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   emitSessionShutdown: vi.fn(async () => false),
   SessionManager: {
@@ -24,7 +24,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   formatModelImageDimensionNote: vi.fn(() => undefined),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -32,8 +32,8 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 function buildCoordinator({ tempDir, sessionDir, store, emitEvent = vi.fn() }) {
   const agent = {

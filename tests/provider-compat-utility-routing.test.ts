@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProviderPayload } from "../core/provider-compat.ts";
+import { normalizeProviderPayload } from "../packages/engine/core/provider-compat.ts";
 
 // 这套测试断言 qwen utility 路径的端到端集成：
 // llm-client.js 的 callText 把 quirks 合入 model 后传给 normalizeProviderPayload，

@@ -13,7 +13,7 @@ macOS Apple Silicon的参考步骤：
 ```sh
 npm ci
 mkdir -p .local/signing
-node scripts/artifact-keygen.mjs --out .local/signing/private.pem --key-id local-build > .local/signing/public-entry.json
+node tooling/scripts/artifact-keygen.mjs --out .local/signing/private.pem --key-id local-build > .local/signing/public-entry.json
 node --input-type=module -e 'import fs from "node:fs";const v=JSON.parse(fs.readFileSync(".local/signing/public-entry.json","utf8"));fs.writeFileSync(".local/signing/keyset.json",JSON.stringify([v]));'
 export HANA_SIGN_KEY="$PWD/.local/signing/private.pem"
 export HANA_SIGN_KEYSET="$PWD/.local/signing/keyset.json"
@@ -40,15 +40,15 @@ CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_NOTARIZE=true npm exec --no -- electron-b
 ## 安装、更新、回退
 
 ```sh
-node scripts/managed-release.mjs install --app /path/hanaagent.app
-node scripts/managed-release.mjs pack --app /path/hanaagent.app --output "$HOME/hanaagent-update.tar.gz"
-node scripts/managed-release.mjs stop
-node scripts/managed-release.mjs update --app "$HOME/hanaagent-update.tar.gz"
-node scripts/managed-release.mjs start
-node scripts/managed-release.mjs rollback
-node scripts/managed-release.mjs start
-node scripts/managed-release.mjs status
-node scripts/managed-release.mjs recover
+node tooling/scripts/managed-release.mjs install --app /path/hanaagent.app
+node tooling/scripts/managed-release.mjs pack --app /path/hanaagent.app --output "$HOME/hanaagent-update.tar.gz"
+node tooling/scripts/managed-release.mjs stop
+node tooling/scripts/managed-release.mjs update --app "$HOME/hanaagent-update.tar.gz"
+node tooling/scripts/managed-release.mjs start
+node tooling/scripts/managed-release.mjs rollback
+node tooling/scripts/managed-release.mjs start
+node tooling/scripts/managed-release.mjs status
+node tooling/scripts/managed-release.mjs recover
 ```
 
 `pack`输出路径必须位于当前用户目录下且尚不存在。更新支持tar.gz归档及.app。相同内容共用一份归档；应用身份、codesign、压缩文件checksum和还原后树哈希均需通过。不要为了每次演练制造新版本标签；`--release-id`用于确有必要的记录，同包标签不是新产品版本。

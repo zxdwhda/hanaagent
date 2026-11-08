@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
-import { withThinkingFormatCompat } from "../../shared/model-capabilities.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
+import { withThinkingFormatCompat } from "../../packages/shared/model-capabilities.ts";
 
 const mimoModel = {
   id: "mimo-v2-flash",

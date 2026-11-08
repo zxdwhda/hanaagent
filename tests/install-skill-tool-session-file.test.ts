@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createInstallSkillTool } from "../lib/tools/install-skill.ts";
-import { writeZipFromDirectory } from "../lib/zip-writer.ts";
+import { createInstallSkillTool } from "../packages/engine/lib/tools/install-skill.ts";
+import { writeZipFromDirectory } from "../packages/engine/lib/zip-writer.ts";
 
 describe("install_skill global skill-pool installation", () => {
   let tmpDir = null;

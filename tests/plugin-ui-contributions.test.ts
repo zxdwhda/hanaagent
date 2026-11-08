@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { PluginManager } from '../core/plugin-manager.ts';
+import { PluginManager } from '../packages/engine/core/plugin-manager.ts';
 import { PLUGIN_UI_CAPABILITY } from '@hana/plugin-protocol';
 
 function tmpPluginDir() {

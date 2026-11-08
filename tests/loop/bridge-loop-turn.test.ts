@@ -14,7 +14,7 @@ const sessionManagerCreateMock = vi.fn();
 const sessionManagerOpenMock = vi.fn();
 const createAgentSessionMock = vi.fn();
 
-vi.mock("../../lib/pi-sdk/index.js", async (importOriginal) => {
+vi.mock("../../packages/engine/lib/pi-sdk/index.js", async (importOriginal) => {
   const actual = await importOriginal() as any;
   return {
     ...actual,
@@ -27,8 +27,8 @@ vi.mock("../../lib/pi-sdk/index.js", async (importOriginal) => {
   };
 });
 
-import { BridgeManager } from "../../lib/bridge/bridge-manager.ts";
-import { BridgeSessionManager } from "../../core/bridge-session-manager.ts";
+import { BridgeManager } from "../../packages/engine/lib/bridge/bridge-manager.ts";
+import { BridgeSessionManager } from "../../packages/engine/core/bridge-session-manager.ts";
 
 function makeFakeThis(overrides: any = {}) {
   const sent: any[] = [];

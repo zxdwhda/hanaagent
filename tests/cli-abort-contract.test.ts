@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cliMessageMatchesSession, createCliAbortMessage, reduceCliStreamIdentity } from "../server/cli.ts";
+import { cliMessageMatchesSession, createCliAbortMessage, reduceCliStreamIdentity } from "../apps/server/cli.ts";
 
 describe("CLI abort stream identity contract", () => {
   it("builds abort only when sessionId, sessionPath, and streamId are all known", () => {

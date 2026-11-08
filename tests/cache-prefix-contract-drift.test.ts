@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLlmContextCachePrefixContract,
   describeCachePrefixDrift,
-} from "../lib/llm/cache-prefix-contract.ts";
+} from "../packages/engine/lib/llm/cache-prefix-contract.ts";
 
 const MODEL = {
   id: "deepseek-v4-pro",
@@ -130,7 +130,7 @@ describe("describeCachePrefixDrift", () => {
   });
 
   it("keeps the prompt and tool originals out of the event summary", async () => {
-    const { summarizeCachePrefixContract } = await import("../lib/llm/cache-prefix-contract.ts");
+    const { summarizeCachePrefixContract } = await import("../packages/engine/lib/llm/cache-prefix-contract.ts");
     const contract = buildLlmContextCachePrefixContract({
       model: MODEL,
       systemPrompt: "a secret-bearing system prompt",

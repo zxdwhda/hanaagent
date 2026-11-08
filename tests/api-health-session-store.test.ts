@@ -9,7 +9,7 @@
  * server/index.ts 里这个具体聚合点的契约，跑起来快、不需要真实端口。
  */
 import { describe, expect, it } from "vitest";
-import { resolveSessionMetadataRecoveryStatusForHealth } from "../server/index.ts";
+import { resolveSessionMetadataRecoveryStatusForHealth } from "../apps/server/index.ts";
 
 describe("resolveSessionMetadataRecoveryStatusForHealth", () => {
   it("forwards a healthy (non-degraded) status as-is", () => {

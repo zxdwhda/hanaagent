@@ -20,7 +20,7 @@ import {
   shouldKeepWaitingForServerInfo,
   parsePortInUseStartupError,
   extractRootServerStartupError,
-} from "../desktop/src/shared/server-readiness.cjs";
+} from "../apps/desktop/src/shared/server-readiness.cjs";
 
 let tmp;
 

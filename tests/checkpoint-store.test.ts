@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { CheckpointStore } from "../lib/checkpoint-store.ts";
+import { CheckpointStore } from "../packages/engine/lib/checkpoint-store.ts";
 
 describe("CheckpointStore", () => {
   let dir;

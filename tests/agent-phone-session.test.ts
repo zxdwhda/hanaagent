@@ -5,7 +5,7 @@ import {
   getAgentPhoneSessionDir,
   isAgentPhoneSessionPath,
   shouldReuseAgentPhoneSession,
-} from "../lib/conversations/agent-phone-session.ts";
+} from "../packages/engine/lib/conversations/agent-phone-session.ts";
 
 describe("agent phone session policy", () => {
   it("uses a stable safe session directory per conversation", () => {

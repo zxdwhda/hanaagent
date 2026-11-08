@@ -8,24 +8,24 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 
 const STYLE_FILES = [
-  'desktop/src/styles.css',
-  'desktop/src/react/settings/Settings.module.css',
-  'desktop/src/react/ui/SelectWidget.module.css',
-  'desktop/src/settings.html',
+  'apps/desktop/src/styles.css',
+  'apps/desktop/src/react/settings/Settings.module.css',
+  'apps/desktop/src/react/ui/SelectWidget.module.css',
+  'apps/desktop/src/settings.html',
 ];
 
 const CARD_TEXTURE_FILES = [
-  'desktop/src/styles.css',
-  'desktop/src/react/settings/Settings.module.css',
-  'desktop/src/react/ui/SelectWidget.module.css',
+  'apps/desktop/src/styles.css',
+  'apps/desktop/src/react/settings/Settings.module.css',
+  'apps/desktop/src/react/ui/SelectWidget.module.css',
 ];
 
 const SETTINGS_TEXTURE_FILES = [
-  'desktop/src/react/settings/Settings.module.css',
-  'desktop/src/settings.html',
+  'apps/desktop/src/react/settings/Settings.module.css',
+  'apps/desktop/src/settings.html',
 ];
 
-const SETTINGS_MODAL_CSS = 'desktop/src/react/components/SettingsModalShell.module.css';
+const SETTINGS_MODAL_CSS = 'apps/desktop/src/react/components/SettingsModalShell.module.css';
 
 describe('paper texture contract', () => {
   it.each(STYLE_FILES)('%s opts into texture with body.paper-texture', (rel) => {
@@ -36,7 +36,7 @@ describe('paper texture contract', () => {
   });
 
   it('turns off card texture brightness compensation in both dark themes', () => {
-    const styles = fs.readFileSync(path.join(ROOT, 'desktop/src/styles.css'), 'utf8').replace(/\r\n/g, '\n');
+    const styles = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/styles.css'), 'utf8').replace(/\r\n/g, '\n');
 
     expect(styles).toContain('--paper-texture-card-blend-mode: lighten;');
     expect(styles).toContain('html[data-theme="midnight"],\nhtml[data-theme="midnight-contrast"]');
@@ -56,8 +56,8 @@ describe('paper texture contract', () => {
   });
 
   it('lets the settings window override shared select texture attachment', () => {
-    const settingsHtml = fs.readFileSync(path.join(ROOT, 'desktop/src/settings.html'), 'utf8').replace(/\r\n/g, '\n');
-    const selectCss = fs.readFileSync(path.join(ROOT, 'desktop/src/react/ui/SelectWidget.module.css'), 'utf8').replace(/\r\n/g, '\n');
+    const settingsHtml = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/settings.html'), 'utf8').replace(/\r\n/g, '\n');
+    const selectCss = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/react/ui/SelectWidget.module.css'), 'utf8').replace(/\r\n/g, '\n');
 
     expect(settingsHtml).toContain('--paper-texture-attachment: scroll;');
     expect(selectCss).toContain('background-attachment: var(--paper-texture-attachment, fixed);');

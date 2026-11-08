@@ -2,13 +2,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseCliArgs, helpText } from "../cli/args.ts";
-import { runDataDiagnose, runDataCheckpoints, runDataRestore } from "../cli/data.ts";
-import { createDataEpochCheckpointProvider } from "../core/data-epoch-checkpoint-provider.ts";
-import { restoreDataEpochCheckpoint } from "../core/data-epoch-restore.ts";
-import { PERSISTENT_STORES } from "../shared/persistence/store-registry.ts";
-import type { StoreDescriptor } from "../shared/persistence/store-registry-types.ts";
-import { writeDataEpochJournal, writeDataEpochStamp } from "../shared/data-epoch.cjs";
+import { parseCliArgs, helpText } from "../apps/cli/args.ts";
+import { runDataDiagnose, runDataCheckpoints, runDataRestore } from "../apps/cli/data.ts";
+import { createDataEpochCheckpointProvider } from "../packages/engine/core/data-epoch-checkpoint-provider.ts";
+import { restoreDataEpochCheckpoint } from "../packages/engine/core/data-epoch-restore.ts";
+import { PERSISTENT_STORES } from "../packages/shared/persistence/store-registry.ts";
+import type { StoreDescriptor } from "../packages/shared/persistence/store-registry-types.ts";
+import { writeDataEpochJournal, writeDataEpochStamp } from "../packages/shared/data-epoch.cjs";
 
 const tempDirs: string[] = [];
 

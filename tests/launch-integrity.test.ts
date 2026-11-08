@@ -6,7 +6,7 @@ import path from "path";
 
 const require = createRequire(import.meta.url);
 const root = process.cwd();
-const helperPath = path.join(root, "desktop", "src", "shared", "launch-integrity.cjs");
+const helperPath = path.join(root, "apps/desktop", "src", "shared", "launch-integrity.cjs");
 const tempDirs = [];
 
 function makeTempDir() {

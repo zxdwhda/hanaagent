@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventBus } from "../hub/event-bus.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
 
 describe("EventBus capability directory", () => {
   it("lists built-in capabilities with availability derived from handlers", () => {

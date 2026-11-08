@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { describe, it, expect } from "vitest";
-import { createSessionCollabRoute } from "../server/routes/session-collab.ts";
+import { createSessionCollabRoute } from "../apps/server/routes/session-collab.ts";
 import {
   SessionCollabDraftStore,
   SessionCollabPartialSuccessError,
-} from "../lib/session-collab/draft-store.ts";
+} from "../packages/engine/lib/session-collab/draft-store.ts";
 
 function makeApp(store: SessionCollabDraftStore) {
   const engine = { sessionCollabDraftStore: store };

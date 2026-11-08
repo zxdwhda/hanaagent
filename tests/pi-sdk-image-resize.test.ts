@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   resizeModelImageInput,
   formatModelImageDimensionNote,
-} from "../lib/pi-sdk/index.ts";
+} from "../packages/engine/lib/pi-sdk/index.ts";
 
 // 8x8 RGB 渐变 PNG（164 字节，程序生成后硬编码）
 const TINY_PNG_BASE64 =

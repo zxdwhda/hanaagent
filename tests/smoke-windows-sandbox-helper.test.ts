@@ -12,11 +12,11 @@ import {
   smokeSandboxedPowerShell,
   smokeWindowsSandboxHelper,
   windowsSandboxHelperPath,
-} from "../scripts/smoke-windows-sandbox-helper.mjs";
+} from "../tooling/scripts/smoke-windows-sandbox-helper.mjs";
 import {
   restrictedTokenSmokeSpawnOptions,
   standaloneRestrictedTokenSmokeSpec,
-} from "../scripts/verify-standalone-server-artifact.mjs";
+} from "../tooling/scripts/verify-standalone-server-artifact.mjs";
 
 describe("Windows sandbox helper CI smoke", () => {
   it("resolves the helper produced by the native helper build", () => {

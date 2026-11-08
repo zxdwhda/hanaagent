@@ -1,8 +1,8 @@
 import fs from "fs";
 import { describe, expect, it, vi } from "vitest";
-import { createWindowsUiaProvider } from "../core/computer-use/providers/windows-uia-provider.ts";
-import { WINDOWS_UIA_HELPER_SCRIPT } from "../core/computer-use/providers/windows-uia-script.ts";
-import { COMPUTER_USE_ERRORS } from "../core/computer-use/errors.ts";
+import { createWindowsUiaProvider } from "../packages/engine/core/computer-use/providers/windows-uia-provider.ts";
+import { WINDOWS_UIA_HELPER_SCRIPT } from "../packages/engine/core/computer-use/providers/windows-uia-script.ts";
+import { COMPUTER_USE_ERRORS } from "../packages/engine/core/computer-use/errors.ts";
 
 function argValue(args, name) {
   const index = args.indexOf(name);

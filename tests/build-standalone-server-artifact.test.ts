@@ -11,15 +11,15 @@ import {
   buildWindowsStandaloneArtifact,
   standaloneArtifactNames,
   standaloneWrapperContents,
-} from "../scripts/build-standalone-server-artifact.mjs";
+} from "../tooling/scripts/build-standalone-server-artifact.mjs";
 import {
   standaloneExecCommandSmokeSpec,
   standaloneRestrictedTokenSmokeSpec,
   verifyWindowsStandaloneArtifact,
-} from "../scripts/verify-standalone-server-artifact.mjs";
+} from "../tooling/scripts/verify-standalone-server-artifact.mjs";
 
 const require = createRequire(import.meta.url);
-const ustar = require("../shared/artifact-core/ustar.cjs");
+const ustar = require("../packages/shared/artifact-core/ustar.cjs");
 const tempRoots: string[] = [];
 
 function makeTempRoot() {
@@ -39,7 +39,7 @@ function createInputs(root: string) {
   const serverDir = path.join(root, "dist-server", "win-x64");
   for (const relative of REQUIRED_STANDALONE_SERVER_FILES) writeFile(serverDir, relative);
   writeFile(serverDir, "package.json", '{"version":"1.2.3"}\n');
-  writeFile(serverDir, "lib/runtime.json", "server source must remain unchanged\n");
+  writeFile(serverDir, "packages/engine/lib/runtime.json", "server source must remain unchanged\n");
 
   const gitDir = path.join(root, "vendor", "mingit");
   writeFile(gitDir, "cmd/git.exe", "git cmd");
@@ -132,7 +132,7 @@ describe("Windows standalone server artifact", () => {
     await ustar.extract(result.archivePath, extractDir);
     const layoutRoot = path.join(extractDir, STANDALONE_LAYOUT_ROOT);
     expect(fs.readdirSync(layoutRoot).sort()).toEqual(["git", "hana-server.cmd", "hana.cmd", "sandbox", "server"]);
-    expect(fs.readFileSync(path.join(layoutRoot, "server", "lib", "runtime.json"), "utf8"))
+    expect(fs.readFileSync(path.join(layoutRoot, "server", "packages", "engine", "lib", "runtime.json"), "utf8"))
       .toBe("server source must remain unchanged\n");
     expect(fs.readFileSync(path.join(layoutRoot, "git", "cmd", "git.exe"), "utf8")).toBe("git cmd");
     expect(fs.readFileSync(path.join(layoutRoot, "sandbox", "windows", "hana-win-sandbox.exe"), "utf8"))
@@ -181,7 +181,7 @@ describe("Windows standalone server artifact", () => {
     const root = makeTempRoot();
     createInputs(root);
     const source = fs.readFileSync(
-      path.resolve(import.meta.dirname, "..", "scripts", "build-standalone-server-artifact.mjs"),
+      path.resolve(import.meta.dirname, "..", "tooling/scripts", "build-standalone-server-artifact.mjs"),
       "utf8",
     );
 

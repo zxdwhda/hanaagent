@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { guardAssistantMessageStream } from "../lib/pi-sdk/stream-guard.ts";
+import { guardAssistantMessageStream } from "../packages/engine/lib/pi-sdk/stream-guard.ts";
 
 function makeStream(events, result) {
   return {

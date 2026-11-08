@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { __testing } from "../lib/sandbox/seatbelt.ts";
+import { __testing } from "../packages/engine/lib/sandbox/seatbelt.ts";
 
 describe("macOS seatbelt sandbox policy projection", () => {
   const policy = {

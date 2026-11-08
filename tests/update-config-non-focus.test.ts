@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { ConfigCoordinator } from "../core/config-coordinator.ts";
+import { ConfigCoordinator } from "../packages/engine/core/config-coordinator.ts";
 
 /** Match runtime normalizeWorkspacePath: backslash → forward slash for cross-platform persistence */
 const n = (p: string) => p.replace(/\\/g, "/");

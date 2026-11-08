@@ -2,8 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TaskStore } from "../core/media/task-store.ts";
-import { Poller } from "../core/media/poller.ts";
+import { TaskStore } from "../packages/engine/core/media/task-store.ts";
+import { Poller } from "../packages/engine/core/media/poller.ts";
 
 describe("media-gen poller completion event", () => {
   let tmpDir;

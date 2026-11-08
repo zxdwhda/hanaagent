@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acquireSessionOperation } from "../core/session-operation-lock.ts";
+import { acquireSessionOperation } from "../packages/engine/core/session-operation-lock.ts";
 
 describe("session operation lock", () => {
   it("serializes Retry and Fork by stable Session identity", () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
-import { createDeferredResultExtension } from "../lib/extensions/deferred-result-ext.ts";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
+import { createDeferredResultExtension } from "../packages/engine/lib/extensions/deferred-result-ext.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
 
 function createMockPi() {
   const handlers: any = {};

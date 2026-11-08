@@ -8,7 +8,7 @@ import {
   parseWin32SandboxTerminalRecord,
   resolveWin32SandboxHelper,
   resourceSiblingDir,
-} from "../lib/sandbox/win32-sandbox-helper.ts";
+} from "../packages/engine/lib/sandbox/win32-sandbox-helper.ts";
 
 describe("resolveWin32SandboxHelper", () => {
   it("prefers the explicit helper contract over every resource-root candidate", () => {
@@ -308,7 +308,7 @@ describe("buildWin32SandboxHelperArgs", () => {
 
   it("keeps required ACL failures diagnosable with numeric Win32 codes", () => {
     const helperSource = fs.readFileSync(
-      path.join(process.cwd(), "desktop", "native", "HanaWindowsSandboxHelper", "main.cpp"),
+      path.join(process.cwd(), "apps/desktop", "native", "HanaWindowsSandboxHelper", "main.cpp"),
       "utf-8",
     );
 

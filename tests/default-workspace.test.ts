@@ -8,7 +8,7 @@ import {
   DEFAULT_WORKSPACE_DIRNAME,
   isDefaultWorkspacePath,
   resolveDefaultWorkspacePath,
-} from "../shared/default-workspace.ts";
+} from "../packages/shared/default-workspace.ts";
 
 describe("default workspace contract", () => {
   it("places the default workspace under the user's Desktop", () => {
@@ -37,7 +37,7 @@ describe("default workspace contract", () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-default-workspace-query-"));
     const homedirSpy = vi.spyOn(os, "homedir").mockReturnValue(tmpHome);
     try {
-      const { ConfigCoordinator } = await import("../core/config-coordinator.ts");
+      const { ConfigCoordinator } = await import("../packages/engine/core/config-coordinator.ts");
       const coordinator = new ConfigCoordinator({
         getAgentById: () => ({ config: { desk: {} } }),
       });
@@ -57,7 +57,7 @@ describe("restoreDefaultWorkspaceIfMissing", () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-restore-ws-"));
     try {
       const { restoreDefaultWorkspaceIfMissing, resolveDefaultWorkspacePath } =
-        await import("../shared/default-workspace.ts");
+        await import("../packages/shared/default-workspace.ts");
       const defaultPath = resolveDefaultWorkspacePath(tmpHome);
 
       expect(fs.existsSync(defaultPath)).toBe(false);
@@ -72,7 +72,7 @@ describe("restoreDefaultWorkspaceIfMissing", () => {
   it("never creates anything for a non-default cwd", async () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-restore-ws-user-"));
     try {
-      const { restoreDefaultWorkspaceIfMissing } = await import("../shared/default-workspace.ts");
+      const { restoreDefaultWorkspaceIfMissing } = await import("../packages/shared/default-workspace.ts");
       const userDir = path.join(tmpHome, "my-projects", "gone");
 
       expect(restoreDefaultWorkspaceIfMissing(userDir, tmpHome)).toBe(false);

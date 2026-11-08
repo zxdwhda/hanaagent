@@ -62,17 +62,15 @@ Server 以独立 Node.js 进程运行（`spawn`，非 `fork`），不在 Electro
 
 ## 项目结构
 
-```
-core/           # Engine 编排层 + Manager
-lib/            # 核心库（bridge、sandbox、memory、tools、providers）
-server/         # Hono HTTP + WebSocket 服务
-hub/            # 后台任务（调度器、频道路由、Agent 通信、DM 路由）
-desktop/        # Electron 应用 + React 前端
-shared/         # 跨层共享工具（config schema、error bus、模型引用等）
-plugins/        # 内置系统插件（随应用打包）
-skills2set/     # 内置技能定义
-scripts/        # 构建工具（server 打包、启动器、签名）
-tests/          # Vitest 测试
+```text
+apps/                         # desktop、server、cli 三个应用入口
+packages/engine/              # core、lib、hub 引擎内部模块
+packages/shared/              # 跨应用共享代码
+packages/plugin-*/            # 已有插件 SDK workspace 包
+extensions/                   # plugins、skills、examples
+tooling/                      # config、scripts、build、tools
+docs/                         # 使用、开发和维护文档
+tests/                        # 跨模块测试
 ```
 
 ## License

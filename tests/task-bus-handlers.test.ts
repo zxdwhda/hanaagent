@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TaskRegistry } from "../lib/task-registry.ts";
-import { registerTaskRegistryBusHandlers } from "../server/task-bus-handlers.ts";
+import { TaskRegistry } from "../packages/engine/lib/task-registry.ts";
+import { registerTaskRegistryBusHandlers } from "../apps/server/task-bus-handlers.ts";
 
 afterEach(() => {
   vi.useRealTimers();

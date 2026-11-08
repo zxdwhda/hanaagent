@@ -69,7 +69,7 @@ describe("ci.yml: open composition build+smoke guard is wired", () => {
     const job = doc.jobs["lint-open-boundary"];
     expect(job).toBeDefined();
     const steps = job?.steps ?? [];
-    expect(steps.some((s) => stepRun(s).includes("scripts/lint-open-boundary.mjs"))).toBe(true);
+    expect(steps.some((s) => stepRun(s).includes("tooling/scripts/lint-open-boundary.mjs"))).toBe(true);
   });
 });
 
@@ -91,7 +91,7 @@ describe("ci.yml: Windows restricted-token helper is exercised before release bu
     const steps = doc.jobs.test?.steps ?? [];
     const rendererIndex = steps.findIndex((step) => stepRun(step).includes("build:renderer"));
     const keyIndex = steps.findIndex((step) => step.name === "Prepare ephemeral signing key for Windows standalone smoke");
-    const minGitIndex = steps.findIndex((step) => stepRun(step).includes("scripts/download-mingit.js"));
+    const minGitIndex = steps.findIndex((step) => stepRun(step).includes("tooling/scripts/download-mingit.js"));
     const serverIndex = steps.findIndex((step) => stepRun(step).includes("scripts/build-server.mjs win32 x64"));
     const packIndex = steps.findIndex((step) => stepRun(step).includes("scripts/build-standalone-server-artifact.mjs x64"));
     const verifyIndex = steps.findIndex((step) => stepRun(step).includes("scripts/verify-standalone-server-artifact.mjs x64 --smoke"));
@@ -156,11 +156,11 @@ describe("build.yml: Windows standalone server stays outside the seed/OTA bounda
 
   it("builds and smoke-verifies the standalone archive after both server and sandbox helper", () => {
     const steps = doc.jobs.build?.steps ?? [];
-    const serverIndex = steps.findIndex((step) => stepRun(step).includes("scripts/build-server.mjs"));
-    const helperIndex = steps.findIndex((step) => stepRun(step).includes("scripts/build-windows-sandbox-helper.mjs"));
+    const serverIndex = steps.findIndex((step) => stepRun(step).includes("tooling/scripts/build-server.mjs"));
+    const helperIndex = steps.findIndex((step) => stepRun(step).includes("tooling/scripts/build-windows-sandbox-helper.mjs"));
     const installerIndex = steps.findIndex((step) => stepRun(step).includes("npx electron-builder --win nsis"));
-    const packIndex = steps.findIndex((step) => stepRun(step).includes("scripts/build-standalone-server-artifact.mjs"));
-    const verifyIndex = steps.findIndex((step) => stepRun(step).includes("scripts/verify-standalone-server-artifact.mjs"));
+    const packIndex = steps.findIndex((step) => stepRun(step).includes("tooling/scripts/build-standalone-server-artifact.mjs"));
+    const verifyIndex = steps.findIndex((step) => stepRun(step).includes("tooling/scripts/verify-standalone-server-artifact.mjs"));
     const uploadIndex = steps.findIndex((step) => step.name === "Upload artifacts");
 
     expect(serverIndex).toBeGreaterThanOrEqual(0);

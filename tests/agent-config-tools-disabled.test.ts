@@ -13,12 +13,12 @@ import path from "path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/memory/config-loader.js", () => ({
+vi.mock("../packages/engine/lib/memory/config-loader.js", () => ({
   saveConfig: vi.fn(),
   clearConfigCache: vi.fn(),
 }));
 
-vi.mock("../lib/tools/experience.js", () => ({
+vi.mock("../packages/engine/lib/tools/experience.js", () => ({
   rebuildIndex: vi.fn(),
 }));
 
@@ -36,7 +36,7 @@ describe("agents route: tools.disabled", () => {
       "utf-8"
     );
 
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
 
     const fakeAgent = {
       id: agentId,

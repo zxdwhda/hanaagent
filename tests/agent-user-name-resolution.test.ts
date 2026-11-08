@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Agent } from "../core/agent.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
 
 // 用户名描述的是使用者本人，跨 agent 必须一致，所以唯一正源是全局 preferences
 // 的 userName。Agent.resolveUserName() 的链条：全局 prefs 的 userName → 按语言

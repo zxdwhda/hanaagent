@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import reg from '../desktop/src/shared/theme-registry.cjs';
+import reg from '../apps/desktop/src/shared/theme-registry.cjs';
 
 describe('theme-registry', () => {
   it('CJS and ESM adapters expose the same public contract', async () => {
-    const esm = await import('../desktop/src/shared/theme-registry.ts');
+    const esm = await import('../apps/desktop/src/shared/theme-registry.ts');
 
     expect(esm.STORAGE_KEY).toBe(reg.STORAGE_KEY);
     expect(esm.DEFAULT_THEME).toBe(reg.DEFAULT_THEME);

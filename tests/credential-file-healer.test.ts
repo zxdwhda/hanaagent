@@ -3,11 +3,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { healCredentialFileModes } from "../core/credential-file-healer.ts";
-import { LOCAL_PROVIDER_PLUGINS_DIR } from "../core/local-provider-plugin-store.ts";
-import { PLUGIN_CONFIG_FILENAME, PLUGIN_DATA_DIRNAME } from "../core/plugin-config.ts";
-import { SECURITY_DIR } from "../core/security-dir.ts";
-import { SECRET_TMP_SUFFIX } from "../shared/secret-fs.ts";
+import { healCredentialFileModes } from "../packages/engine/core/credential-file-healer.ts";
+import { LOCAL_PROVIDER_PLUGINS_DIR } from "../packages/engine/core/local-provider-plugin-store.ts";
+import { PLUGIN_CONFIG_FILENAME, PLUGIN_DATA_DIRNAME } from "../packages/engine/core/plugin-config.ts";
+import { SECURITY_DIR } from "../packages/engine/core/security-dir.ts";
+import { SECRET_TMP_SUFFIX } from "../packages/shared/secret-fs.ts";
 
 const POSIX = process.platform !== "win32";
 

@@ -3,7 +3,7 @@ import {
   applyProviderCacheAffinityToPayload,
   normalizeProviderCacheAffinityKey,
   withProviderCacheAffinity,
-} from "../lib/llm/provider-cache-affinity.ts";
+} from "../packages/engine/lib/llm/provider-cache-affinity.ts";
 
 describe("provider cache affinity", () => {
   it("rewrites provider cache fields without replacing the real Pi Session identity", async () => {

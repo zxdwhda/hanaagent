@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import path from "path";
-import { __testing } from "../lib/sandbox/win32-exec.ts";
+import { __testing } from "../packages/engine/lib/sandbox/win32-exec.ts";
 
 describe("win32 bundled shell candidates", () => {
   it("discovers PortableGit Bash before legacy MinGit fallbacks", () => {

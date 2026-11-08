@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
 
-const MAIN_PATH = path.join(process.cwd(), "desktop", "main.cjs");
+const MAIN_PATH = path.join(process.cwd(), "apps/desktop", "main.cjs");
 
 function functionBody(source, name) {
   const start = source.indexOf(`function ${name}`);

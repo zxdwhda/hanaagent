@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createLimiter } from "../lib/workflow/concurrency.ts";
+import { createLimiter } from "../packages/engine/lib/workflow/concurrency.ts";
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
 

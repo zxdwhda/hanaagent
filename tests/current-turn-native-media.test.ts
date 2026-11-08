@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import path from "path";
 import {
   createCurrentTurnNativeMediaStore,
-} from "../core/current-turn-native-media.ts";
-import { stripHistoricalInlineMediaForReplay } from "../core/message-sanitizer.ts";
+} from "../packages/engine/core/current-turn-native-media.ts";
+import { stripHistoricalInlineMediaForReplay } from "../packages/engine/core/message-sanitizer.ts";
 
 const TEXT_BLOCK = (text) => ({ type: "text", text });
 const AUDIO_BLOCK = { type: "audio", data: "UklGRg==", mimeType: "audio/wav" };

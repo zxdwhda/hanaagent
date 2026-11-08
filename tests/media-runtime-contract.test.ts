@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCliArgs,
   validateCliCommandSpec,
-} from "../core/media-runtime-contract.ts";
+} from "../packages/engine/core/media-runtime-contract.ts";
 
 describe("media runtime CLI contract", () => {
   it("rejects raw shell command strings", () => {

@@ -19,7 +19,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { repairOrphanToolResultEntries, repairOrphanToolResultEntriesInFile } from "../core/session-health.ts";
+import { repairOrphanToolResultEntries, repairOrphanToolResultEntriesInFile } from "../packages/engine/core/session-health.ts";
 
 // ── 构造 entry 辅助 ──
 

@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
  */
 const ROUTES_STILL_GUESSING: string[] = [];
 
-const serverDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server");
+const serverDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "apps", "server");
 const routesDir = path.join(serverDir, "routes");
 
 const FOCUS_OK_MARKER = "@ui-focus-ok";

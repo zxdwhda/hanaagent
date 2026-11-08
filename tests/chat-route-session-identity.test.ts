@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildDesktopSlashSessionRef, createChatRoute } from "../server/routes/chat.ts";
+import { buildDesktopSlashSessionRef, createChatRoute } from "../apps/server/routes/chat.ts";
 
 describe("desktop slash session identity", () => {
   it("adds the stable session id resolved from the locator", () => {

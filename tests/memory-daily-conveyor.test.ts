@@ -18,11 +18,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn().mockResolvedValue("compiled content from llm"),
 }));
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
 }));
 
@@ -35,9 +35,9 @@ import {
   listDailyEntries,
   readDailyEntryBody,
   writeDailyEntryBody,
-} from "../lib/memory/compile.ts";
-import { callText } from "../core/llm-client.ts";
-import { shiftLogicalDate } from "../lib/time-utils.ts";
+} from "../packages/engine/lib/memory/compile.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
+import { shiftLogicalDate } from "../packages/engine/lib/time-utils.ts";
 
 const RESOLVED_MODEL = { model: "m", api: "openai-completions", api_key: "k", base_url: "http://x" };
 

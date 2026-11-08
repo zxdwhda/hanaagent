@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isBridgeOwner,
   resolveBridgeOwnerDeliveryTarget,
-} from "../lib/bridge/owner-policy.ts";
+} from "../packages/engine/lib/bridge/owner-policy.ts";
 
 describe("bridge owner policy", () => {
   it("preserves exact string owner matching for non-QQ platforms", () => {

@@ -8,7 +8,7 @@ import {
   shouldBuildComputerUseHelper,
   swiftBuildScratchPath,
   swiftArchForNodeArch,
-} from "../scripts/build-computer-use-helper.mjs";
+} from "../tooling/scripts/build-computer-use-helper.mjs";
 
 describe("Computer Use helper build script", () => {
   it("skips the Swift helper build outside macOS", () => {
@@ -24,12 +24,12 @@ describe("Computer Use helper build script", () => {
 
   it("lets CI choose the helper build architecture explicitly", () => {
     expect(resolveComputerUseHelperBuildArch({
-      argv: ["node", "scripts/build-computer-use-helper.mjs", "x64"],
+      argv: ["node", "tooling/scripts/build-computer-use-helper.mjs", "x64"],
       env: { HANA_COMPUTER_USE_HELPER_ARCH: "arm64" },
       arch: "arm64",
     })).toBe("x64");
     expect(resolveComputerUseHelperBuildArch({
-      argv: ["node", "scripts/build-computer-use-helper.mjs"],
+      argv: ["node", "tooling/scripts/build-computer-use-helper.mjs"],
       env: { HANA_COMPUTER_USE_HELPER_ARCH: "x64" },
       arch: "arm64",
     })).toBe("x64");

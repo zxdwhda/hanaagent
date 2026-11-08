@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getSkillNameTranslationCachePath,
   translateSkillNamesWithCache,
-} from "../lib/skills/skill-name-translation-cache.ts";
+} from "../packages/engine/lib/skills/skill-name-translation-cache.ts";
 
 let tempRoot;
 

@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { ResourceAccessPolicy } from "../lib/resource-io/resource-access-policy.ts";
+import { ResourceAccessPolicy } from "../packages/engine/lib/resource-io/resource-access-policy.ts";
 
 describe("ResourceAccessPolicy boundary", () => {
   it("returns typed denial details for protected metadata writes", () => {
@@ -30,13 +30,13 @@ describe("ResourceAccessPolicy boundary", () => {
   it("keeps PathGuard internal to ResourceAccessPolicy for ResourceIO code", () => {
     const productionHits = findProductionImports("PathGuard");
     expect(productionHits).toEqual([
-      "lib/resource-io/resource-access-policy.ts",
+      "packages/engine/lib/resource-io/resource-access-policy.ts",
     ]);
   });
 });
 
 function findProductionImports(symbol: string): string[] {
-  const root = path.join(process.cwd(), "lib", "resource-io");
+  const root = path.join(process.cwd(), "packages/engine/lib", "resource-io");
   const hits: string[] = [];
   visit(root);
   return hits.sort();

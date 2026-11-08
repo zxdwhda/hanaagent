@@ -6,7 +6,7 @@ import {
   findHardcodedColors,
   findBareDurations,
   scan,
-} from "../scripts/style-discipline.mjs";
+} from "../tooling/scripts/style-discipline.mjs";
 import baseline from "./style-discipline-baseline.json";
 
 describe("style-discipline matchers", () => {

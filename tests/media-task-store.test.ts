@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, afterEach } from "vitest";
-import { TaskStore } from "../core/media/task-store.ts";
+import { TaskStore } from "../packages/engine/core/media/task-store.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers

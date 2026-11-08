@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCorsOriginAllowed } from "../server/http/cors-policy.ts";
+import { isCorsOriginAllowed } from "../apps/server/http/cors-policy.ts";
 
 describe("CORS policy", () => {
   it("allows production Electron file-origin frontends to pair with a LAN server", () => {

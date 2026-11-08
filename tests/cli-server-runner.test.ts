@@ -9,11 +9,11 @@ import {
   resolveRendererDistPointer,
   resolveServerSpawnSpec,
   spawnServerForeground,
-} from "../cli/server-runner.ts";
+} from "../apps/cli/server-runner.ts";
 
 const require = createRequire(import.meta.url);
-const pointerStore = require("../shared/artifact-core/pointer-store.cjs");
-const { rendererPointerChannel } = require("../shared/artifact-core/pointer-channels.cjs");
+const pointerStore = require("../packages/shared/artifact-core/pointer-store.cjs");
+const { rendererPointerChannel } = require("../packages/shared/artifact-core/pointer-channels.cjs");
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-cli-runner-"));
@@ -76,7 +76,7 @@ describe("CLI server runner", () => {
       mode: "source",
       command: process.execPath,
     });
-    expect(spec.args).toEqual([path.join(tmpDir, "server", "main-full.ts"), "--chat"]);
+    expect(spec.args).toEqual([path.join(tmpDir, "apps/server", "main-full.ts"), "--chat"]);
     expect(spec.env.HANA_RENDERER_DIST).toBeUndefined();
   });
 

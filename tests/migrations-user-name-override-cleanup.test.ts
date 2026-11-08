@@ -14,7 +14,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import YAML from "js-yaml";
-import { runMigrations } from "../core/migrations.ts";
+import { runMigrations } from "../packages/engine/core/migrations.ts";
 
 function makePrefs(userDir) {
   const p = path.join(userDir, "preferences.json");

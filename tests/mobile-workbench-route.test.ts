@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { upsertStudioMount } from "../core/studio-mounts.ts";
+import { upsertStudioMount } from "../packages/engine/core/studio-mounts.ts";
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-mobile-workbench-"));
@@ -11,14 +11,14 @@ function makeTmpDir() {
 
 function makeApp(engine) {
   const app = new Hono();
-  return import("../server/routes/mobile-workbench.ts").then(({ createMobileWorkbenchRoute }) => {
+  return import("../apps/server/routes/mobile-workbench.ts").then(({ createMobileWorkbenchRoute }) => {
     app.route("/api", createMobileWorkbenchRoute(engine));
     return app;
   });
 }
 
 async function makeRouteResourceIO({ hanakoHome, workspace, eventBus = {}, studioId = "studio_1" }: Record<string, any>) {
-  const { createSandboxResourceIO } = await import("../lib/resource-io/sandbox-resource-io.ts");
+  const { createSandboxResourceIO } = await import("../packages/engine/lib/resource-io/sandbox-resource-io.ts");
   return createSandboxResourceIO({
     cwd: workspace,
     agentDir: workspace,
@@ -68,7 +68,7 @@ describe("mobile workbench route", () => {
   });
 
   it("discloses local_fs native roots to the local owner principal only", async () => {
-    const { upsertStudioMount } = await import("../core/studio-mounts.ts");
+    const { upsertStudioMount } = await import("../packages/engine/core/studio-mounts.ts");
     tmpDir = makeTmpDir();
     const workspace = path.join(tmpDir, "workspace");
     const mountRoot = path.join(tmpDir, "client-project");
@@ -535,7 +535,7 @@ describe("mobile workbench route", () => {
     const workspace = path.join(tmpDir, "workspace");
     fs.mkdirSync(workspace, { recursive: true });
     const app = new Hono();
-    const { createMobileWorkbenchRoute } = await import("../server/routes/mobile-workbench.ts");
+    const { createMobileWorkbenchRoute } = await import("../apps/server/routes/mobile-workbench.ts");
     app.use("*", async (c, next) => {
       (c as any).set("authPrincipal", Object.freeze({
         kind: "device",
@@ -760,7 +760,7 @@ describe("mobile workbench route", () => {
     const hanakoHome = path.join(tmpDir, "hana");
     fs.mkdirSync(workspace, { recursive: true });
     const app = new Hono();
-    const { createMobileWorkbenchRoute } = await import("../server/routes/mobile-workbench.ts");
+    const { createMobileWorkbenchRoute } = await import("../apps/server/routes/mobile-workbench.ts");
     app.use("*", async (c, next) => {
       (c as any).set("authPrincipal", Object.freeze({
         kind: "device",

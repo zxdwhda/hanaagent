@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBridgeContext,
   buildBridgePromptLine,
-} from "../lib/bridge/bridge-context.ts";
+} from "../packages/engine/lib/bridge/bridge-context.ts";
 
 describe("bridge context", () => {
   it("formats a Chinese platform line with text-command confirmation guidance", () => {

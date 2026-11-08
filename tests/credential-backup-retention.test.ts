@@ -6,7 +6,7 @@ import path from "path";
 import {
   CREDENTIAL_BACKUP_MAX_AGE_MS,
   pruneStaleCredentialBackups,
-} from "../core/credential-backup-retention.ts";
+} from "../packages/engine/core/credential-backup-retention.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-08-02T00:00:00.000Z");

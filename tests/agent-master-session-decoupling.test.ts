@@ -23,7 +23,7 @@ const { memoryTickerTickMock, memoryTickerStartMock } = vi.hoisted(() => ({
 
 const AGENT_INIT_TEST_TIMEOUT_MS = 30_000;
 
-vi.mock("../lib/memory/memory-ticker.js", () => ({
+vi.mock("../packages/engine/lib/memory/memory-ticker.js", () => ({
   createMemoryTicker: () => ({
     start: memoryTickerStartMock,
     stop: vi.fn().mockResolvedValue(undefined),
@@ -37,11 +37,11 @@ vi.mock("../lib/memory/memory-ticker.js", () => ({
   }),
 }));
 
-import { Agent } from "../core/agent.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
 import {
   readAgentAvatarResource,
   writeCachedAgentAppearanceSummary,
-} from "../lib/agent-appearance-summary.ts";
+} from "../packages/engine/lib/agent-appearance-summary.ts";
 
 function bootstrapAgentDir(rootDir) {
   const agentsDir = path.join(rootDir, "agents");
@@ -82,7 +82,7 @@ function makeAgent(agentsDir, rootDir) {
     id: "test-agent",
     agentsDir,
     userDir: path.join(rootDir, "user"),
-    productDir: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "lib"),
+    productDir: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "packages", "engine", "lib"),
   } as any);
 }
 

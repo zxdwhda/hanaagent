@@ -25,7 +25,7 @@ smokeDescribe("win32 packaged smoke", () => {
   });
 
   async function loadExec() {
-    const mod = await import("../../lib/sandbox/win32-exec.ts");
+    const mod = await import("../../packages/engine/lib/sandbox/win32-exec.ts");
     return mod.createWin32Exec;
   }
 
@@ -69,7 +69,7 @@ smokeDescribe("win32 packaged smoke", () => {
   });
 
   it("4. restricted-token sandbox helper launches when the helper is present", async () => {
-    const { resolveWin32SandboxHelper } = await import("../../lib/sandbox/win32-sandbox-helper.ts");
+    const { resolveWin32SandboxHelper } = await import("../../packages/engine/lib/sandbox/win32-sandbox-helper.ts");
     const helper = resolveWin32SandboxHelper({ env: process.env });
     if (!helper) {
       console.warn("[smoke] hana-win-sandbox.exe not found; sandbox chain NOT verified in this tree");
@@ -77,7 +77,7 @@ smokeDescribe("win32 packaged smoke", () => {
     }
     const hanakoHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-smoke-home-"));
     try {
-      const { deriveSandboxPolicy } = await import("../../lib/sandbox/policy.ts");
+      const { deriveSandboxPolicy } = await import("../../packages/engine/lib/sandbox/policy.ts");
       const policy = deriveSandboxPolicy({
         agentDir: hanakoHome,
         cwd: workDir,
@@ -102,7 +102,7 @@ smokeDescribe("win32 packaged smoke", () => {
   it("5. node-pty terminal launches and exits cleanly", async () => {
     const hanakoHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-smoke-term-"));
     try {
-      const { TerminalSessionManager } = await import("../../lib/terminal/terminal-session-manager.ts");
+      const { TerminalSessionManager } = await import("../../packages/engine/lib/terminal/terminal-session-manager.ts");
       const manager = new TerminalSessionManager({ hanakoHome });
       const sessionPath = path.join(hanakoHome, "smoke-session.jsonl");
       const started = await manager.start({ sessionPath, agentId: "smoke", cwd: workDir });

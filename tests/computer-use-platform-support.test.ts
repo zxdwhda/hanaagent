@@ -3,7 +3,7 @@ import {
   effectiveComputerUseSettings,
   isComputerUsePlatformSupported,
   selectedComputerProviderId,
-} from "../core/computer-use/platform-support.ts";
+} from "../packages/engine/core/computer-use/platform-support.ts";
 
 const baseSettings = {
   enabled: true,

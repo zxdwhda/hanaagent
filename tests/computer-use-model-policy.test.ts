@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { assertComputerUseModelSupported } from "../core/computer-use/model-policy.ts";
-import { COMPUTER_USE_ERRORS, ComputerUseError } from "../core/computer-use/errors.ts";
+import { assertComputerUseModelSupported } from "../packages/engine/core/computer-use/model-policy.ts";
+import { COMPUTER_USE_ERRORS, ComputerUseError } from "../packages/engine/core/computer-use/errors.ts";
 
 describe("Computer Use model policy", () => {
   it("allows models that explicitly support image input", () => {

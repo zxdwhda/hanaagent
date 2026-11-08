@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createOutboundProxyRuntime } from "../lib/net/outbound-proxy.ts";
+import { createOutboundProxyRuntime } from "../packages/engine/lib/net/outbound-proxy.ts";
 
 describe("outbound-proxy startup diagnostics", () => {
   beforeEach(() => {

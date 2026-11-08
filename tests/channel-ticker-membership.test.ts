@@ -9,10 +9,10 @@ import {
   removeChannelMember,
   removeBookmarkEntry,
   readBookmarks,
-} from "../lib/channels/channel-store.ts";
-import { buildChannelUnreadDeliveryWindow, createChannelTicker } from "../lib/channels/channel-ticker.ts";
+} from "../packages/engine/lib/channels/channel-store.ts";
+import { buildChannelUnreadDeliveryWindow, createChannelTicker } from "../packages/engine/lib/channels/channel-ticker.ts";
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { createCardsRoute } from "../server/routes/cards.ts";
+import { createCardsRoute } from "../apps/server/routes/cards.ts";
 
 function buildApp() {
   const app = new Hono();

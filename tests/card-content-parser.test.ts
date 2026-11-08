@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCardFromContent } from '../desktop/src/react/utils/message-parser.ts';
+import { parseCardFromContent } from '../apps/desktop/src/react/utils/message-parser.ts';
 
 describe('parseCardFromContent', () => {
   it('returns empty for text without cards', () => {

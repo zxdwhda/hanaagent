@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { OAuthLoginCallbacks } from "../lib/pi-sdk/index.ts";
-import { createAuthRoute } from "../server/routes/auth.ts";
+import type { OAuthLoginCallbacks } from "../packages/engine/lib/pi-sdk/index.ts";
+import { createAuthRoute } from "../apps/server/routes/auth.ts";
 
 type LoginImpl = (authKey: string, callbacks: OAuthLoginCallbacks) => Promise<void>;
 

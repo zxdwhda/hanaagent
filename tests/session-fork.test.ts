@@ -2,13 +2,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { acquireSessionOperation } from "../core/session-operation-lock.ts";
+import { acquireSessionOperation } from "../packages/engine/core/session-operation-lock.ts";
 
 const { sessionManagerOpenMock } = vi.hoisted(() => ({
   sessionManagerOpenMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: vi.fn(),
   emitSessionShutdown: vi.fn(async () => false),
   estimateTokens: vi.fn(() => 1),
@@ -25,7 +25,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   formatModelImageDimensionNote: vi.fn(() => undefined),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 function createManifestStore() {
   let nextId = 0;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { EventBus } from "../hub/event-bus.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
 
 describe("plugin route → session bus integration", () => {
   let bus;

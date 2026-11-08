@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { ComputerHost } from "../core/computer-use/computer-host.ts";
-import { ComputerProviderRegistry } from "../core/computer-use/provider-registry.ts";
-import { createMockComputerProvider } from "../core/computer-use/providers/mock-provider.ts";
-import { COMPUTER_USE_ERRORS } from "../core/computer-use/errors.ts";
+import { ComputerHost } from "../packages/engine/core/computer-use/computer-host.ts";
+import { ComputerProviderRegistry } from "../packages/engine/core/computer-use/provider-registry.ts";
+import { createMockComputerProvider } from "../packages/engine/core/computer-use/providers/mock-provider.ts";
+import { COMPUTER_USE_ERRORS } from "../packages/engine/core/computer-use/errors.ts";
 
 function makeHost(provider = createMockComputerProvider({ providerId: "mock" })) {
   const providers = new ComputerProviderRegistry();

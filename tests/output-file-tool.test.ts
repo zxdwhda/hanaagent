@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createStageFilesTool,
   STAGE_FILES_EXECUTION_BOUNDARY,
-} from "../lib/tools/output-file-tool.ts";
-import { loadLocale } from "../lib/i18n.ts";
+} from "../packages/engine/lib/tools/output-file-tool.ts";
+import { loadLocale } from "../packages/engine/lib/i18n.ts";
 
 describe("stage_files tool", () => {
   let tmpDir = null;

@@ -9,7 +9,7 @@ import {
   parseChannel,
   readBookmarks,
   updateBookmark,
-} from "../lib/channels/channel-store.ts";
+} from "../packages/engine/lib/channels/channel-store.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-channel-store-"));

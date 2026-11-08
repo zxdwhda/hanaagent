@@ -47,7 +47,7 @@ describe('update digest history loader', () => {
       value.version === expectedVersion ? value : null
     ));
 
-    const { createUpdateDigestHistoryLoader } = await import('../desktop/src/shared/update-digest-history.cjs');
+    const { createUpdateDigestHistoryLoader } = await import('../apps/desktop/src/shared/update-digest-history.cjs');
     const load = createUpdateDigestHistoryLoader({
       fetchImpl,
       normalize,
@@ -83,7 +83,7 @@ describe('update digest history loader', () => {
       value.version === expectedVersion ? value : null
     );
 
-    const { createUpdateDigestHistoryLoader } = await import('../desktop/src/shared/update-digest-history.cjs');
+    const { createUpdateDigestHistoryLoader } = await import('../apps/desktop/src/shared/update-digest-history.cjs');
     const load = createUpdateDigestHistoryLoader({ fetchImpl, normalize, readBundledEntries: () => [] });
     const result = await load();
 
@@ -96,7 +96,7 @@ describe('update digest history loader', () => {
     const bundled = [digest('0.500.1'), digest('0.500.0')];
     const log = vi.fn();
 
-    const { createUpdateDigestHistoryLoader } = await import('../desktop/src/shared/update-digest-history.cjs');
+    const { createUpdateDigestHistoryLoader } = await import('../apps/desktop/src/shared/update-digest-history.cjs');
     const load = createUpdateDigestHistoryLoader({
       fetchImpl,
       normalize: (value: ReturnType<typeof digest>) => value,
@@ -119,7 +119,7 @@ describe('update digest history loader', () => {
       url.includes('/releases?') ? response(releases) : response(digest('0.500.1'))
     ));
 
-    const { createUpdateDigestHistoryLoader } = await import('../desktop/src/shared/update-digest-history.cjs');
+    const { createUpdateDigestHistoryLoader } = await import('../apps/desktop/src/shared/update-digest-history.cjs');
     const load = createUpdateDigestHistoryLoader({
       fetchImpl,
       normalize: (value: ReturnType<typeof digest>) => value,

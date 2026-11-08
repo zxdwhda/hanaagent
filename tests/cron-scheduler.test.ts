@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createCronScheduler, DEFAULT_CRON_EXECUTION_TIMEOUT_MS } from "../lib/desk/cron-scheduler.ts";
-import { AUTOMATION_SCHEMA_VERSION } from "../lib/desk/automation-normalizer.ts";
+import { createCronScheduler, DEFAULT_CRON_EXECUTION_TIMEOUT_MS } from "../packages/engine/lib/desk/cron-scheduler.ts";
+import { AUTOMATION_SCHEMA_VERSION } from "../packages/engine/lib/desk/automation-normalizer.ts";
 
 function createStore(job) {
   const calls = {

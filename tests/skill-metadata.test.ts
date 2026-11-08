@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SkillManager } from "../core/skill-manager.ts";
-import { parseSkillMetadata } from "../lib/skills/skill-metadata.ts";
+import { SkillManager } from "../packages/engine/core/skill-manager.ts";
+import { parseSkillMetadata } from "../packages/engine/lib/skills/skill-metadata.ts";
 
 const tmpRoots = [];
 

@@ -1,6 +1,6 @@
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { createSessionFoldersTool } from "../lib/tools/session-folders-tool.ts";
+import { createSessionFoldersTool } from "../packages/engine/lib/tools/session-folders-tool.ts";
 
 function textPayload(result) {
   return JSON.parse(result.content[0].text);

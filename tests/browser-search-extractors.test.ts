@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
-import browserSearch from "../lib/browser/browser-search-extractors.cjs";
+import browserSearch from "../packages/engine/lib/browser/browser-search-extractors.cjs";
 
 const {
   BROWSER_SEARCH_PROVIDER_IDS,

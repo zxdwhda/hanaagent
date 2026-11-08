@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   BUILTIN_TOOL_NAMES, TOOL_LABEL_ALIASES as RUNTIME_ALIASES, SESSION_ACTION_LABEL_KEYS,
   isExternalTool, phaseForStatus, sessionToolTargetName, sessionToolTargetPath,
-} from '../desktop/src/react/utils/tool-label';
+} from '../apps/desktop/src/react/utils/tool-label';
 
 /**
  * 工具行文案对账。
@@ -18,7 +18,7 @@ import {
  *   2. 源码里新冒出来的工具必须显式登记或显式豁免，防止清单本身过期。
  */
 
-const localesDir = path.join(process.cwd(), 'desktop/src/locales');
+const localesDir = path.join(process.cwd(), 'apps/desktop/src/locales');
 const locales = ['en', 'zh', 'zh-TW', 'ja', 'ko'];
 const phases = ['running', 'done', 'failed'];
 
@@ -77,13 +77,13 @@ function loadLocale(name: string): Record<string, any> {
 /** 从源码里抓工具注册名，粗粒度但足以发现"新工具没登记"。 */
 function scanRegisteredToolNames(): Set<string> {
   const sources = [
-    ...fs.readdirSync(path.join(process.cwd(), 'lib/tools'))
+    ...fs.readdirSync(path.join(process.cwd(), 'packages/engine/lib/tools'))
       .filter((f) => f.endsWith('.ts'))
-      .map((f) => path.join('lib/tools', f)),
-    'lib/exec-command/tool.ts',
-    'lib/memory/memory-search.ts',
-    'lib/resource-io/materialize-tool.ts',
-    'hub/channel-router.ts',
+      .map((f) => path.join('packages/engine/lib/tools', f)),
+    'packages/engine/lib/exec-command/tool.ts',
+    'packages/engine/lib/memory/memory-search.ts',
+    'packages/engine/lib/resource-io/materialize-tool.ts',
+    'packages/engine/hub/channel-router.ts',
   ];
   const found = new Set<string>();
   for (const rel of sources) {

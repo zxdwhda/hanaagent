@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createVisibleTextAccumulator } from "../lib/bridge/visible-text-accumulator.ts";
+import { createVisibleTextAccumulator } from "../packages/engine/lib/bridge/visible-text-accumulator.ts";
 
 /**
  * Simulates the Bridge subscribe event sequence used by executeExternalMessage /

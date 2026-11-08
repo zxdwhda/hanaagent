@@ -10,7 +10,7 @@ import {
   normalizeServerInfoForDevWeb,
   resolveDevWebEnvironment,
   resolveViteCommand,
-} from "../scripts/dev-web-runtime.js";
+} from "../tooling/scripts/dev-web-runtime.js";
 
 describe("dev-web runtime helpers", () => {
   it("expands a quoted tilde home before sharing it with the server child", () => {
@@ -23,7 +23,7 @@ describe("dev-web runtime helpers", () => {
   });
 
   it("resolves a relative home from the invoking directory before the server changes cwd", () => {
-    const moduleUrl = new URL("../scripts/dev-web-runtime.js", import.meta.url).href;
+    const moduleUrl = new URL("../tooling/scripts/dev-web-runtime.js", import.meta.url).href;
     const script = `import { resolveDevWebEnvironment } from ${JSON.stringify(moduleUrl)};
       console.log(JSON.stringify(resolveDevWebEnvironment({ HANA_HOME: "hana-relative" })));`;
     const output = execFileSync(process.execPath, ["--input-type=module", "--eval", script], {

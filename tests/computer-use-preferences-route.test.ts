@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { createPreferencesRoute } from "../server/routes/preferences.ts";
+import { createPreferencesRoute } from "../apps/server/routes/preferences.ts";
 
 function makeApp(engine, options: any = {}) {
   const app = new Hono();

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { createTerminalTool } from "../lib/tools/terminal-tool.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { createTerminalTool } from "../packages/engine/lib/tools/terminal-tool.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 function makeCtx(sessionPath = "/tmp/agents/hana/sessions/s1.jsonl") {
   return {

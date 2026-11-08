@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { AgentPhoneActivityStore } from "../lib/conversations/agent-phone-activity.ts";
+import { AgentPhoneActivityStore } from "../packages/engine/lib/conversations/agent-phone-activity.ts";
 
 describe("AgentPhoneActivityStore", () => {
   it("stores activity keyed by conversation and agent, then emits a websocket-ready event", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ProviderRegistry } from "../core/provider-registry.ts";
-import * as provider from "../plugins/jimeng-cli/providers/jimeng-cli.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
+import * as provider from "../extensions/plugins/jimeng-cli/providers/jimeng-cli.ts";
 
 describe("Jimeng CLI provider contribution", () => {
   it("declares provider identity without a stale static media catalog", () => {

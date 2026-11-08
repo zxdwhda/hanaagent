@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ComputerLeaseRegistry } from "../core/computer-use/lease-registry.ts";
-import { COMPUTER_USE_ERRORS } from "../core/computer-use/errors.ts";
+import { ComputerLeaseRegistry } from "../packages/engine/core/computer-use/lease-registry.ts";
+import { COMPUTER_USE_ERRORS } from "../packages/engine/core/computer-use/errors.ts";
 
 const ctx = { sessionPath: "/tmp/a.jsonl", agentId: "hana" };
 

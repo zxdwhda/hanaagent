@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { emitAppEvent, toAppEventWsMessage } from "../server/app-events.ts";
+import { emitAppEvent, toAppEventWsMessage } from "../apps/server/app-events.ts";
 
 describe("app-events", () => {
   it("emitAppEvent emits a null-scoped app_event through engine.emitEvent", () => {

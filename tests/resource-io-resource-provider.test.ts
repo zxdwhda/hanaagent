@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
-import { ResourceService } from "../core/resource-service.ts";
-import { ResourceProvider } from "../lib/resource-io/providers/resource-provider.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
+import { ResourceService } from "../packages/engine/core/resource-service.ts";
+import { ResourceProvider } from "../packages/engine/lib/resource-io/providers/resource-provider.ts";
 
 const CAPABILITY_KEYS = [
   "stat",

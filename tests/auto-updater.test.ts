@@ -98,7 +98,7 @@ describe("auto-updater", () => {
       ipcHandlers[name] = handler;
     });
 
-    mod = await import("../desktop/auto-updater.cjs");
+    mod = await import("../apps/desktop/auto-updater.cjs");
   });
 
   afterEach(() => {
@@ -209,7 +209,7 @@ describe("auto-updater", () => {
       Object.defineProperty(process, "platform", { value: "win32" });
       vi.resetModules();
       mockExePath = "/tmp/HanaAgent/HanaAgent.exe";
-      mod = await import("../desktop/auto-updater.cjs");
+      mod = await import("../apps/desktop/auto-updater.cjs");
 
       initWithMockWindow();
 
@@ -403,7 +403,7 @@ describe("auto-updater", () => {
     Object.defineProperty(process, "platform", { value: "darwin" });
     try {
       vi.resetModules();
-      mod = await import("../desktop/auto-updater.cjs");
+      mod = await import("../apps/desktop/auto-updater.cjs");
       handlers = {};
       mockAutoUpdater.on.mockImplementation((event, handler) => {
         handlers[event] = handler;
@@ -438,7 +438,7 @@ describe("auto-updater", () => {
     Object.defineProperty(process, "platform", { value: "darwin" });
     try {
       vi.resetModules();
-      mod = await import("../desktop/auto-updater.cjs");
+      mod = await import("../apps/desktop/auto-updater.cjs");
       handlers = {};
       ipcHandlers = {};
       mockAutoUpdater.on.mockImplementation((event, handler) => {
@@ -750,7 +750,7 @@ describe("auto-updater", () => {
       Object.defineProperty(process, "platform", { value: "win32" });
       vi.resetModules();
       mockExePath = "/tmp/HanaAgent/HanaAgent.exe";
-      mod = await import("../desktop/auto-updater.cjs");
+      mod = await import("../apps/desktop/auto-updater.cjs");
 
       initWithMockWindow();
 

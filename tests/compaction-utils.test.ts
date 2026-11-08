@@ -4,7 +4,7 @@ import {
   estimateMessagesTokens,
   estimatePreparationTokens,
   computeHardTruncation,
-} from "../core/compaction-utils.ts";
+} from "../packages/engine/core/compaction-utils.ts";
 
 describe("truncateTextHeadTail", () => {
   it("returns content unchanged when under limit", () => {

@@ -4,7 +4,7 @@ import {
   resolveModelId,
   getKnownModels,
   getDefaultModelId,
-} from "../core/media-adapters/model-catalog.ts";
+} from "../packages/engine/core/media-adapters/model-catalog.ts";
 
 describe("MODEL_CATALOG", () => {
   it("contains volcengine, openai, and openai-codex-oauth providers", () => {

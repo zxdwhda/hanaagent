@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { handleRequest } from "../tools/alpha-gate-worker/core.mjs";
+import { handleRequest } from "../tooling/tools/alpha-gate-worker/core.mjs";
 
 /**
  * 内存版 KV：只实现 Worker 端真正用到的 get / put / delete / list 四个方法，

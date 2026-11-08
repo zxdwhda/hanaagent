@@ -3,7 +3,7 @@ import path from "path";
 import {
   formatWorkspaceScopePrompt,
   normalizeWorkspaceScope,
-} from "../shared/workspace-scope.ts";
+} from "../packages/shared/workspace-scope.ts";
 
 describe("workspace scope", () => {
   it("dedupes extra folders and excludes the primary cwd", () => {

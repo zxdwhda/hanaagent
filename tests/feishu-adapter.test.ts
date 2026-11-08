@@ -100,12 +100,12 @@ const moduleLoggerMock = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => moduleLoggerMock,
 }));
 
-import { createFeishuAdapter } from "../lib/bridge/feishu-adapter.ts";
+import { createFeishuAdapter } from "../packages/engine/lib/bridge/feishu-adapter.ts";
 
 function markdownPostContent(text) {
   return JSON.stringify({

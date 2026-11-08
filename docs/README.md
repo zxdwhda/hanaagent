@@ -24,7 +24,7 @@ hanaagent 由 zxdwhda 独立维护，来自 openhanako 公开 0.450.0 源码。�
 - `usage/`：使用与配置。
 - `development/`：架构、插件与 SDK。
 - `maintenance/`：来源、独立维护范围、版本管理与目录约定。
-- 根目录：中文首页、许可证、NOTICE 与必要工程入口；英文首页位于 `docs/README_EN.md`，贡献、安全和行为准则位于 `.github/`，配置集中在 `config/`。
+- 根目录：中文首页、许可证、NOTICE 与必要工程入口；英文首页位于 `docs/README_EN.md`，贡献、安全和行为准则位于 `.github/`，配置集中在 `tooling/config/`。
 - 模块内 README：SDK 包、示例、测试等内容继续靠近对应源码维护。
 
 本地任务记录位于 `TaskFlowDocs/`，迁移试验、备份和验收材料位于 `.local/`，两者不随公开源码提交。公开文档只描述可复用的操作和约定，不包含这些私有材料。

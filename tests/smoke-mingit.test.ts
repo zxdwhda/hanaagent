@@ -5,7 +5,7 @@ import {
   createHermeticMinGitSmokeEnv,
   minGitResolutionToWindowsPath,
   verifyMinGitCommandResolutionOutput,
-} from "../scripts/smoke-mingit.mjs";
+} from "../tooling/scripts/smoke-mingit.mjs";
 
 const identityCanonicalizer = (directory: string) => directory;
 const runtimeRoot = "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\HanaCore\\git";

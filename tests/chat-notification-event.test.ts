@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toNotificationWsMessage } from "../server/routes/chat.ts";
+import { toNotificationWsMessage } from "../apps/server/routes/chat.ts";
 
 describe("chat route notification messages", () => {
   it("carries the triggering agentId through to the desktop client", () => {

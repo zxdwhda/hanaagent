@@ -1,7 +1,7 @@
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-import { mediaItemKey, normalizeMediaItems } from "../lib/bridge/media-item-normalizer.ts";
+import { mediaItemKey, normalizeMediaItems } from "../packages/engine/lib/bridge/media-item-normalizer.ts";
 
 describe("bridge media item normalizer", () => {
   it("keeps structured session_file items", () => {

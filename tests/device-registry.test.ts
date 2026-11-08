@@ -21,7 +21,7 @@ describe("device registry", () => {
 
   it("creates empty registries for old data roots", async () => {
     tmpDir = makeTmpDir();
-    const { ensureDeviceAccessRegistries } = await import("../core/device-registry.ts");
+    const { ensureDeviceAccessRegistries } = await import("../packages/engine/core/device-registry.ts");
 
     const result = ensureDeviceAccessRegistries(tmpDir, { now: "2026-05-16T00:00:00.000Z" });
 
@@ -49,7 +49,7 @@ describe("device registry", () => {
     const {
       authenticateDeviceCredential,
       createDeviceCredential,
-    } = await import("../core/device-registry.ts");
+    } = await import("../packages/engine/core/device-registry.ts");
 
     const issued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_home_mac",
@@ -108,7 +108,7 @@ describe("device registry", () => {
       authenticateDeviceCredential,
       createDeviceCredential,
       revokeDeviceCredential,
-    } = await import("../core/device-registry.ts");
+    } = await import("../packages/engine/core/device-registry.ts");
     const issued = createDeviceCredential(tmpDir, {
       serverNodeId: "node_home_mac",
       userId: "user_owner",
@@ -136,7 +136,7 @@ describe("device registry", () => {
     const {
       approvePairingSession,
       createPairingSession,
-    } = await import("../core/device-registry.ts");
+    } = await import("../packages/engine/core/device-registry.ts");
     const created = createPairingSession(tmpDir, {
       serverNodeId: "node_home_mac",
       userId: "user_owner",

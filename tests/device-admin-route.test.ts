@@ -40,7 +40,7 @@ describe("device admin route", () => {
   });
 
   it("creates and approves a pairing session without exposing persisted credential hashes", async () => {
-    const { createDevicesRoute } = await import("../server/routes/devices.ts");
+    const { createDevicesRoute } = await import("../apps/server/routes/devices.ts");
     tmpDir = makeTmpDir();
     const engine = {
       hanakoHome: tmpDir,

@@ -4,10 +4,10 @@
  */
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("../lib/i18n.ts", () => ({ t: (k: string) => k, getLocale: () => "en" }));
+vi.mock("../packages/engine/lib/i18n.ts", () => ({ t: (k: string) => k, getLocale: () => "en" }));
 
 async function loadBrowserToolDef() {
-  const mod = await import("../lib/tools/browser-tool.ts");
+  const mod = await import("../packages/engine/lib/tools/browser-tool.ts");
   const tool = (mod as any).createBrowserTool({});
   return tool;
 }

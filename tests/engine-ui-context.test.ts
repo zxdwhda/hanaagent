@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { HanaEngine } from "../core/engine.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
 
 /**
  * 轻量测试：只校验 setUiContext / getUiContext 的 Map 行为。

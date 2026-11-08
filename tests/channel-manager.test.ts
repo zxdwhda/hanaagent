@@ -12,7 +12,7 @@ import os from "os";
 
 // Mock debug-log to prevent file I/O
 import { vi } from "vitest";
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({
     log: () => {},
@@ -21,8 +21,8 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { ChannelManager } from "../core/channel-manager.ts";
-import { readBookmarks } from "../lib/channels/channel-store.ts";
+import { ChannelManager } from "../packages/engine/core/channel-manager.ts";
+import { readBookmarks } from "../packages/engine/lib/channels/channel-store.ts";
 
 // ── Helpers ──
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EnvChangeLedger } from "../core/env-change-ledger.ts";
+import { EnvChangeLedger } from "../packages/engine/core/env-change-ledger.ts";
 import {
   applyReminderConsumption,
   collectReminderBlock,
@@ -8,9 +8,9 @@ import {
   renderReferenceBlock,
   resolveReferenceBudgetTokens,
   stripSessionReminderBlocks,
-} from "../core/session-reminders.ts";
-import { createToolCatalog } from "../core/tool-catalog.ts";
-import { diffCatalogNames, formatCatalogChangeLines } from "../core/tool-catalog.ts";
+} from "../packages/engine/core/session-reminders.ts";
+import { createToolCatalog } from "../packages/engine/core/tool-catalog.ts";
+import { diffCatalogNames, formatCatalogChangeLines } from "../packages/engine/core/tool-catalog.ts";
 
 describe("reference block budget", () => {
   it("uses five percent of the context window", () => {

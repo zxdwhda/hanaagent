@@ -4,11 +4,11 @@ import path from "path";
 import os from "os";
 import { spawnSync } from "child_process";
 import vm from "vm";
-import { readDataEpochStamp, writeDataEpochStamp } from "../shared/data-epoch.cjs";
-import { DATA_EPOCH } from "../shared/contract-versions.cjs";
-import { createDataEpochCheckpointProvider } from "../core/data-epoch-checkpoint-provider.ts";
-import { PERSISTENT_STORES } from "../shared/persistence/store-registry.ts";
-import type { StoreDescriptor } from "../shared/persistence/store-registry-types.ts";
+import { readDataEpochStamp, writeDataEpochStamp } from "../packages/shared/data-epoch.cjs";
+import { DATA_EPOCH } from "../packages/shared/contract-versions.cjs";
+import { createDataEpochCheckpointProvider } from "../packages/engine/core/data-epoch-checkpoint-provider.ts";
+import { PERSISTENT_STORES } from "../packages/shared/persistence/store-registry.ts";
+import type { StoreDescriptor } from "../packages/shared/persistence/store-registry-types.ts";
 
 // Mirrors tests/data-epoch-restore.test.ts's own testStore helper (not
 // imported — that file does not export it, and this suite must not modify
@@ -26,7 +26,7 @@ const root = process.cwd();
 
 describe("server startup diagnostics contract", () => {
   it("enables Windows system CA trust in the independent server child environment", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const enableIndex = mainSource.indexOf("serverEnv = withWindowsSystemCaEnv(serverEnv);");
     const spawnIndex = mainSource.indexOf("serverProcess = spawn(launcherBin, launcherArgs", enableIndex);
 
@@ -36,7 +36,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("records child process identity when server startup times out without output", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain("Server PID:");
     expect(mainSource).toContain("Server command:");
@@ -45,7 +45,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("keeps process diagnostics even when bootstrap already wrote output", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain("function buildServerCrashDiagnostics(");
     expect(mainSource).toContain("const diagnostics = buildServerCrashDiagnostics();");
@@ -53,7 +53,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("routes shutdown through the Windows guardian or POSIX signals without raw Windows PID killing", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain("SERVER_SHUTDOWN_GRACE_MS");
     expect(mainSource).toContain("waitForProcessExit(");
@@ -65,7 +65,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("launches Windows servers under the packaged native Job guardian", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain('require("./src/shared/windows-server-guardian.cjs")');
     expect(mainSource).toContain("resolveWindowsServerGuardian({");
@@ -76,7 +76,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("passes validated desktop resources and the resolved guardian to the server before spawn", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const resourcesIndex = mainSource.indexOf("serverEnv.HANA_DESKTOP_RESOURCES_PATH = process.resourcesPath;");
     const guardianIndex = mainSource.indexOf("const guardianBin = resolveWindowsServerGuardian({");
     const helperContractIndex = mainSource.indexOf("serverEnv.HANA_WIN32_SANDBOX_HELPER = guardianBin;", guardianIndex);
@@ -89,7 +89,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("owned Windows shutdown uses token-auth grace then the guardian control pipe", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
 
     expect(shutdown).toContain('if (process.platform === "win32") {\n      await requestServerShutdown(serverPort, serverToken);');
@@ -100,7 +100,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("owned POSIX shutdown uses TERM grace then KILL", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
 
     expect(shutdown).toContain('try { proc.kill("SIGTERM"); } catch {}');
@@ -108,7 +108,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("reused Windows shutdown is token-auth only and never falls through to raw PID termination", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
 
     expect(shutdown).toContain("const shutdownRequested = await requestServerShutdown(serverPort, serverToken, 2000);");
@@ -118,7 +118,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("reused POSIX shutdown can signal only after the authenticated request path", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
     const requestIndex = shutdown.indexOf("const shutdownRequested = await requestServerShutdown");
     const termIndex = shutdown.indexOf("signalPidOnPosix(pid);", requestIndex);
@@ -130,7 +130,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("blocks apply-now restart when shutdown could not be confirmed", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const applyNow = extractFunctionSource(mainSource, "applyTrainUpdateNow");
     const shutdownIndex = applyNow.indexOf("const shutdownResult = await shutdownServer()");
     const assertionIndex = applyNow.indexOf("trainUpdateApply.assertServerShutdownConfirmed(shutdownResult)");
@@ -142,7 +142,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("retains an unconfirmed owned guardian across repeated shutdown attempts", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
     const ownedProc = { pid: 4321, exitCode: null, signalCode: null };
     let controlStops = 0;
@@ -181,7 +181,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("retains an unconfirmed reused server across repeated shutdown attempts", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
     const context = vm.createContext({
       process: { platform: "win32" },
@@ -216,7 +216,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("retains a guardian that exited with native convergence failure 125", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const shutdown = extractFunctionSource(mainSource, "shutdownServer");
     const failedGuardian = { pid: 4321, exitCode: 125, signalCode: null };
     const context = vm.createContext({
@@ -255,7 +255,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("suppresses a late intentional guardian exit after transient update flags reset", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const monitor = extractFunctionSource(mainSource, "monitorServer");
     let exitListener: ((code: number, signal: string | null) => Promise<void>) | null = null;
     let restartCalls = 0;
@@ -294,7 +294,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("uses the full graceful window for an authenticated stale Windows desktop server", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const startServer = extractFunctionSource(mainSource, "startServer");
 
     expect(startServer).toContain('process.platform === "win32" && isDesktopOwnedServerInfo(existingInfo)');
@@ -304,7 +304,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("bounds before-quit to one shutdown attempt before allowing Electron exit", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const runningIndex = mainSource.indexOf('_beforeQuitServerShutdownState = "running"');
     const shutdownIndex = mainSource.indexOf("await shutdownServer();", runningIndex);
     const completeIndex = mainSource.indexOf('_beforeQuitServerShutdownState = "complete"', shutdownIndex);
@@ -319,7 +319,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("does not spawn an update replacement server after concurrent application quit", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const applyNow = extractFunctionSource(mainSource, "applyTrainUpdateNow");
     const spawnOnce = extractFunctionSource(mainSource, "_spawnServerOnce");
     const applyGuardIndex = applyNow.indexOf("if (isQuitting)");
@@ -334,7 +334,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("does not treat PID-only reused server shutdown as already exited", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const hasChildExitObserved = extractFunctionSource(mainSource, "hasChildExitObserved");
     const waitForProcessExit = extractFunctionSource(mainSource, "waitForProcessExit");
     let alive = true;
@@ -368,7 +368,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("waits for the owned child exit event instead of losing guardian exit code to a PID probe", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const hasChildExitObserved = extractFunctionSource(mainSource, "hasChildExitObserved");
     const waitForProcessExit = extractFunctionSource(mainSource, "waitForProcessExit");
     let pidChecks = 0;
@@ -391,7 +391,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("keeps server-info when shutdown cannot confirm the server is gone", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain("let removeServerInfo = true");
     expect(mainSource).toContain("removeServerInfo = false");
@@ -399,14 +399,14 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("starts packaged and dev server through an early bootstrap entry", async () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     // scripts/build-server.mjs's Node-runtime-copy, bootstrap-copy, and
     // wrapper-generation steps were extracted onto shared parameterized
     // primitives in scripts/build-server-phases.mjs (shared with the
     // open-composition builder) — those literal source shapes now live
     // there instead of inline in build-server.mjs.
-    const phasesSource = fs.readFileSync(path.join(root, "scripts", "build-server-phases.mjs"), "utf-8");
-    const bootstrapPath = path.join(root, "server", "bootstrap.ts");
+    const phasesSource = fs.readFileSync(path.join(root, "tooling/scripts", "build-server-phases.mjs"), "utf-8");
+    const bootstrapPath = path.join(root, "apps/server", "bootstrap.ts");
 
     expect(fs.existsSync(bootstrapPath)).toBe(true);
     const bootstrapSource = fs.readFileSync(bootstrapPath, "utf-8");
@@ -428,7 +428,7 @@ describe("server startup diagnostics contract", () => {
     // from a parameterized serverEntryRelPath (default "bundle/index.js"),
     // so the backslash form is verified by actually generating the .cmd
     // file rather than grepping for a literal that no longer exists in source.
-    const { writeServerWrapperScripts } = await import("../scripts/build-server-phases.mjs");
+    const { writeServerWrapperScripts } = await import("../tooling/scripts/build-server-phases.mjs");
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hana-wrapper-contract-"));
     try {
       writeServerWrapperScripts({ outDir: tmp, isWin: true });
@@ -444,7 +444,7 @@ describe("server startup diagnostics contract", () => {
     const serverRoot = path.join(tmp, "resources", "server");
     try {
       fs.mkdirSync(path.join(serverRoot, "bundle"), { recursive: true });
-      fs.copyFileSync(path.join(root, "server", "bootstrap.ts"), path.join(serverRoot, "bootstrap.js"));
+      fs.copyFileSync(path.join(root, "apps/server", "bootstrap.ts"), path.join(serverRoot, "bootstrap.js"));
       fs.writeFileSync(path.join(serverRoot, "package.json"), JSON.stringify({ type: "module" }));
       fs.writeFileSync(
         path.join(serverRoot, "bundle", "index.js"),
@@ -470,8 +470,8 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("lets desktop skip startup session creation so server readiness is not blocked by chat session warmup", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
-    const serverSource = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(mainSource).toContain("HANA_CREATE_STARTUP_SESSION");
     expect(mainSource).toContain('"0"');
@@ -480,7 +480,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("keeps waiting after the first server-info deadline while startup output is still progressing", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain("shouldKeepWaitingForServerInfo");
     expect(mainSource).toContain("_lastServerProgressAtMs");
@@ -489,11 +489,11 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("keeps bridge platform dependencies out of the server readiness path", () => {
-    const serverSource = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
-    const bridgeRouteSource = fs.readFileSync(path.join(root, "server", "routes", "bridge.ts"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
+    const bridgeRouteSource = fs.readFileSync(path.join(root, "apps/server", "routes", "bridge.ts"), "utf-8");
 
-    expect(serverSource).not.toMatch(/^import\s+\{\s*BridgeManager\s*\}\s+from\s+["']\.\.\/lib\/bridge\/bridge-manager\.js["'];/m);
-    expect(serverSource).toContain('await import("../lib/bridge/bridge-manager.ts")');
+    expect(serverSource).not.toMatch(/^import\s+\{\s*BridgeManager\s*\}\s+from\s+["']\.\.\/\.\.\/packages\/engine\/lib\/bridge\/bridge-manager\.js["'];/m);
+    expect(serverSource).toContain('await import("../../packages/engine/lib/bridge/bridge-manager.ts")');
 
     const readyWriteIndex = serverSource.indexOf("fs.writeFileSync(serverInfoPath");
     const bridgeDeferIndex = serverSource.indexOf("setImmediate(() => {");
@@ -508,14 +508,14 @@ describe("server startup diagnostics contract", () => {
     expect(serverSource).toMatch(/setImmediate\(\(\) => \{\s*void startBridgeManager\(\{ autoStart: true \}\);\s*\}\);/s);
     expect(serverSource.slice(bridgeDeferIndex, startupTryEndIndex)).not.toMatch(/\bawait\b/);
 
-    expect(bridgeRouteSource).not.toContain('import { getWechatQrcode, pollWechatQrcodeStatus } from "../../lib/bridge/wechat-login.ts";');
-    expect(bridgeRouteSource).toContain('await import("../../lib/bridge/wechat-login.ts")');
+    expect(bridgeRouteSource).not.toContain('import { getWechatQrcode, pollWechatQrcodeStatus } from "../../../packages/engine/lib/bridge/wechat-login.ts";');
+    expect(bridgeRouteSource).toContain('await import("../../../packages/engine/lib/bridge/wechat-login.ts")');
     expect(bridgeRouteSource).toContain("resolveBridgeManager");
   });
 
   it("reuses only trusted server-info after token health and server identity checks", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
-    const serverSource = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(mainSource).toContain("verifyReusableServerInfo");
     expect(mainSource).toContain("/api/health");
@@ -530,8 +530,8 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("does not terminate standalone servers that desktop only attached to", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
-    const serverSource = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(serverSource).toContain('ownerKind: process.env.HANA_SERVER_OWNER === "desktop" ? "desktop" : "standalone"');
     expect(mainSource).toContain('HANA_SERVER_OWNER: "desktop"');
@@ -545,7 +545,7 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("surfaces structured port conflicts instead of burying them under GPU diagnostics", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).toContain("parsePortInUseStartupError");
     expect(mainSource).toContain("extractRootServerStartupError");
@@ -562,8 +562,8 @@ describe("server startup diagnostics contract", () => {
   });
 
   it("keeps native SQLite out of the server static import graph", () => {
-    const factStoreSource = fs.readFileSync(path.join(root, "lib", "memory", "fact-store.ts"), "utf-8");
-    const agentSource = fs.readFileSync(path.join(root, "core", "agent.ts"), "utf-8");
+    const factStoreSource = fs.readFileSync(path.join(root, "packages/engine/lib", "memory", "fact-store.ts"), "utf-8");
+    const agentSource = fs.readFileSync(path.join(root, "packages/engine/core", "agent.ts"), "utf-8");
 
     expect(factStoreSource).not.toMatch(/^import\s+.*better-sqlite3/m);
     expect(factStoreSource).toContain("loadBetterSqliteDatabase");
@@ -576,7 +576,7 @@ describe("server startup diagnostics contract", () => {
 
 describe("desktop launch failure dialog: data-epoch dedicated branches (C7 E4)", () => {
   function buildDataEpochDialogContext(homeDir: string) {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const detectDataEpochLaunchMarker = extractFunctionSource(mainSource, "detectDataEpochLaunchMarker");
     const countAvailableDataEpochCheckpoints = extractFunctionSource(mainSource, "countAvailableDataEpochCheckpoints");
     const buildDataEpochBlockedDetail = extractFunctionSource(mainSource, "buildDataEpochBlockedDetail");
@@ -717,7 +717,7 @@ describe("desktop launch failure dialog: data-epoch dedicated branches (C7 E4)",
 // tsconfig include 内，这两行没有其它自动化保护，只能由本组契约测试盯住。
 describe("desktop crash log version header", () => {
   function runWriteCrashLog(getCurrentContentVersion: () => string) {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
     const writeCrashLog = extractFunctionSource(mainSource, "writeCrashLog");
     const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-desktop-crash-log-"));
     try {

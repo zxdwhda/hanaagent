@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const callTextMock = vi.fn();
 
-vi.mock("../core/llm-client.ts", () => ({
+vi.mock("../packages/engine/core/llm-client.ts", () => ({
   callText: (...args: any[]) => callTextMock(...args),
 }));
 
@@ -12,7 +12,7 @@ import {
   dedupeDreamMemory,
   optimizeDreamMemory,
   verifyDreamSections,
-} from "../lib/memory/dream/model-runner.ts";
+} from "../packages/engine/lib/memory/dream/model-runner.ts";
 
 const resolvedModel = {
   model: { id: "utility-test" },

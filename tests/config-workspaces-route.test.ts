@@ -43,7 +43,7 @@ describe("config workspace routes", () => {
   });
 
   it("persists a selected workspace into the named agent's workspace history", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const oldWorkspace = path.join(tmpDir, "old");
     const nextWorkspace = path.join(tmpDir, "next");
     fs.mkdirSync(oldWorkspace);
@@ -68,7 +68,7 @@ describe("config workspace routes", () => {
   });
 
   it("keeps one agent's workspace pick out of another agent's history", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const hanaWorkspace = path.join(tmpDir, "hana-ws");
     const mioWorkspace = path.join(tmpDir, "mio-ws");
     fs.mkdirSync(hanaWorkspace);
@@ -90,7 +90,7 @@ describe("config workspace routes", () => {
   });
 
   it("refuses to record a workspace when the request names no agent", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const nextWorkspace = path.join(tmpDir, "next");
     fs.mkdirSync(nextWorkspace);
     const engine = makeTwoAgentEngine({ hana: [], focused: [] });
@@ -111,7 +111,7 @@ describe("config workspace routes", () => {
   });
 
   it("removes a recent workspace entry from the named agent without deleting the directory", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const oldWorkspace = path.join(tmpDir, "old");
     const keepWorkspace = path.join(tmpDir, "keep");
     fs.mkdirSync(oldWorkspace);
@@ -136,7 +136,7 @@ describe("config workspace routes", () => {
   });
 
   it("refuses to remove a recent workspace when the request names no agent", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const oldWorkspace = path.join(tmpDir, "old");
     fs.mkdirSync(oldWorkspace);
     const engine = makeTwoAgentEngine({ focused: [oldWorkspace] });
@@ -156,7 +156,7 @@ describe("config workspace routes", () => {
   });
 
   it("clears the named agent's recent history without deleting directories or touching other agents", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const oldWorkspace = path.join(tmpDir, "old");
     fs.mkdirSync(oldWorkspace);
     const engine = makeTwoAgentEngine({ hana: [oldWorkspace], mio: [oldWorkspace] });
@@ -173,7 +173,7 @@ describe("config workspace routes", () => {
   });
 
   it("refuses to clear recent history when the request names no agent", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const oldWorkspace = path.join(tmpDir, "old");
     fs.mkdirSync(oldWorkspace);
     const engine = makeTwoAgentEngine({ focused: [oldWorkspace] });
@@ -189,7 +189,7 @@ describe("config workspace routes", () => {
   });
 
   it("no longer answers the identity-free config read with any agent workspace state", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const engine = {
       // engine.config is whichever agent the server happens to be focused on
       config: { last_cwd: "/somewhere", cwd_history: ["/somewhere"] },
@@ -217,7 +217,7 @@ describe("config workspace routes", () => {
     const homeDir = path.join(tmpDir, "home");
     fs.mkdirSync(homeDir, { recursive: true });
     const homedirSpy = vi.spyOn(os, "homedir").mockReturnValue(homeDir);
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const engine = { config: {} };
     const app = new Hono();
     app.route("/api", createConfigRoute(engine));

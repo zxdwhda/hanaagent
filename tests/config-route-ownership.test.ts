@@ -27,7 +27,7 @@ function makeEngine() {
 }
 
 async function mountConfigRoute() {
-  const { createConfigRoute } = await import("../server/routes/config.ts");
+  const { createConfigRoute } = await import("../apps/server/routes/config.ts");
   const app = new Hono();
   app.route("/api", createConfigRoute(makeEngine()));
   return app;
@@ -82,7 +82,7 @@ function makeGlobalEngine(overrides: Record<string, any> = {}): Record<string, a
 }
 
 async function mountWith(engine: Record<string, any>) {
-  const { createConfigRoute } = await import("../server/routes/config.ts");
+  const { createConfigRoute } = await import("../apps/server/routes/config.ts");
   const app = new Hono();
   app.route("/api", createConfigRoute(engine));
   return app;

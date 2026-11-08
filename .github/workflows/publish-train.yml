@@ -1,6 +1,6 @@
 name: Publish Train
 
-# Manual escape hatch for scripts/publish-train.mjs — the SAME script the
+# Manual escape hatch for tooling/scripts/publish-train.mjs — the SAME script the
 # automatic `publish-train` job in build.yml calls after every `vX.Y.Z` tag.
 # Use this to retry a failed automatic publish, to publish a single channel
 # on its own, or to rehearse a publish with --dry-run before doing it for
@@ -74,4 +74,4 @@ jobs:
           if [[ "$DRY_RUN" == "true" ]]; then
             args+=(--dry-run)
           fi
-          node scripts/publish-train.mjs "${args[@]}"
+          node tooling/scripts/publish-train.mjs "${args[@]}"

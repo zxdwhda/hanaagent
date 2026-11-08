@@ -4,8 +4,8 @@ import {
   DEFAULT_QUICK_CHAT_SHORTCUT,
   DEFAULT_QUICK_CHAT_REUSE_TIMEOUT_MINUTES,
   normalizeQuickChatPreferences,
-} from "../shared/quick-chat-preferences.ts";
-import { createPreferencesRoute } from "../server/routes/preferences.ts";
+} from "../packages/shared/quick-chat-preferences.ts";
+import { createPreferencesRoute } from "../apps/server/routes/preferences.ts";
 
 describe("quick chat preferences", () => {
   it("defaults to the ChatGPT-style global shortcut", () => {

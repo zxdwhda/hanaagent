@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   readTextFileSnapshot,
   writeTextFileIfUnchanged,
-} from "../desktop/file-text-io.cjs";
+} from "../apps/desktop/file-text-io.cjs";
 
 describe("file-text-io", () => {
   let dir;

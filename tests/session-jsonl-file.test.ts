@@ -6,7 +6,7 @@ import {
   parseSessionEntries,
   repairOversizedSessionEntries,
   repairOversizedSessionEntriesInFile,
-} from "../core/session-jsonl-file.ts";
+} from "../packages/engine/core/session-jsonl-file.ts";
 
 describe("session-jsonl-file guards", () => {
   let tempRoot = null;

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConfigCoordinator } from "../core/config-coordinator.ts";
+import { ConfigCoordinator } from "../packages/engine/core/config-coordinator.ts";
 import {
   BROWSER_SEARCH_PROVIDER_IDS,
   SEARCH_FREE_API_PROVIDER_IDS,
   SEARCH_API_PROVIDER_IDS,
   SEARCH_CAPABILITY_KIND,
   SEARCH_CAPABILITY_PROVIDERS,
-} from "../shared/search-providers.ts";
+} from "../packages/shared/search-providers.ts";
 
 function makeCoordinator(initialPrefs = {}) {
   let prefs = { ...initialPrefs };

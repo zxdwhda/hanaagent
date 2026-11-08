@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAgentParam } from "../lib/tools/agent-id-resolver.ts";
+import { resolveAgentParam } from "../packages/engine/lib/tools/agent-id-resolver.ts";
 
 describe("resolveAgentParam", () => {
   const agents = [

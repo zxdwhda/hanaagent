@@ -7,32 +7,32 @@ const { createHeartbeatMock, heartbeatInstances, heartbeatOptions } = vi.hoisted
   heartbeatOptions: [],
 }));
 
-vi.mock("../lib/desk/heartbeat.js", () => ({
+vi.mock("../packages/engine/lib/desk/heartbeat.js", () => ({
   HEARTBEAT_ACTIVITY_DIR: ".hana-heartbeat",
   createHeartbeat: createHeartbeatMock,
 }));
 
-vi.mock("../lib/desk/cron-scheduler.js", () => ({
+vi.mock("../packages/engine/lib/desk/cron-scheduler.js", () => ({
   createCronScheduler: vi.fn(() => ({
     start: vi.fn(),
     stop: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
-vi.mock("../lib/fresh-compact/daily-scheduler.js", () => ({
+vi.mock("../packages/engine/lib/fresh-compact/daily-scheduler.js", () => ({
   createFreshCompactDailyScheduler: vi.fn(() => ({
     start: vi.fn(),
     stop: vi.fn(),
   })),
 }));
 
-vi.mock("../hub/fresh-compact-maintainer.js", () => ({
+vi.mock("../packages/engine/hub/fresh-compact-maintainer.js", () => ({
   FreshCompactMaintainer: vi.fn().mockImplementation(function () {
     this.runDaily = vi.fn();
   }),
 }));
 
-import { Scheduler } from "../hub/scheduler.ts";
+import { Scheduler } from "../packages/engine/hub/scheduler.ts";
 
 describe("Scheduler heartbeat defaults", () => {
   beforeEach(() => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveWin32DefaultPowerShellExecutable } from "../lib/shell/shell-utils.ts";
-import { resolveTerminalShell } from "../lib/terminal/shell-resolver.ts";
+import { resolveWin32DefaultPowerShellExecutable } from "../packages/engine/lib/shell/shell-utils.ts";
+import { resolveTerminalShell } from "../packages/engine/lib/terminal/shell-resolver.ts";
 
 describe("resolveTerminalShell", () => {
   it("uses the user shell for macOS one-shot terminal commands", () => {

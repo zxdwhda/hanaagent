@@ -3,7 +3,7 @@ import {
   appendProviderApiPath,
   normalizeProviderBaseUrlForApi,
   probeProvider,
-} from "../lib/llm/provider-client.ts";
+} from "../packages/engine/lib/llm/provider-client.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();

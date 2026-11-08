@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { builtinModules } from "node:module";
 import yaml from "js-yaml";
-import eslintConfig from "../config/eslint.config.js";
-import serverViteConfig from "../config/vite.config.server.js";
+import eslintConfig from "../tooling/config/eslint.config.js";
+import serverViteConfig from "../tooling/config/vite.config.server.js";
 
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.resolve(process.cwd(), relativePath), "utf8"));
@@ -21,25 +21,25 @@ function readText(relativePath) {
 describe("quality gates", () => {
   it("typecheck covers app TypeScript, root TypeScript tests, and workspace package sources", () => {
     const tsconfig = readJson("tsconfig.json");
-    const tsconfigTest = readJson("config/tsconfig.test.json");
+    const tsconfigTest = readJson("tooling/config/tsconfig.test.json");
     const packageJson = readJson("package.json");
 
     expect(tsconfig.include).toEqual(expect.arrayContaining([
-      "desktop/src/**/*.ts",
-      "desktop/src/**/*.tsx",
+      "apps/desktop/src/**/*.ts",
+      "apps/desktop/src/**/*.tsx",
       "packages/*/src/**/*.ts",
       "packages/*/src/**/*.tsx",
     ]));
     expect(tsconfigTest.include).toEqual(expect.arrayContaining([
-      "../tests/**/*.ts",
+      "../../tests/**/*.ts",
     ]));
-    expect(packageJson.scripts.typecheck).toContain("config/tsconfig.test.json");
+    expect(packageJson.scripts.typecheck).toContain("tooling/config/tsconfig.test.json");
   });
 
   it("lint checks the repository through config/eslint.config.js instead of a hand-picked directory subset", () => {
     const packageJson = readJson("package.json");
 
-    expect(packageJson.scripts.lint).toBe("eslint --config config/eslint.config.js .");
+    expect(packageJson.scripts.lint).toBe("eslint --config tooling/config/eslint.config.js .");
   });
 
   it("keeps generated dist families outside the repository-wide lint surface", () => {
@@ -48,7 +48,7 @@ describe("quality gates", () => {
     expect(globalIgnores).toEqual(expect.arrayContaining([
       "**/dist/**",
       "dist-*/**",
-      "desktop/dist-*/**",
+      "apps/desktop/dist-*/**",
     ]));
   });
 
@@ -78,10 +78,10 @@ describe("quality gates", () => {
     // Node-runtime pinning and the CLI esbuild bundle step were extracted
     // onto scripts/build-server-phases.mjs's shared primitives (also used
     // by the open-composition builder).
-    const buildServerPhases = readText("scripts/build-server-phases.mjs");
-    const serverConfig = readText("config/vite.config.server.js");
-    const mainConfig = readText("config/vite.config.main.js");
-    const preloadConfig = readText("config/vite.config.preload.js");
+    const buildServerPhases = readText("tooling/scripts/build-server-phases.mjs");
+    const serverConfig = readText("tooling/config/vite.config.server.js");
+    const mainConfig = readText("tooling/config/vite.config.main.js");
+    const preloadConfig = readText("tooling/config/vite.config.preload.js");
     const ci = readYaml(".github/workflows/ci.yml");
     const build = readYaml(".github/workflows/build.yml");
 
@@ -104,7 +104,7 @@ describe("quality gates", () => {
   it("verifies downloaded Node runtime archives before extraction", () => {
     // Same extraction as above: this logic now lives in
     // scripts/build-server-phases.mjs's prepareNodeRuntime primitive.
-    const buildServerPhases = readText("scripts/build-server-phases.mjs");
+    const buildServerPhases = readText("tooling/scripts/build-server-phases.mjs");
 
     expect(buildServerPhases).toContain("NODE_RUNTIME_SHA256");
     expect(buildServerPhases).toContain("verifyNodeRuntimeArchive");

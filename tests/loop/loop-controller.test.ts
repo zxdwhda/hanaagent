@@ -2,9 +2,9 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { LoopStore } from "../../lib/loop/loop-store.ts";
-import { LoopAlarmService } from "../../lib/loop/alarm-service.ts";
-import { LoopController, LoopError } from "../../lib/loop/loop-controller.ts";
+import { LoopStore } from "../../packages/engine/lib/loop/loop-store.ts";
+import { LoopAlarmService } from "../../packages/engine/lib/loop/alarm-service.ts";
+import { LoopController, LoopError } from "../../packages/engine/lib/loop/loop-controller.ts";
 
 const tmpDirs: string[] = [];
 afterEach(() => {

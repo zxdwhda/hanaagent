@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDeferredResultInterludeBlock,
   extractDeferredResultDetailMarkdown,
-} from "../server/deferred-result-interlude.ts";
+} from "../apps/server/deferred-result-interlude.ts";
 
 describe("deferred result interlude", () => {
   it("uses subagent metadata for readable source labels", () => {

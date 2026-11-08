@@ -10,7 +10,7 @@ import {
   buildFontInjectionCss,
   locateThemesDir,
   resolveThemesDir,
-} from "../desktop/src/office-pdf-fonts.cjs";
+} from "../apps/desktop/src/office-pdf-fonts.cjs";
 
 const FONTS_CSS = "new-warm-paper-fonts.css";
 const SELECTED_FONT_FILES = [
@@ -181,7 +181,7 @@ describe("office pdf font injection css", () => {
 
   describe("real font source integrity", () => {
     it("extracts all three Hana families and resolves every real woff2 file", () => {
-      const realThemesDir = path.join(__dirname, "..", "desktop", "src", "themes");
+      const realThemesDir = path.join(__dirname, "..", "apps/desktop", "src", "themes");
       const css = buildFontInjectionCss({ themesDir: realThemesDir });
       for (const family of HANA_PDF_FONT_FAMILIES) {
         expect(css).toContain(`'${family}'`);
@@ -209,8 +209,8 @@ describe("office pdf font injection css", () => {
       const pkg = JSON.parse(
         fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"),
       );
-      expect(pkg.build.files).toContain("desktop/src/office-pdf-fonts.cjs");
-      expect(pkg.build.files).toContain("desktop/src/office-pdf-helper.cjs");
+      expect(pkg.build.files).toContain("apps/desktop/src/office-pdf-fonts.cjs");
+      expect(pkg.build.files).toContain("apps/desktop/src/office-pdf-helper.cjs");
     });
   });
 });

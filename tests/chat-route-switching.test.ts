@@ -3,8 +3,8 @@ import {
   DEFAULT_DISCONNECT_ABORT_GRACE_MS,
   createChatRoute,
   resolveDisconnectAbortGraceMs,
-} from "../server/routes/chat.ts";
-import { TURN_INPUT_CONSUMPTION_EVENT_TYPE } from "../lib/turn-input-presentation.ts";
+} from "../apps/server/routes/chat.ts";
+import { TURN_INPUT_CONSUMPTION_EVENT_TYPE } from "../packages/engine/lib/turn-input-presentation.ts";
 
 describe("chat route model switch guard", () => {
   it("uses a minute-scale default WS disconnect abort grace and allows disabling it", () => {

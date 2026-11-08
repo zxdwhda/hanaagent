@@ -103,24 +103,24 @@ function extractMountCalls(filePath: string): string[] {
 describe("composition boundary behavior lock: sorted mount-call inventory", () => {
   it("server/index.ts + composition/open-root.ts + composition/full-root.ts together mount exactly the expected route factories, at the same prefixes, as the pre-refactor server/index.ts", () => {
     const combined = [
-      ...extractMountCalls(path.join(root, "server", "index.ts")),
-      ...extractMountCalls(path.join(root, "server", "composition", "open-root.ts")),
-      ...extractMountCalls(path.join(root, "server", "composition", "full-root.ts")),
+      ...extractMountCalls(path.join(root, "apps/server", "index.ts")),
+      ...extractMountCalls(path.join(root, "apps/server", "composition", "open-root.ts")),
+      ...extractMountCalls(path.join(root, "apps/server", "composition", "full-root.ts")),
     ].sort();
 
     expect(combined).toEqual([...PRE_REFACTOR_MOUNT_CALLS]);
   });
 
   it("mobile-workbench (evidence-needed) is mounted directly by server/index.ts itself, not absorbed into open-root.ts or full-root.ts", () => {
-    const indexPairs = extractMountCalls(path.join(root, "server", "index.ts"));
-    const openRootPairs = extractMountCalls(path.join(root, "server", "composition", "open-root.ts"));
+    const indexPairs = extractMountCalls(path.join(root, "apps/server", "index.ts"));
+    const openRootPairs = extractMountCalls(path.join(root, "apps/server", "composition", "open-root.ts"));
 
     expect(indexPairs).toContain('"/api" :: createMobileWorkbenchRoute');
     expect(openRootPairs).not.toContain('"/api" :: createMobileWorkbenchRoute');
   });
 
   it("server/index.ts imports composition/open-root.ts unconditionally and imports no closed-product route file directly", () => {
-    const indexSource = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const indexSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(indexSource).toContain('import { registerOpenRoutes } from "./composition/open-root.ts";');
     for (const p2 of ["avatar", "cards", "character-cards", "desk", "diary"]) {
@@ -140,21 +140,21 @@ describe("composition boundary behavior lock: sorted mount-call inventory", () =
 
 describe("composition boundary behavior lock: builtin media adapter injection", () => {
   it("full composition supplies a non-empty builtinMediaAdapters list", async () => {
-    const fullRoot = await import("../server/composition/full-root.ts");
+    const fullRoot = await import("../apps/server/composition/full-root.ts");
 
     expect(Array.isArray(fullRoot.builtinMediaAdapters)).toBe(true);
     expect(fullRoot.builtinMediaAdapters.length).toBeGreaterThan(0);
   });
 
   it("server/index.ts (the open composition) only ever forwards root.builtinMediaAdapters, never constructs or imports a closed adapter list itself", () => {
-    const indexSource = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const indexSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(indexSource).toContain("builtinMediaAdapters: root.builtinMediaAdapters");
-    expect(indexSource).not.toContain("core/media-adapters/");
+    expect(indexSource).not.toContain("packages/engine/core/media-adapters/");
   });
 
   it("main-full.ts forwards full-root's builtinMediaAdapters into startServer alongside registerClosedRoutes", () => {
-    const mainFullSource = fs.readFileSync(path.join(root, "server", "main-full.ts"), "utf-8");
+    const mainFullSource = fs.readFileSync(path.join(root, "apps/server", "main-full.ts"), "utf-8");
 
     expect(mainFullSource).toContain('from "./composition/full-root.ts"');
     expect(mainFullSource).toMatch(/registerClosedRoutes,\s*builtinMediaAdapters/);
@@ -177,7 +177,7 @@ describe("composition boundary behavior lock: bootstrap contract (no silent non-
     try {
       const child = spawn(
         process.execPath,
-        ["--input-type=module", "-e", 'import("./server/index.ts").then((m) => { process.stdout.write(`exports: ${Object.keys(m).sort().join(",")}\\n`); process.exit(0); })'],
+        ["--input-type=module", "-e", 'import("./apps/server/index.ts").then((m) => { process.stdout.write(`exports: ${Object.keys(m).sort().join(",")}\\n`); process.exit(0); })'],
         {
           cwd: root,
           env: { ...process.env, HANA_HOME: hanaHome },
@@ -273,14 +273,14 @@ describe("composition boundary behavior lock: real request smoke against the ful
   it("serves an open-root route and a full-root (closed-product) route behind the same global auth middleware", async () => {
     const hanaHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-composition-smoke-"));
     const serverInfoPath = path.join(hanaHome, "server-info.json");
-    const child = spawn(process.execPath, ["server/bootstrap.ts"], {
+    const child = spawn(process.execPath, ["apps/server/bootstrap.ts"], {
       cwd: root,
       env: {
         ...process.env,
         HANA_HOME: hanaHome,
         HANA_PORT: "0",
         HANA_ROOT: root,
-        HANA_SERVER_ENTRY: path.join(root, "server", "main-full.ts"),
+        HANA_SERVER_ENTRY: path.join(root, "apps/server", "main-full.ts"),
         HANA_CREATE_STARTUP_SESSION: "0",
       },
       stdio: ["ignore", "pipe", "pipe"],

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isToolProtocolFragment,
   stripToolProtocolTagsFromProse,
-} from "../lib/tool-protocol-sanitizer.ts";
+} from "../packages/engine/lib/tool-protocol-sanitizer.ts";
 
 describe("runtime tool protocol sanitizer", () => {
   it("recognizes XML, antml, DSML, and full-width tool protocol fragments", () => {

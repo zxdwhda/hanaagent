@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CronStore } from "../lib/desk/cron-store.ts";
-import { issueAutomationSuggestionReceipt } from "../lib/desk/automation-suggestion-receipt.ts";
-import { AutomationSuggestionStore } from "../lib/tools/automation-suggestion-store.ts";
+import { CronStore } from "../packages/engine/lib/desk/cron-store.ts";
+import { issueAutomationSuggestionReceipt } from "../packages/engine/lib/desk/automation-suggestion-receipt.ts";
+import { AutomationSuggestionStore } from "../packages/engine/lib/tools/automation-suggestion-store.ts";
 import fs from "fs";
 import path from "path";
 import os from "os";

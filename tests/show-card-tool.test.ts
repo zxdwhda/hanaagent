@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createShowCardTool } from "../lib/tools/show-card-tool.ts";
+import { createShowCardTool } from "../packages/engine/lib/tools/show-card-tool.ts";
 
 describe("show_card tool", () => {
   function makeTool() {

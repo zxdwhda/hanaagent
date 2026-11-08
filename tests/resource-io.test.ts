@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { copyFileRefToPath, statFileRef } from "../lib/file-ref/resource-io.ts";
+import { copyFileRefToPath, statFileRef } from "../packages/engine/lib/file-ref/resource-io.ts";
 
 describe("ResourceIO v0", () => {
   let tmpDir: string | null = null;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readImageSize } from "../core/media/image-size.ts";
+import { readImageSize } from "../packages/engine/core/media/image-size.ts";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

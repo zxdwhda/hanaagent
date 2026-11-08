@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createInputDraftsRoute } from "../server/routes/input-drafts.ts";
-import { InputDraftsStore } from "../core/input-drafts-store.ts";
+import { createInputDraftsRoute } from "../apps/server/routes/input-drafts.ts";
+import { InputDraftsStore } from "../packages/engine/core/input-drafts-store.ts";
 
 describe("input drafts route", () => {
   let home: string;

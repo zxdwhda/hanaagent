@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PreferencesManager } from "../core/preferences-manager.ts";
-import { upsertWorkspaceUiState } from "../shared/workspace-ui-state.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
+import { upsertWorkspaceUiState } from "../packages/shared/workspace-ui-state.ts";
 
 /** Match runtime normalizeWorkspacePath: backslash → forward slash for cross-platform persistence */
 const n = (p: string) => p.replace(/\\/g, "/");

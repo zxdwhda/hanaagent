@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { createSessionTool } from "../lib/tools/session-tool.ts";
-import { SessionCollabDraftStore } from "../lib/session-collab/draft-store.ts";
+import { createSessionTool } from "../packages/engine/lib/tools/session-tool.ts";
+import { SessionCollabDraftStore } from "../packages/engine/lib/session-collab/draft-store.ts";
 
 // 实测字段名，容易想当然写错的两处（core/session-manifest/store.ts toRowManifest,
 // core/engine.ts getSessionManifest）：

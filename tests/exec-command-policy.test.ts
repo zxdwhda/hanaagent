@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { execCommandDescription } from "../lib/exec-command/guidance.ts";
-import { classifyExecCommand } from "../lib/exec-command/policy.ts";
-import { renderCommandForExecShell, renderCommandWithWorkdir, resolveExecShell } from "../lib/exec-command/shell.ts";
-import { checkCommandExecutionAccess } from "../lib/sandbox/tool-wrapper.ts";
+import { execCommandDescription } from "../packages/engine/lib/exec-command/guidance.ts";
+import { classifyExecCommand } from "../packages/engine/lib/exec-command/policy.ts";
+import { renderCommandForExecShell, renderCommandWithWorkdir, resolveExecShell } from "../packages/engine/lib/exec-command/shell.ts";
+import { checkCommandExecutionAccess } from "../packages/engine/lib/sandbox/tool-wrapper.ts";
 
 describe("exec_command policy and shell rendering", () => {
   it("describes PowerShell as the Windows default and requires escalation when sandboxing blocks a command", () => {

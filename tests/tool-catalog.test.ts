@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createToolCatalog } from "../core/tool-catalog.ts";
+import { createToolCatalog } from "../packages/engine/core/tool-catalog.ts";
 
 function entry(overrides: Record<string, unknown> = {}) {
   return {

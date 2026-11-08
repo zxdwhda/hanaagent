@@ -3,7 +3,7 @@ import {
   assertSessionSnapshotRequest,
   buildSessionCacheSnapshot,
   buildSessionSnapshotRequestContract,
-} from "../core/session-cache-snapshot.ts";
+} from "../packages/engine/core/session-cache-snapshot.ts";
 
 function tool(name, description = "desc") {
   return {

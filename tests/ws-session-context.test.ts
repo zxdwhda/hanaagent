@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveWsSessionContext } from "../server/routes/ws-session-context.ts";
+import { resolveWsSessionContext } from "../apps/server/routes/ws-session-context.ts";
 
 function makeEngine({
   pathSessionId = null,

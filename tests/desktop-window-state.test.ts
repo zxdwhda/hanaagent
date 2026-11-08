@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const { sanitizeWindowState } = require("../desktop/src/shared/window-state.cjs");
+const { sanitizeWindowState } = require("../apps/desktop/src/shared/window-state.cjs");
 
 const mainDisplay = {
   workArea: { x: 0, y: 0, width: 1440, height: 900 },

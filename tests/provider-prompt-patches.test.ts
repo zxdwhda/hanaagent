@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProviderPromptPatches } from "../core/provider-prompt-patches.ts";
+import { getProviderPromptPatches } from "../packages/engine/core/provider-prompt-patches.ts";
 
 describe("provider prompt patches — DeepSeek output contract", () => {
   it("adds the DeepSeek patch for official DeepSeek reasoning models", () => {

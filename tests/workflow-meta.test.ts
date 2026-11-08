@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractMeta } from "../lib/workflow/meta.ts";
+import { extractMeta } from "../packages/engine/lib/workflow/meta.ts";
 
 describe("workflow meta extraction", () => {
   it("提取合法 meta 并剥离 export", () => {

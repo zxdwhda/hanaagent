@@ -3,7 +3,7 @@ import os from "os";
 import fs from "fs";
 import path from "path";
 
-vi.mock("../lib/memory/compile.js", () => ({
+vi.mock("../packages/engine/lib/memory/compile.js", () => ({
   compileToday: vi.fn().mockResolvedValue("compiled"),
   compileDaily: vi.fn().mockResolvedValue("compiled"),
   assembleWeekFromDaily: vi.fn(),
@@ -16,11 +16,11 @@ vi.mock("../lib/memory/compile.js", () => ({
   migrateLegacyWeekToLongterm: vi.fn().mockResolvedValue({ migrated: false }),
 }));
 
-vi.mock("../lib/memory/deep-memory.js", () => ({
+vi.mock("../packages/engine/lib/memory/deep-memory.js", () => ({
   processDirtySessions: vi.fn().mockResolvedValue({ processed: 0, factsAdded: 0 }),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({
     log: vi.fn(),
@@ -29,8 +29,8 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { createMemoryTicker } from "../lib/memory/memory-ticker.ts";
-import { readCacheSnapshotObservation } from "../lib/memory/cache-snapshot-observation.ts";
+import { createMemoryTicker } from "../packages/engine/lib/memory/memory-ticker.ts";
+import { readCacheSnapshotObservation } from "../packages/engine/lib/memory/cache-snapshot-observation.ts";
 
 type TickerOverrides = {
   summaryManager?: {

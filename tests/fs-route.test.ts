@@ -4,7 +4,7 @@ import path from "path";
 import ExcelJS from "exceljs";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFsRoute } from "../server/routes/fs.ts";
+import { createFsRoute } from "../apps/server/routes/fs.ts";
 
 describe("fs route", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-fs-route-"));

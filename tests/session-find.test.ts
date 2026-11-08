@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { findInSessionMessages } from "../lib/search/session-find.ts";
+import { findInSessionMessages } from "../packages/engine/lib/search/session-find.ts";
 import {
   SessionSearchTokenizerUnavailableError,
   tokenizeSessionSearchQuery,
-} from "../lib/search/session-search-tokenizer.ts";
+} from "../packages/engine/lib/search/session-search-tokenizer.ts";
 
-vi.mock("../lib/search/session-search-tokenizer.ts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/search/session-search-tokenizer.ts")>();
+vi.mock("../packages/engine/lib/search/session-search-tokenizer.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../packages/engine/lib/search/session-search-tokenizer.ts")>();
   return {
     ...actual,
     tokenizeSessionSearchQuery: vi.fn(actual.tokenizeSessionSearchQuery),

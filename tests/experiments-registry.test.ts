@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { PreferencesManager } from "../core/preferences-manager.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
 import {
   CACHE_SNAPSHOT_EXPERIMENT_ID,
   COMPACTION_MODE_EXPERIMENT_ID,
@@ -12,7 +12,7 @@ import {
   getResolvedExperimentValue,
   listResolvedExperiments,
   setExperimentValue,
-} from "../lib/experiments/registry.ts";
+} from "../packages/engine/lib/experiments/registry.ts";
 
 function makePrefs(initialPrefs: Record<string, unknown> = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-experiments-"));
@@ -95,7 +95,7 @@ describe("experiment registry", () => {
 
   it("does not leave stale ResourceIO experiment copy in settings locales", () => {
     for (const locale of ["en", "zh"]) {
-      const source = fs.readFileSync(path.join(process.cwd(), "desktop", "src", "locales", `${locale}.json`), "utf-8");
+      const source = fs.readFileSync(path.join(process.cwd(), "apps/desktop", "src", "locales", `${locale}.json`), "utf-8");
 
       expect(source).not.toContain("resourceIoTools");
       expect(source).not.toContain("tools.resource_io");

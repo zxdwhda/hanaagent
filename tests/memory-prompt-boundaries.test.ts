@@ -3,18 +3,18 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn().mockResolvedValue("[]"),
 }));
 
-import { callText } from "../core/llm-client.ts";
-import { SessionSummaryManager } from "../lib/memory/session-summary.ts";
-import { compileToday, compileDaily, compileLongterm } from "../lib/memory/compile.ts";
-import { processDirtySessions } from "../lib/memory/deep-memory.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
+import { SessionSummaryManager } from "../packages/engine/lib/memory/session-summary.ts";
+import { compileToday, compileDaily, compileLongterm } from "../packages/engine/lib/memory/compile.ts";
+import { processDirtySessions } from "../packages/engine/lib/memory/deep-memory.ts";
 
 const RESOLVED_MODEL = {
   model: "m",

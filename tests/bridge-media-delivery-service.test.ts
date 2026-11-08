@@ -4,7 +4,7 @@ import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 // 期望值必须与生产代码同一条规范化路径（native realpath 会展开 Windows 8.3
 // 短名，JS 版 fs.realpathSync 不会；CI runner 的 TEMP 恰好是短名形式）。
-import { canonicalFilesystemPathSync } from "../shared/link-aware-fs.ts";
+import { canonicalFilesystemPathSync } from "../packages/shared/link-aware-fs.ts";
 
 const debugLogMock = vi.hoisted(() => ({
   log: vi.fn(),
@@ -12,17 +12,17 @@ const debugLogMock = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => debugLogMock,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { MediaDeliveryService } from "../lib/bridge/media-delivery-service.ts";
-import { setMediaLocalRoots } from "../lib/bridge/media-utils.ts";
-import { TELEGRAM_MEDIA_CAPABILITIES } from "../lib/bridge/telegram-adapter.ts";
-import { FEISHU_MEDIA_CAPABILITIES } from "../lib/bridge/feishu-adapter.ts";
-import { QQ_MEDIA_CAPABILITIES } from "../lib/bridge/qq-adapter.ts";
-import { WECHAT_ILINK_MEDIA_CAPABILITIES } from "../lib/bridge/wechat-adapter.ts";
+import { MediaDeliveryService } from "../packages/engine/lib/bridge/media-delivery-service.ts";
+import { setMediaLocalRoots } from "../packages/engine/lib/bridge/media-utils.ts";
+import { TELEGRAM_MEDIA_CAPABILITIES } from "../packages/engine/lib/bridge/telegram-adapter.ts";
+import { FEISHU_MEDIA_CAPABILITIES } from "../packages/engine/lib/bridge/feishu-adapter.ts";
+import { QQ_MEDIA_CAPABILITIES } from "../packages/engine/lib/bridge/qq-adapter.ts";
+import { WECHAT_ILINK_MEDIA_CAPABILITIES } from "../packages/engine/lib/bridge/wechat-adapter.ts";
 
 describe("MediaDeliveryService", () => {
   let tmpDir = null;

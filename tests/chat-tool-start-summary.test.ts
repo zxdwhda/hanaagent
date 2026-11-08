@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { summarizeToolStartArgs } from "../server/routes/chat.ts";
+import { summarizeToolStartArgs } from "../apps/server/routes/chat.ts";
 
 describe("chat tool_start arg summary", () => {
   it("does not leak unsummarized args for other tools", () => {

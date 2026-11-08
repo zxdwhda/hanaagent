@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { NotificationService, formatNotificationText } from "../lib/notifications/notification-service.ts";
+import { NotificationService, formatNotificationText } from "../packages/engine/lib/notifications/notification-service.ts";
 
 describe("NotificationService", () => {
   it("keeps legacy notify calls on the desktop channel", async () => {

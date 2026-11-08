@@ -7,7 +7,7 @@ import {
   issueExecutionLease,
   consumeExecutionLease,
   revokeExecutionLease,
-} from "../core/execution-lease-registry.ts";
+} from "../packages/engine/core/execution-lease-registry.ts";
 
 function baseLease( overrides: any = {}) {
   return {

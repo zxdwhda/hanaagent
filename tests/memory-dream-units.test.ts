@@ -6,7 +6,7 @@ import {
   validateAndRenderDreamOptimization,
   validateDreamAtomization,
   validateDreamDedupe,
-} from "../lib/memory/dream/memory-units.ts";
+} from "../packages/engine/lib/memory/dream/memory-units.ts";
 
 const current = {
   facts: "User prefers concise answers。User asks for concrete evidence；User values privacy。",

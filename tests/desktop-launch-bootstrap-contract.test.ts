@@ -4,17 +4,17 @@ import path from "path";
 
 const root = process.cwd();
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8"));
-const bootstrapPath = path.join(root, "desktop", "bootstrap.cjs");
+const bootstrapPath = path.join(root, "apps/desktop", "bootstrap.cjs");
 
 describe("desktop launch bootstrap contract", () => {
   it("routes dev and packaged Electron through the pre-main bootstrap", () => {
-    expect(packageJson.main).toBe("desktop/bootstrap.cjs");
-    expect(packageJson.build?.extraMetadata?.main).toBe("desktop/bootstrap.cjs");
-    expect(packageJson.build?.files).toContain("desktop/bootstrap.cjs");
-    expect(packageJson.build?.files).toContain("desktop/src/shared/launch-integrity.cjs");
-    expect(packageJson.build?.files).toContain("desktop/src/shared/windows-system-ca.cjs");
-    expect(packageJson.build?.files).toContain("shared/hana-runtime-paths.cjs");
-    expect(packageJson.build?.files).toContain("desktop/main.bundle.cjs");
+    expect(packageJson.main).toBe("apps/desktop/bootstrap.cjs");
+    expect(packageJson.build?.extraMetadata?.main).toBe("apps/desktop/bootstrap.cjs");
+    expect(packageJson.build?.files).toContain("apps/desktop/bootstrap.cjs");
+    expect(packageJson.build?.files).toContain("apps/desktop/src/shared/launch-integrity.cjs");
+    expect(packageJson.build?.files).toContain("apps/desktop/src/shared/windows-system-ca.cjs");
+    expect(packageJson.build?.files).toContain("packages/shared/hana-runtime-paths.cjs");
+    expect(packageJson.build?.files).toContain("apps/desktop/main.bundle.cjs");
   });
 
   it("registers diagnostics before loading the full desktop main", () => {

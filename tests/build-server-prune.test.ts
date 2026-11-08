@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { pruneRuntimeDeadFiles, shouldPruneRuntimeDeadFile } from "../scripts/build-server-prune.mjs";
+import { pruneRuntimeDeadFiles, shouldPruneRuntimeDeadFile } from "../tooling/scripts/build-server-prune.mjs";
 
 const tempDirs: string[] = [];
 

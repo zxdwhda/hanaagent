@@ -2,12 +2,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { deriveSandboxPolicy } from "../lib/sandbox/policy.ts";
+import { deriveSandboxPolicy } from "../packages/engine/lib/sandbox/policy.ts";
 import {
   buildWin32SandboxGrants,
   externalReadPathsFromSessionFiles,
-} from "../lib/sandbox/win32-policy.ts";
-import { canonicalFilesystemPathSync } from "../shared/link-aware-fs.ts";
+} from "../packages/engine/lib/sandbox/win32-policy.ts";
+import { canonicalFilesystemPathSync } from "../packages/shared/link-aware-fs.ts";
 
 describe("Windows sandbox policy projection", () => {
   let tempRoot;

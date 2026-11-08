@@ -13,13 +13,13 @@ allowLegacyUpdatesForProtocolTests();
 
 const require = createRequire(import.meta.url);
 
-const ota = require("../desktop/src/shared/artifact-ota.cjs");
-const artifactBoot = require("../desktop/src/shared/artifact-boot.cjs");
-const devBypass = require("../desktop/src/shared/artifact-ota-dev-bypass.cjs");
-const prodStub = require("../desktop/src/shared/artifact-ota-dev-bypass.prod-stub.cjs");
-const ustar = require("../shared/artifact-core/ustar.cjs");
-const activation = require("../shared/artifact-core/activation.cjs");
-const pointerStore = require("../shared/artifact-core/pointer-store.cjs");
+const ota = require("../apps/desktop/src/shared/artifact-ota.cjs");
+const artifactBoot = require("../apps/desktop/src/shared/artifact-boot.cjs");
+const devBypass = require("../apps/desktop/src/shared/artifact-ota-dev-bypass.cjs");
+const prodStub = require("../apps/desktop/src/shared/artifact-ota-dev-bypass.prod-stub.cjs");
+const ustar = require("../packages/shared/artifact-core/ustar.cjs");
+const activation = require("../packages/shared/artifact-core/activation.cjs");
+const pointerStore = require("../packages/shared/artifact-core/pointer-store.cjs");
 
 const {
   checkOnce,
@@ -1636,7 +1636,7 @@ describe("artifact-ota: readStagedTrainStatus (filesystem integration)", () => {
 
 describe("artifact-ota: shared pipeline core stays desktop-free (structural)", () => {
   const otaCoreSource = fs.readFileSync(
-    path.join(__dirname, "..", "shared", "artifact-core", "ota-core.cjs"),
+    path.join(__dirname, "..", "packages/shared", "artifact-core", "ota-core.cjs"),
     "utf8",
   );
 
@@ -1654,7 +1654,7 @@ describe("artifact-ota: shared pipeline core stays desktop-free (structural)", (
 
   it("desktop shell still holds the static dev-bypass require (vite alias contract)", () => {
     const shellSource = fs.readFileSync(
-      path.join(__dirname, "..", "desktop", "src", "shared", "artifact-ota.cjs"),
+      path.join(__dirname, "..", "apps/desktop", "src", "shared", "artifact-ota.cjs"),
       "utf8",
     );
     expect(shellSource).toContain('require("./artifact-ota-dev-bypass.cjs")');
@@ -1695,7 +1695,7 @@ describe("artifact-ota: shared pipeline core stays desktop-free (structural)", (
 //    directly (the desktop shell wrapper deliberately does not re-export
 //    it; the CLI is its only production consumer) ────────────────────────
 
-const otaCoreDirect = require("../shared/artifact-core/ota-core.cjs");
+const otaCoreDirect = require("../packages/shared/artifact-core/ota-core.cjs");
 
 /** devBypass stub pointing the core at a local fixture manifest — the CLI
  * itself never passes one (NO_DEV_OVERRIDE default); tests inject this

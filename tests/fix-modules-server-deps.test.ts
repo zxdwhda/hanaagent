@@ -5,7 +5,7 @@ import { createRequire } from "module";
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { assertSeedResourcesReady, removeNodeModulesBinDirs } = require("../scripts/fix-modules.cjs");
+const { assertSeedResourcesReady, removeNodeModulesBinDirs } = require("../tooling/scripts/fix-modules.cjs");
 
 const tempDirs: string[] = [];
 

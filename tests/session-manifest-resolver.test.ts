@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SessionManifestResolver } from "../core/session-manifest/resolver.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
+import { SessionManifestResolver } from "../packages/engine/core/session-manifest/resolver.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
 
 describe("SessionManifestResolver", () => {
   let tmpDir;

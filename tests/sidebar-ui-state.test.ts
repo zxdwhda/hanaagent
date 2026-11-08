@@ -3,7 +3,7 @@ import {
   mergeSidebarUiPrefs,
   normalizeSidebarUiPrefs,
   normalizeSidebarUiPrefsPatch,
-} from "../shared/sidebar-ui-state.ts";
+} from "../packages/shared/sidebar-ui-state.ts";
 
 describe("sidebar UI preferences", () => {
   it("keeps existing users on the two-line session list by default", () => {

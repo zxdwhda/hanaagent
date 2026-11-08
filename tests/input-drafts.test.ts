@@ -8,7 +8,7 @@ import {
   normalizeInputDraftSurface,
   normalizeInputDraftsFile,
   upsertSurfaceSessionDrafts,
-} from "../shared/input-drafts.ts";
+} from "../packages/shared/input-drafts.ts";
 
 describe("input drafts shared normalization", () => {
   it("exposes surface whitelist and home key", () => {

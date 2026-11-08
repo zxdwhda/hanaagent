@@ -24,12 +24,12 @@ describe("server port selection", () => {
 
   describe("randomPortInBand", () => {
     it("maps random() = 0 to the band minimum", async () => {
-      const { randomPortInBand, LOOPBACK_PORT_BAND } = await import("../core/server-port-selection.ts");
+      const { randomPortInBand, LOOPBACK_PORT_BAND } = await import("../packages/engine/core/server-port-selection.ts");
       expect(randomPortInBand(() => 0)).toBe(LOOPBACK_PORT_BAND.min);
     });
 
     it("maps random() close to 1 to at most the band maximum, and returns an integer", async () => {
-      const { randomPortInBand, LOOPBACK_PORT_BAND } = await import("../core/server-port-selection.ts");
+      const { randomPortInBand, LOOPBACK_PORT_BAND } = await import("../packages/engine/core/server-port-selection.ts");
       const port = randomPortInBand(() => 0.999999);
       expect(port).toBeLessThanOrEqual(LOOPBACK_PORT_BAND.max);
       expect(Number.isInteger(port)).toBe(true);
@@ -38,7 +38,7 @@ describe("server port selection", () => {
 
   describe("selectLoopbackListenPort", () => {
     it("retries past busy ports and returns the first free candidate", async () => {
-      const { selectLoopbackListenPort } = await import("../core/server-port-selection.ts");
+      const { selectLoopbackListenPort } = await import("../packages/engine/core/server-port-selection.ts");
       let call = 0;
       const probe = async (): Promise<{ ok: true } | { ok: false; code: string }> => {
         call++;
@@ -56,7 +56,7 @@ describe("server port selection", () => {
     });
 
     it("returns null after exhausting attempts when probe always fails", async () => {
-      const { selectLoopbackListenPort } = await import("../core/server-port-selection.ts");
+      const { selectLoopbackListenPort } = await import("../packages/engine/core/server-port-selection.ts");
       let call = 0;
       const probe = async () => {
         call++;
@@ -68,7 +68,7 @@ describe("server port selection", () => {
     });
 
     it("skips excluded candidates without probing them", async () => {
-      const { selectLoopbackListenPort, LOOPBACK_PORT_BAND } = await import("../core/server-port-selection.ts");
+      const { selectLoopbackListenPort, LOOPBACK_PORT_BAND } = await import("../packages/engine/core/server-port-selection.ts");
       const excludedPort = LOOPBACK_PORT_BAND.min; // random() = 0 -> band min
       // Alternate between 0 (excluded) and a distinct second value.
       let randomCall = 0;
@@ -88,7 +88,7 @@ describe("server port selection", () => {
 
   describe("probeLoopbackListenPort", () => {
     it("reports EADDRINUSE for a busy port and ok for the same port once freed", async () => {
-      const { probeLoopbackListenPort } = await import("../core/server-port-selection.ts");
+      const { probeLoopbackListenPort } = await import("../packages/engine/core/server-port-selection.ts");
 
       const occupied = net.createServer();
       await new Promise<void>((resolve, reject) => {
@@ -114,8 +114,8 @@ describe("server port selection", () => {
       tmpDir = makeTmpDir();
       const {
         ensureServerNetworkConfigWithPortSelection,
-      } = await import("../core/server-port-selection.ts");
-      const { loadServerNetworkConfig } = await import("../core/server-network-config.ts");
+      } = await import("../packages/engine/core/server-port-selection.ts");
+      const { loadServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
 
       const result = await ensureServerNetworkConfigWithPortSelection(tmpDir, {
         select: async () => 23456,
@@ -130,8 +130,8 @@ describe("server port selection", () => {
       tmpDir = makeTmpDir();
       const {
         ensureServerNetworkConfigWithPortSelection,
-      } = await import("../core/server-port-selection.ts");
-      const { loadServerNetworkConfig } = await import("../core/server-network-config.ts");
+      } = await import("../packages/engine/core/server-port-selection.ts");
+      const { loadServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
 
       const result = await ensureServerNetworkConfigWithPortSelection(tmpDir, {
         select: async () => null,
@@ -144,11 +144,11 @@ describe("server port selection", () => {
 
     it("migrates an existing loopback+14500 config to a newly selected port", async () => {
       tmpDir = makeTmpDir();
-      const { saveServerNetworkConfig } = await import("../core/server-network-config.ts");
+      const { saveServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
       const {
         ensureServerNetworkConfigWithPortSelection,
-      } = await import("../core/server-port-selection.ts");
-      const { loadServerNetworkConfig } = await import("../core/server-network-config.ts");
+      } = await import("../packages/engine/core/server-port-selection.ts");
+      const { loadServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
 
       saveServerNetworkConfig(tmpDir, {
         schemaVersion: 1,
@@ -171,10 +171,10 @@ describe("server port selection", () => {
 
     it("leaves an existing loopback config with a custom port untouched", async () => {
       tmpDir = makeTmpDir();
-      const { saveServerNetworkConfig } = await import("../core/server-network-config.ts");
+      const { saveServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
       const {
         ensureServerNetworkConfigWithPortSelection,
-      } = await import("../core/server-port-selection.ts");
+      } = await import("../packages/engine/core/server-port-selection.ts");
 
       saveServerNetworkConfig(tmpDir, {
         schemaVersion: 1,
@@ -196,10 +196,10 @@ describe("server port selection", () => {
 
     it("leaves an existing lan mode config with the legacy port untouched", async () => {
       tmpDir = makeTmpDir();
-      const { saveServerNetworkConfig } = await import("../core/server-network-config.ts");
+      const { saveServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
       const {
         ensureServerNetworkConfigWithPortSelection,
-      } = await import("../core/server-port-selection.ts");
+      } = await import("../packages/engine/core/server-port-selection.ts");
 
       saveServerNetworkConfig(tmpDir, {
         schemaVersion: 1,
@@ -224,7 +224,7 @@ describe("server port selection", () => {
       fs.writeFileSync(path.join(tmpDir, "server-network.json"), "{ not json", "utf-8");
       const {
         ensureServerNetworkConfigWithPortSelection,
-      } = await import("../core/server-port-selection.ts");
+      } = await import("../packages/engine/core/server-port-selection.ts");
 
       await expect(ensureServerNetworkConfigWithPortSelection(tmpDir, {
         select: async () => 31234,
@@ -234,7 +234,7 @@ describe("server port selection", () => {
 
   describe("isHanaServerListeningOnPort", () => {
     it("returns true for a server that answers with status and version", async () => {
-      const { isHanaServerListeningOnPort } = await import("../core/server-port-selection.ts");
+      const { isHanaServerListeningOnPort } = await import("../packages/engine/core/server-port-selection.ts");
       const server = http.createServer((_req, res) => {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ status: "ok", version: "0.1.0" }));
@@ -249,7 +249,7 @@ describe("server port selection", () => {
     });
 
     it("returns false for a server that answers with plain text", async () => {
-      const { isHanaServerListeningOnPort } = await import("../core/server-port-selection.ts");
+      const { isHanaServerListeningOnPort } = await import("../packages/engine/core/server-port-selection.ts");
       const server = http.createServer((_req, res) => {
         res.writeHead(200, { "Content-Type": "text/plain" });
         res.end("hello world");
@@ -264,7 +264,7 @@ describe("server port selection", () => {
     });
 
     it("returns false when nothing is listening on the port", async () => {
-      const { isHanaServerListeningOnPort } = await import("../core/server-port-selection.ts");
+      const { isHanaServerListeningOnPort } = await import("../packages/engine/core/server-port-selection.ts");
       // Grab an ephemeral free port, then close it so nothing is listening.
       const probe = net.createServer();
       const freePort: number = await new Promise((resolve, reject) => {
@@ -283,7 +283,7 @@ describe("server port selection", () => {
 
   describe("decideLoopbackBindFallback", () => {
     it("falls back on EADDRINUSE in loopback mode when unpinned and not another Hana server", async () => {
-      const { decideLoopbackBindFallback } = await import("../core/server-port-selection.ts");
+      const { decideLoopbackBindFallback } = await import("../packages/engine/core/server-port-selection.ts");
       expect(decideLoopbackBindFallback({
         errCode: "EADDRINUSE",
         networkMode: "loopback",
@@ -293,7 +293,7 @@ describe("server port selection", () => {
     });
 
     it("refuses to fall back when the occupant is another Hana server", async () => {
-      const { decideLoopbackBindFallback } = await import("../core/server-port-selection.ts");
+      const { decideLoopbackBindFallback } = await import("../packages/engine/core/server-port-selection.ts");
       expect(decideLoopbackBindFallback({
         errCode: "EADDRINUSE",
         networkMode: "loopback",
@@ -303,7 +303,7 @@ describe("server port selection", () => {
     });
 
     it("falls back on EACCES and EPERM under the same conditions", async () => {
-      const { decideLoopbackBindFallback } = await import("../core/server-port-selection.ts");
+      const { decideLoopbackBindFallback } = await import("../packages/engine/core/server-port-selection.ts");
       for (const errCode of ["EACCES", "EPERM"]) {
         expect(decideLoopbackBindFallback({
           errCode,
@@ -315,7 +315,7 @@ describe("server port selection", () => {
     });
 
     it("never falls back for lan or custom_remote modes", async () => {
-      const { decideLoopbackBindFallback } = await import("../core/server-port-selection.ts");
+      const { decideLoopbackBindFallback } = await import("../packages/engine/core/server-port-selection.ts");
       for (const networkMode of ["lan", "custom_remote"]) {
         expect(decideLoopbackBindFallback({
           errCode: "EADDRINUSE",
@@ -327,7 +327,7 @@ describe("server port selection", () => {
     });
 
     it("never falls back when the port is pinned via env", async () => {
-      const { decideLoopbackBindFallback } = await import("../core/server-port-selection.ts");
+      const { decideLoopbackBindFallback } = await import("../packages/engine/core/server-port-selection.ts");
       expect(decideLoopbackBindFallback({
         errCode: "EADDRINUSE",
         networkMode: "loopback",
@@ -337,7 +337,7 @@ describe("server port selection", () => {
     });
 
     it("does not fall back for error codes outside the recognized set", async () => {
-      const { decideLoopbackBindFallback } = await import("../core/server-port-selection.ts");
+      const { decideLoopbackBindFallback } = await import("../packages/engine/core/server-port-selection.ts");
       expect(decideLoopbackBindFallback({
         errCode: "ENOTSUP",
         networkMode: "loopback",

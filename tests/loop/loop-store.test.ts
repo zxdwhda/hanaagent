@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { LoopStore, LOOP_DEFAULT_LIMITS, loopKeyForTarget } from "../../lib/loop/loop-store.ts";
+import { LoopStore, LOOP_DEFAULT_LIMITS, loopKeyForTarget } from "../../packages/engine/lib/loop/loop-store.ts";
 
 const tmpDirs: string[] = [];
 function tmpStorePath() {

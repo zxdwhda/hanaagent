@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { TerminalSessionManager } from "../lib/terminal/terminal-session-manager.ts";
+import { TerminalSessionManager } from "../packages/engine/lib/terminal/terminal-session-manager.ts";
 
 function makeFakeBackend() {
   const handles = [];

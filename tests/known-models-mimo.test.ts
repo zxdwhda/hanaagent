@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { syncModels } from "../core/model-sync.ts";
+import { syncModels } from "../packages/engine/core/model-sync.ts";
 
 function projectMimoModel(modelId) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-known-mimo-"));

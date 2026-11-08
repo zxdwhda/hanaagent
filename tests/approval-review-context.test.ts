@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildApprovalReviewContext } from "../lib/permission/approval-review-context.ts";
+import { buildApprovalReviewContext } from "../packages/engine/lib/permission/approval-review-context.ts";
 
 describe("approval review context", () => {
   let tmpDir = "";

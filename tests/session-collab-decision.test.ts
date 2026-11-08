@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 import { describe, it, expect, vi } from "vitest";
-import { createSessionCollabRoute } from "../server/routes/session-collab.ts";
-import { SessionCollabDraftStore } from "../lib/session-collab/draft-store.ts";
+import { createSessionCollabRoute } from "../apps/server/routes/session-collab.ts";
+import { SessionCollabDraftStore } from "../packages/engine/lib/session-collab/draft-store.ts";
 import {
   SESSION_COLLAB_DECISION_RECORD_TYPE,
   buildSessionCollabDecision,
-} from "../lib/session-collab/decision-record.ts";
+} from "../packages/engine/lib/session-collab/decision-record.ts";
 import {
   collectSessionCollabDecisions,
   overlaySessionCollabDecision,
-} from "../core/message-utils.ts";
+} from "../packages/engine/core/message-utils.ts";
 
 function makeApp(engine: any) {
   const app = new Hono();

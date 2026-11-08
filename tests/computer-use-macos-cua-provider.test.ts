@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "events";
-import { createMacosCuaProvider, resolveCuaDriverCommand } from "../core/computer-use/providers/macos-cua-provider.ts";
-import { COMPUTER_USE_ERRORS } from "../core/computer-use/errors.ts";
+import { createMacosCuaProvider, resolveCuaDriverCommand } from "../packages/engine/core/computer-use/providers/macos-cua-provider.ts";
+import { COMPUTER_USE_ERRORS } from "../packages/engine/core/computer-use/errors.ts";
 
 function rawResult(structuredContent: any, content: any[] = [{ type: "text", text: "ok" }]) {
   return {

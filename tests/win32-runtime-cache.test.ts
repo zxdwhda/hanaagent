@@ -9,7 +9,7 @@ import {
   resetSandboxPowerShellProbeCacheForTests,
   sandboxRuntimeCacheRoot,
   setSandboxPowerShellProbeResult,
-} from "../lib/sandbox/win32-runtime-cache.ts";
+} from "../packages/engine/lib/sandbox/win32-runtime-cache.ts";
 
 const tempRoots = [];
 

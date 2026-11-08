@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { PluginManager } from "../core/plugin-manager.ts";
+import { PluginManager } from "../packages/engine/core/plugin-manager.ts";
 
 const tmpHome = path.join(os.tmpdir(), "hana-pm-test-" + Date.now());
 const pluginsDir = path.join(tmpHome, "plugins");
@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 async function makeBus() {
-  const { EventBus } = await import("../hub/event-bus.ts");
+  const { EventBus } = await import("../packages/engine/hub/event-bus.ts");
   return new EventBus();
 }
 
@@ -111,7 +111,7 @@ describe("loadAll", () => {
       bus.handle(type, async () => ({ ok: true }));
     }
     const pm = new PluginManager({
-      pluginsDirs: [path.resolve("plugins")],
+      pluginsDirs: [path.resolve("extensions", "plugins")],
       dataDir,
       bus,
       runtimeContext: {

@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
-import { createBridgeRoute } from "../server/routes/bridge.ts";
+import { createBridgeRoute } from "../apps/server/routes/bridge.ts";
 
 let rootDir;
 

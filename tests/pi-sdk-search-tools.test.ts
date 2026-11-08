@@ -129,7 +129,7 @@ describe("Hana Pi SDK search tools", () => {
   });
 
   it("runs grep ripgrep with hidden Windows console windows", async () => {
-    const { createGrepTool } = await import("../lib/pi-sdk/index.ts");
+    const { createGrepTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
     const cwd = process.cwd();
     const match = {
       type: "match",
@@ -162,7 +162,7 @@ describe("Hana Pi SDK search tools", () => {
   });
 
   it("runs find fd with hidden Windows console windows", async () => {
-    const { createFindTool } = await import("../lib/pi-sdk/index.ts");
+    const { createFindTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
     const cwd = process.cwd();
     spawn.mockReturnValue(createChildProcess({ stdout: `${cwd}/package.json\n` }));
 
@@ -181,7 +181,7 @@ describe("Hana Pi SDK search tools", () => {
   });
 
   it("requires an explicit absolute managed binary directory", async () => {
-    const { createGrepTool, createFindTool } = await import("../lib/pi-sdk/index.ts");
+    const { createGrepTool, createFindTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
 
     expect(() => (createGrepTool as any)(process.cwd(), {})).toThrow(
       "managedBinDir must be an absolute path",
@@ -192,7 +192,7 @@ describe("Hana Pi SDK search tools", () => {
   });
 
   it("copies a legacy managed binary into Hana's runtime directory on first use", async () => {
-    const { createGrepTool } = await import("../lib/pi-sdk/index.ts");
+    const { createGrepTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
     const cwd = process.cwd();
     const paths = managedPaths();
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
@@ -223,7 +223,7 @@ describe("Hana Pi SDK search tools", () => {
   });
 
   it("prefers the Hana runtime binary without touching a legacy copy", async () => {
-    const { createGrepTool } = await import("../lib/pi-sdk/index.ts");
+    const { createGrepTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
     const cwd = process.cwd();
     const paths = managedPaths();
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
@@ -251,7 +251,7 @@ describe("Hana Pi SDK search tools", () => {
   });
 
   it("surfaces legacy binary copy failures instead of falling back", async () => {
-    const { createGrepTool } = await import("../lib/pi-sdk/index.ts");
+    const { createGrepTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
     const cwd = process.cwd();
     const paths = managedPaths();
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";

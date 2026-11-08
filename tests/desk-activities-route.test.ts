@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ActivityStore } from "../lib/desk/activity-store.ts";
+import { ActivityStore } from "../packages/engine/lib/desk/activity-store.ts";
 
 const roots: string[] = [];
 
@@ -39,7 +39,7 @@ describe("desk activities route", () => {
       listAgents: () => [{ id: "agent-1", name: "Hanako" }],
       getActivityStore: () => store,
     };
-    const { createDeskRoute } = await import("../server/routes/desk.ts");
+    const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
     const app = new Hono();
     app.route("/api", createDeskRoute(engine, { eventBus: { emit } }));
 

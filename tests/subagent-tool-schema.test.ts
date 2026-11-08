@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("../lib/i18n.ts", () => ({ t: (k: string) => k, getLocale: () => "en" }));
+vi.mock("../packages/engine/lib/i18n.ts", () => ({ t: (k: string) => k, getLocale: () => "en" }));
 
 const baseDeps = {
   currentAgentId: "test",
@@ -9,7 +9,7 @@ const baseDeps = {
 };
 
 async function loadSubagentToolDef(extraDeps = {}) {
-  const mod = await import("../lib/tools/subagent-tool.ts");
+  const mod = await import("../packages/engine/lib/tools/subagent-tool.ts");
   const tool = (mod as any).createSubagentTool({ ...baseDeps, ...extraDeps });
   return tool;
 }

@@ -2,9 +2,9 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { Agent } from "../core/agent.ts";
-import { createBrowserTool } from "../lib/tools/browser-tool.ts";
-import { extractBlocks } from "../server/block-extractors.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
+import { createBrowserTool } from "../packages/engine/lib/tools/browser-tool.ts";
+import { extractBlocks } from "../apps/server/block-extractors.ts";
 
 const screenshotMock = vi.fn();
 const snapshotMock = vi.fn();
@@ -16,7 +16,7 @@ const closeMock = vi.fn();
 const activeTabMock = vi.fn();
 const getTabsMock = vi.fn();
 
-vi.mock("../lib/browser/browser-manager.js", () => ({
+vi.mock("../packages/engine/lib/browser/browser-manager.js", () => ({
   BrowserManager: {
     instance: () => ({
       screenshot: screenshotMock,

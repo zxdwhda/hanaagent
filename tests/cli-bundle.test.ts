@@ -3,14 +3,14 @@ import os from "os";
 import path from "path";
 import { createRequire } from "module";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseCliArgs, helpText } from "../cli/args.ts";
-import { runBundlePull, runBundleStatus } from "../cli/bundle.ts";
-import { SERVER_PROTOCOL_VERSION } from "../shared/contract-versions.cjs";
+import { parseCliArgs, helpText } from "../apps/cli/args.ts";
+import { runBundlePull, runBundleStatus } from "../apps/cli/bundle.ts";
+import { SERVER_PROTOCOL_VERSION } from "../packages/shared/contract-versions.cjs";
 
 const require = createRequire(import.meta.url);
-const pointerStore = require("../shared/artifact-core/pointer-store.cjs");
-const { rendererPointerChannel } = require("../shared/artifact-core/pointer-channels.cjs");
-const otaCore = require("../shared/artifact-core/ota-core.cjs");
+const pointerStore = require("../packages/shared/artifact-core/pointer-store.cjs");
+const { rendererPointerChannel } = require("../packages/shared/artifact-core/pointer-channels.cjs");
+const otaCore = require("../packages/shared/artifact-core/ota-core.cjs");
 
 const tempDirs: string[] = [];
 

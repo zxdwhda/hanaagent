@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runLocalCliMedia } from "../core/media/local-cli-wrapper.ts";
+import { runLocalCliMedia } from "../packages/engine/core/media/local-cli-wrapper.ts";
 
 let tmpDir;
 

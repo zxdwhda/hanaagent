@@ -6,14 +6,14 @@ import {
   DINGTALK_LEGACY_REST_API_BASE_URL,
   canonicalizeDingTalkBridgeConfig,
   normalizeDingTalkBridgeCredentials,
-} from "../lib/bridge/dingtalk-contract.ts";
+} from "../packages/engine/lib/bridge/dingtalk-contract.ts";
 import {
   DINGTALK_TOKEN_MAX_TTL_SECONDS,
   buildDingTalkAccessTokenRequest,
   parseDingTalkAccessTokenResponse,
   readDingTalkResponse,
   requestDingTalkAccessToken,
-} from "../lib/bridge/dingtalk-api.ts";
+} from "../packages/engine/lib/bridge/dingtalk-api.ts";
 
 describe("DingTalk bridge credential contract", () => {
   it("uses canonical non-empty fields before legacy aliases", () => {

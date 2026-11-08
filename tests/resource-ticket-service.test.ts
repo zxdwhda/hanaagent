@@ -16,7 +16,7 @@ describe("resource ticket service", () => {
       issueResourceTicket,
       verifyResourceTicket,
       resourceTicketKeyPath,
-    } = await import("../core/resource-ticket-service.ts");
+    } = await import("../packages/engine/core/resource-ticket-service.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-resource-ticket-"));
 
     const issued = issueResourceTicket({

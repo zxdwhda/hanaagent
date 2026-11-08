@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderFeishuOutbound } from "../lib/bridge/feishu-outbound-renderer.ts";
+import { renderFeishuOutbound } from "../packages/engine/lib/bridge/feishu-outbound-renderer.ts";
 
 function parseContent(rendered) {
   return JSON.parse(rendered.content);

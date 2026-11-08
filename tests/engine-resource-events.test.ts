@@ -1,6 +1,6 @@
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { HanaEngine } from "../core/engine.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
 
 describe("HanaEngine ResourceEvent emission", () => {
   it("emits agent SessionFile writes as resource.changed without a legacy app-event projection", () => {

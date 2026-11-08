@@ -3,25 +3,25 @@ import { clampMaxTokensToContext } from "@earendil-works/pi-ai/api/simple-option
 import type { AssistantMessage, Model } from "@earendil-works/pi-ai";
 
 // Mock compaction-utils 以便精准控制 L3 判断和硬截断结果
-vi.mock("../core/compaction-utils.js", () => ({
+vi.mock("../packages/engine/core/compaction-utils.js", () => ({
   computeHardTruncation: vi.fn(),
   truncateTextHeadTail: vi.fn(),
 }));
 
-import { createCompactionGuardExtension } from "../lib/extensions/compaction-guard-ext.ts";
-import { buildSessionCacheSnapshot as buildSessionCacheSnapshotValue } from "../core/session-cache-snapshot.ts";
-import { estimateCachePreservingCompactionRequest } from "../core/session-compactor.ts";
-import { normalizeProviderPayload } from "../core/provider-compat.ts";
-import { resolveRequestReasoningLevelForContext } from "../core/request-reasoning-level.ts";
+import { createCompactionGuardExtension } from "../packages/engine/lib/extensions/compaction-guard-ext.ts";
+import { buildSessionCacheSnapshot as buildSessionCacheSnapshotValue } from "../packages/engine/core/session-cache-snapshot.ts";
+import { estimateCachePreservingCompactionRequest } from "../packages/engine/core/session-compactor.ts";
+import { normalizeProviderPayload } from "../packages/engine/core/provider-compat.ts";
+import { resolveRequestReasoningLevelForContext } from "../packages/engine/core/request-reasoning-level.ts";
 import {
   computeHardTruncation,
   truncateTextHeadTail,
-} from "../core/compaction-utils.ts";
+} from "../packages/engine/core/compaction-utils.ts";
 import {
   convertAgentMessagesToLlm,
   Type,
   type AgentMessage,
-} from "../lib/pi-sdk/index.ts";
+} from "../packages/engine/lib/pi-sdk/index.ts";
 
 const VALID_COMPACTION_SUMMARY = `## Goal
 Keep the session useful.

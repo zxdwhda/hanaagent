@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MASKED_SECRET } from "../shared/secret-custody.ts";
+import { MASKED_SECRET } from "../packages/shared/secret-custody.ts";
 import {
   collectProviderHeaderSecretPatchPaths,
   mergeProviderHeaders,
@@ -7,7 +7,7 @@ import {
   normalizeProviderHeaders,
   resolveProviderHeadersPatch,
   stripCredentialHeaders,
-} from "../shared/provider-auth.ts";
+} from "../packages/shared/provider-auth.ts";
 
 describe("provider auth helpers", () => {
   it("normalizes provider request headers and drops unsafe transport headers", () => {

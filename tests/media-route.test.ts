@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { createMediaRoute } from "../server/routes/media.ts";
+import { createMediaRoute } from "../apps/server/routes/media.ts";
 
 describe("native media route", () => {
   it("returns image providers from the native media manager", async () => {

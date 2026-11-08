@@ -5,7 +5,7 @@ import {
   modelSupportsDirectAudioInput,
   resolveModelAudioInputTransport,
   withHanaAudioInputCompat,
-} from "../shared/model-capabilities.ts";
+} from "../packages/shared/model-capabilities.ts";
 
 describe("model audio capabilities", () => {
   it("supports official MiMo v2.5 audio input through read-time endpoint compatibility", () => {

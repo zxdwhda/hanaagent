@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { isDeepSeekModel, normalizeProviderPayload } from "../../core/provider-compat.ts";
-import * as deepseekResponses from "../../core/provider-compat/deepseek-responses.ts";
-import defaultModels from "../../lib/default-models.json";
-import { deepseekResponsesPlugin } from "../../lib/providers/deepseek-responses.ts";
+import { isDeepSeekModel, normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
+import * as deepseekResponses from "../../packages/engine/core/provider-compat/deepseek-responses.ts";
+import defaultModels from "../../packages/engine/lib/default-models.json";
+import { deepseekResponsesPlugin } from "../../packages/engine/lib/providers/deepseek-responses.ts";
 import {
   getReasoningProfile,
   getReasoningReplayContract,
   getThinkingFormat,
   withThinkingFormatCompat,
-} from "../../shared/model-capabilities.ts";
+} from "../../packages/shared/model-capabilities.ts";
 
 const FLASH_RESPONSES_MODEL = {
   id: "deepseek-v4-flash",

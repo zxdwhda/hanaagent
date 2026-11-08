@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const { resolveTrashItemPath } = require("../desktop/src/shared/trash-item-path.cjs");
+const { resolveTrashItemPath } = require("../apps/desktop/src/shared/trash-item-path.cjs");
 
 describe("trash item path resolution", () => {
   it("normalizes slash-separated Windows absolute paths to Windows separators", () => {

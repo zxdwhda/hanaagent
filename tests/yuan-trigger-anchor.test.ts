@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-const YUAN_DIR = path.join(__dirname, "..", "lib", "yuan");
+const YUAN_DIR = path.join(__dirname, "..", "packages/engine/lib", "yuan");
 
 const ZH_CASES = [
   { yuan: "hanako", anchor: "每条新消息后的第一段输出以 MOOD 区块开头", tag: "<mood>" },

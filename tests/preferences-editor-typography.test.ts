@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { PreferencesManager } from '../core/preferences-manager.ts';
+import { PreferencesManager } from '../packages/engine/core/preferences-manager.ts';
 
 function makePrefs() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hana-prefs-editor-'));

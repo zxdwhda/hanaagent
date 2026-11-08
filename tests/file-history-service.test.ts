@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { FileHistoryService, workspaceHashForRoot } from "../lib/file-history/file-history-service.ts";
+import { FileHistoryService, workspaceHashForRoot } from "../packages/engine/lib/file-history/file-history-service.ts";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {

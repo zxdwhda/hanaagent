@@ -30,16 +30,16 @@ afterAll(() => {
   Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
 });
 
-vi.mock("../lib/sandbox/platform.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/platform.js", () => ({
   detectPlatform: vi.fn(() => "bwrap"),
   checkAvailability,
 }));
 
-vi.mock("../lib/sandbox/bwrap.js", () => ({
+vi.mock("../packages/engine/lib/sandbox/bwrap.js", () => ({
   createBwrapExec,
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => {
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => {
   const makeTool = (name) => ({
     name,
     parameters: name === "read"
@@ -84,7 +84,7 @@ afterEach(() => {
 
 describe("createSandboxedTools on Linux", () => {
   it("fails closed for exec_command when bwrap is unavailable while sandbox remains enabled", async () => {
-    const { createSandboxedTools } = await import("../lib/sandbox/index.ts");
+    const { createSandboxedTools } = await import("../packages/engine/lib/sandbox/index.ts");
     const result = createSandboxedTools("/work", [], {
       agentDir: "/hana/agents/hana",
       workspace: "/work",
@@ -106,7 +106,7 @@ describe("createSandboxedTools on Linux", () => {
   });
 
   it("uses the direct bash transport fallback when the user explicitly disables sandbox", async () => {
-    const { createSandboxedTools } = await import("../lib/sandbox/index.ts");
+    const { createSandboxedTools } = await import("../packages/engine/lib/sandbox/index.ts");
     const result = createSandboxedTools("/work", [], {
       agentDir: "/hana/agents/hana",
       workspace: "/work",
@@ -134,7 +134,7 @@ describe("createSandboxedTools on Linux", () => {
     checkAvailability.mockReturnValue(true);
     let sandboxNetworkEnabled = true;
     const getSandboxNetworkEnabled = vi.fn(() => sandboxNetworkEnabled);
-    const { createSandboxedTools } = await import("../lib/sandbox/index.ts");
+    const { createSandboxedTools } = await import("../packages/engine/lib/sandbox/index.ts");
     const result = createSandboxedTools("/work", [], {
       agentDir: "/hana/agents/hana",
       workspace: "/work",
@@ -184,7 +184,7 @@ describe("createSandboxedTools on Linux", () => {
   });
 
   it("resolves read fileId through ResourceIO before path guard and SDK execution", async () => {
-    const { createSandboxedTools } = await import("../lib/sandbox/index.ts");
+    const { createSandboxedTools } = await import("../packages/engine/lib/sandbox/index.ts");
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-linux-session-file-"));
     const agentDir = path.join(tempRoot, "hana", "agents", "hana");
     const workspace = path.join(tempRoot, "work");

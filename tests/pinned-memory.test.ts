@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createPinnedMemoryTools } from "../lib/tools/pinned-memory.ts";
+import { createPinnedMemoryTools } from "../packages/engine/lib/tools/pinned-memory.ts";
 
 describe("pinned memory tools", () => {
   const tempRoots = [];

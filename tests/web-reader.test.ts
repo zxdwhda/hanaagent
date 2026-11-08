@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { htmlToMarkdownDocument } from "../lib/tools/web-reader.ts";
+import { htmlToMarkdownDocument } from "../packages/engine/lib/tools/web-reader.ts";
 
 describe("web reader markdown extraction", () => {
   it("extracts the readable article body as Markdown and removes page chrome", async () => {

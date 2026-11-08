@@ -2,17 +2,15 @@
 
 [文档导航 / Documentation](../README.md) · [中文](architecture.md) · [English](architecture_EN.md)
 
-```
-core/           引擎编排层 + Manager（含 PluginManager）
-lib/            核心库（记忆、工具、沙盒、Bridge 适配器）
-server/         Hono HTTP + WebSocket 服务（独立 Node.js 进程）
-hub/            调度器、频道路由、事件总线
-desktop/        Electron 应用 + React 前端
-shared/         跨层共享工具（config schema、error bus、模型引用等）
-plugins/        内置系统插件（随应用打包）
-skills2set/     内置技能定义
-scripts/        构建工具（server 打包、启动器、签名）
-tests/          Vitest 测试
+```text
+apps/                         # desktop、server、cli 三个应用入口
+packages/engine/              # core、lib、hub 引擎内部模块
+packages/shared/              # 跨应用共享代码
+packages/plugin-*/            # 已有插件 SDK workspace 包
+extensions/                   # plugins、skills、examples
+tooling/                      # config、scripts、build、tools
+docs/                         # 使用、开发和维护文档
+tests/                        # 跨模块测试
 ```
 
 引擎层协调多个 Manager（Agent、Session、Model、Preferences、Skill、Channel、BridgeSession、Plugin 等），通过统一的 facade 暴露。Hub 负责后台任务（心跳巡检、自动化 / 定时任务、频道路由、Agent 间通信、DM 路由），独立于当前聊天会话运行。

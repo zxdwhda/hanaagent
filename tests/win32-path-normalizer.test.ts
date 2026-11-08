@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeWin32ShellPath } from "../lib/sandbox/win32-path.ts";
+import { normalizeWin32ShellPath } from "../packages/engine/lib/sandbox/win32-path.ts";
 
 describe("normalizeWin32ShellPath", () => {
   it("normalizes MSYS and Cygwin drive paths to native Windows paths", () => {

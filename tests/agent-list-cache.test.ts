@@ -3,9 +3,9 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import YAML from "js-yaml";
-import { AgentManager } from "../core/agent-manager.ts";
+import { AgentManager } from "../packages/engine/core/agent-manager.ts";
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-vi.mock("../lib/desk/activity-store.js", () => ({
+vi.mock("../packages/engine/lib/desk/activity-store.js", () => ({
   ActivityStore: vi.fn(),
 }));
 

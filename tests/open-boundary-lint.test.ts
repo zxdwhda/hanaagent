@@ -14,10 +14,10 @@ import {
   readBaseline,
   readExportManifest,
   resolveRelativeSpecifier,
-} from "../scripts/lint-open-boundary.mjs";
+} from "../tooling/scripts/lint-open-boundary.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const LINT_SCRIPT = path.join(ROOT, "scripts", "lint-open-boundary.mjs");
+const LINT_SCRIPT = path.join(ROOT, "tooling/scripts", "lint-open-boundary.mjs");
 
 const tempDirs: string[] = [];
 afterEach(() => {
@@ -27,7 +27,7 @@ afterEach(() => {
 function makeFixtureRepo(files: Record<string, string>) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-boundary-lint-"));
   tempDirs.push(root);
-  fs.mkdirSync(path.join(root, "build"), { recursive: true });
+  fs.mkdirSync(path.join(root, "tooling/build"), { recursive: true });
   for (const [relPath, contents] of Object.entries(files)) {
     const absPath = path.join(root, relPath);
     fs.mkdirSync(path.dirname(absPath), { recursive: true });
@@ -40,18 +40,18 @@ describe("lint-open-boundary: manifest loading", () => {
   it("rejects a negation-pattern entry", () => {
     const manifest = { version: 1, paths: ["!node_modules/**"] };
     const root = makeFixtureRepo({});
-    fs.writeFileSync(path.join(root, "build/export-manifest.json"), JSON.stringify(manifest));
+    fs.writeFileSync(path.join(root, "tooling/build/export-manifest.json"), JSON.stringify(manifest));
     expect(() => readExportManifest({ rootDir: root })).toThrow(/negation pattern/);
   });
 
   it("throws when a manifest file entry does not exist on disk", () => {
-    const root = makeFixtureRepo({ "build/export-manifest.json": JSON.stringify({ version: 1, paths: ["missing.ts"] }) });
+    const root = makeFixtureRepo({ "tooling/build/export-manifest.json": JSON.stringify({ version: 1, paths: ["missing.ts"] }) });
     const manifest = readExportManifest({ rootDir: root });
     expect(() => expandManifestPaths({ rootDir: root, manifest })).toThrow(/does not exist/);
   });
 
   it("throws when a manifest directory entry does not exist on disk", () => {
-    const root = makeFixtureRepo({ "build/export-manifest.json": JSON.stringify({ version: 1, paths: ["missing-dir/"] }) });
+    const root = makeFixtureRepo({ "tooling/build/export-manifest.json": JSON.stringify({ version: 1, paths: ["missing-dir/"] }) });
     const manifest = readExportManifest({ rootDir: root });
     expect(() => expandManifestPaths({ rootDir: root, manifest })).toThrow(/directory entry does not exist/);
   });
@@ -89,19 +89,19 @@ describe("lint-open-boundary: import specifier collection", () => {
 
 describe("lint-open-boundary: relative specifier resolution", () => {
   it("returns null for a bare (non-relative) specifier", () => {
-    expect(resolveRelativeSpecifier({ rootDir: REPOSITORY_ROOT, importerRelPath: "cli/entry.ts", specifierText: "hono" }))
+    expect(resolveRelativeSpecifier({ rootDir: REPOSITORY_ROOT, importerRelPath: "apps/cli/entry.ts", specifierText: "hono" }))
       .toBeNull();
   });
 
   it("resolves a relative specifier with an explicit extension", () => {
-    expect(resolveRelativeSpecifier({ rootDir: REPOSITORY_ROOT, importerRelPath: "cli/entry.ts", specifierText: "./args.ts" }))
-      .toBe("cli/args.ts");
+    expect(resolveRelativeSpecifier({ rootDir: REPOSITORY_ROOT, importerRelPath: "apps/cli/entry.ts", specifierText: "./args.ts" }))
+      .toBe("apps/cli/args.ts");
   });
 
   it("throws when a relative specifier cannot be resolved to any file", () => {
     expect(() => resolveRelativeSpecifier({
       rootDir: REPOSITORY_ROOT,
-      importerRelPath: "cli/entry.ts",
+      importerRelPath: "apps/cli/entry.ts",
       specifierText: "./this-does-not-exist-anywhere",
     })).toThrow(/cannot resolve import/);
   });

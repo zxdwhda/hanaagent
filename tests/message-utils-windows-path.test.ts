@@ -5,7 +5,7 @@ vi.mock("path", async () => {
   return { default: nodePath.win32 };
 });
 
-vi.mock("../core/llm-utils.js", () => ({
+vi.mock("../packages/engine/core/llm-utils.js", () => ({
   isToolCallBlock: (b) => (b.type === "tool_use" || b.type === "toolCall") && !!b.name,
   getToolArgs: (b) => b.input || b.arguments,
 }));
@@ -15,7 +15,7 @@ const {
   isActiveSessionPath,
   isArchivedDesktopSessionPath,
   isDesktopSessionPath,
-} = await import("../core/message-utils.ts");
+} = await import("../packages/engine/core/message-utils.ts");
 
 describe("Windows session path validation", () => {
   it("accepts the same path when only drive and user-directory casing differs", () => {

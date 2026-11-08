@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import YAML from "js-yaml";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { migrateToProvidersYaml } from "../core/migrate-providers.ts";
-import { ProviderRegistry } from "../core/provider-registry.ts";
+import { migrateToProvidersYaml } from "../packages/engine/core/migrate-providers.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
 
 const tempDirs: string[] = [];
 

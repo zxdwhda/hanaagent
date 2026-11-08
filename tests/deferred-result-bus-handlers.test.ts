@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
-import { registerDeferredResultBusHandlers } from "../server/deferred-result-bus-handlers.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
+import { registerDeferredResultBusHandlers } from "../apps/server/deferred-result-bus-handlers.ts";
 
 function createBusHarness() {
   const handlers = new Map();

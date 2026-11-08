@@ -3,10 +3,10 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { generateAgentId, generateDescription, summarizeTitle } from "../core/llm-utils.ts";
-import { callText } from "../core/llm-client.ts";
+import { generateAgentId, generateDescription, summarizeTitle } from "../packages/engine/core/llm-utils.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn().mockResolvedValue("温柔细腻的文学型助手，擅长写作、翻译和情感分析，沟通风格亲切自然。"),
 }));
 

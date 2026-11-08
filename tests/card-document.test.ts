@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCardDocument } from "../server/cards/card-document.ts";
+import { buildCardDocument } from "../apps/server/cards/card-document.ts";
 
 describe("buildCardDocument", () => {
   it("injects the agent code verbatim into the body", () => {

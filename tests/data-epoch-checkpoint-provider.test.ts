@@ -7,10 +7,10 @@ import {
   createDataEpochCheckpointProvider,
   expandStorePathPattern,
   pruneDataEpochCheckpoints,
-} from "../core/data-epoch-checkpoint-provider.ts";
-import { PERSISTENT_STORES } from "../shared/persistence/store-registry.ts";
-import type { StoreDescriptor } from "../shared/persistence/store-registry-types.ts";
-import { dataEpochJournalPath, writeDataEpochJournal } from "../shared/data-epoch.cjs";
+} from "../packages/engine/core/data-epoch-checkpoint-provider.ts";
+import { PERSISTENT_STORES } from "../packages/shared/persistence/store-registry.ts";
+import type { StoreDescriptor } from "../packages/shared/persistence/store-registry-types.ts";
+import { dataEpochJournalPath, writeDataEpochJournal } from "../packages/shared/data-epoch.cjs";
 
 const tempDirs: string[] = [];
 

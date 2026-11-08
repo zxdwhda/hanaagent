@@ -9,7 +9,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import crypto from "crypto";
-import { evaluateSessionHealth } from "../core/session-health.ts";
+import { evaluateSessionHealth } from "../packages/engine/core/session-health.ts";
 
 let tmpDir;
 let sessionPath;

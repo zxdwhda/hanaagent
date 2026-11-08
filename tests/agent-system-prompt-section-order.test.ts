@@ -6,11 +6,11 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Agent } from "../core/agent.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
 import {
   readAgentAvatarResource,
   writeAgentAppearanceProfileResource,
-} from "../lib/agent-appearance-summary.ts";
+} from "../packages/engine/lib/agent-appearance-summary.ts";
 
 const tempDirs: string[] = [];
 

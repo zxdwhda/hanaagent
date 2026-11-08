@@ -7,10 +7,10 @@ import {
   buildWindowsSandboxCompileCommand,
   shouldBuildWindowsSandboxHelper,
   windowsSandboxHelperOutputDir,
-} from "../scripts/build-windows-sandbox-helper.mjs";
+} from "../tooling/scripts/build-windows-sandbox-helper.mjs";
 import {
   ensureWindowsSandboxHelper,
-} from "../scripts/ensure-windows-sandbox-helper.mjs";
+} from "../tooling/scripts/ensure-windows-sandbox-helper.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,7 +44,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("uses restricted-token APIs instead of AppContainer launch APIs", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -58,7 +58,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("runs restricted-token children on a private desktop inside WinSta0", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -76,7 +76,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("keeps private desktops as the default and explicitly names the current desktop on opt-in", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const parseArgs = source.match(
@@ -102,7 +102,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("preserves an explicitly owned final cmd argument without generic argv escaping", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const buildCommandLine = source.match(
@@ -116,7 +116,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("uses system cryptographic randomness for each private desktop name", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const generateName = source.match(
@@ -136,7 +136,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("uses ordinary Hana write SIDs while retaining legacy capability ACL cleanup", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const currentSidFunction = source.match(
@@ -154,7 +154,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("adds the Windows write-restricted SID to the restricted token", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -165,7 +165,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("adds standard object-namespace SIDs to the restricted token", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -179,7 +179,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("uses the enabled logon SID for private USER objects and keeps it in the restricting list", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const logonSidLookup = source.match(
@@ -210,7 +210,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("uses existing WinSta0 access and grants full access only to the per-launch private desktop", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -253,7 +253,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("exposes a token diagnostic mode with a named-object namespace probe", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -267,7 +267,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("logs structured launch diagnostics when CreateProcessAsUserW fails", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -298,7 +298,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("fails closed when the restricted token cannot reopen the private desktop", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const runSandboxed = source.match(
@@ -314,7 +314,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("checks station and impersonation restoration and terminates if RevertToSelf fails", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const probe = source.match(
@@ -331,7 +331,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("diagnoses post-create DLL initialization failures with the prelaunch desktop probe", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -346,7 +346,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("keeps synthetic writable-root SIDs as the file write ACL grant surface", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const applyWriteAcls = source.match(
@@ -360,7 +360,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("restores temporary write ACL changes after sandboxed commands", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -371,7 +371,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("builds a fresh restricted-token default DACL for child IPC objects", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const buildDefaultDacl = source.match(
@@ -390,7 +390,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("keeps restricted child object creation compatible with Windows initialization", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const createToken = source.match(
@@ -409,7 +409,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("restricts child handle inheritance to stdio handles", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -429,7 +429,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("creates restricted commands with an explicit environment and atomic Job membership", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const start = source.indexOf("static int runSandboxed(");
@@ -448,7 +448,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("owns timeout termination in the private Job and emits a versioned terminal record", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -471,7 +471,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("supervises the desktop server tree with a parent HANDLE and kill-on-close Job", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
     const guardian = source.match(
@@ -534,7 +534,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("preflights the guardian for every Electron dev entry point", () => {
     const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../package.json"), "utf8"));
-    const preflight = "node scripts/ensure-windows-sandbox-helper.mjs && ";
+    const preflight = "node tooling/scripts/ensure-windows-sandbox-helper.mjs && ";
 
     expect(packageJson.scripts.start).toContain(preflight);
     expect(packageJson.scripts["start:dev"]).toContain(preflight);
@@ -553,7 +553,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("canonicalizes existing paths through the Win32 final path API before comparing sandbox roots", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 
@@ -564,7 +564,7 @@ describe("Windows sandbox helper build script", () => {
 
   it("keeps a scoped legacy AppContainer diagnostic and cleanup path", () => {
     const source = fs.readFileSync(
-      path.resolve(__dirname, "../desktop/native/HanaWindowsSandboxHelper/main.cpp"),
+      path.resolve(__dirname, "../apps/desktop/native/HanaWindowsSandboxHelper/main.cpp"),
       "utf8"
     );
 

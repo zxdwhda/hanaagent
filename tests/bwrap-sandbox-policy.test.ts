@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildBwrapArgs } from "../lib/sandbox/bwrap.ts";
+import { buildBwrapArgs } from "../packages/engine/lib/sandbox/bwrap.ts";
 
 function hasMount(args, op, source, target) {
   for (let i = 0; i < args.length - 2; i += 1) {

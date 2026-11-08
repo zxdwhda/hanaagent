@@ -4,7 +4,7 @@ import {
   agentToolToToolDefinition,
   normalizeCreateAgentSessionOptions,
   uniqueToolNames,
-} from "../lib/pi-sdk/session-options.ts";
+} from "../packages/engine/lib/pi-sdk/session-options.ts";
 
 function makeAgentTool(name) {
   return {

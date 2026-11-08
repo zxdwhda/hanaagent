@@ -6,7 +6,7 @@ import {
   PluginConfigValidationError,
   createPluginConfigStore,
   normalizePluginConfigSchema,
-} from "../core/plugin-config.ts";
+} from "../packages/engine/core/plugin-config.ts";
 
 describe.skipIf(process.platform === "win32")("plugin config storage", () => {
   // Plugin configuration can hold connector and third-party service

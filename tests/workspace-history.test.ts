@@ -5,7 +5,7 @@ import {
   mergeWorkspaceHistory,
   removeWorkspaceHistoryEntries,
   workspaceDisplayName,
-} from "../shared/workspace-history.ts";
+} from "../packages/shared/workspace-history.ts";
 
 describe("workspace history", () => {
   it("keeps persisted workspaces newest-first without duplicates", () => {

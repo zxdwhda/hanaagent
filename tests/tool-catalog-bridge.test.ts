@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createToolCatalog } from "../core/tool-catalog.ts";
+import { createToolCatalog } from "../packages/engine/core/tool-catalog.ts";
 import {
   BRIDGE_TOOL_NAMES,
   createBridgeTools,
   registerBridgeCapabilityDelegates,
-} from "../core/tool-catalog-bridge.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+} from "../packages/engine/core/tool-catalog-bridge.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 const createIssueSchema = {
   type: "object",

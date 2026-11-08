@@ -1,8 +1,8 @@
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { ResourceWatchRegistry } from "../lib/resource-io/resource-watch-registry.ts";
-import { ResourceEventBus } from "../lib/resource-io/resource-event-bus.ts";
-import { resourceKeyForRef } from "../lib/resource-io/resource-refs.ts";
+import { ResourceWatchRegistry } from "../packages/engine/lib/resource-io/resource-watch-registry.ts";
+import { ResourceEventBus } from "../packages/engine/lib/resource-io/resource-event-bus.ts";
+import { resourceKeyForRef } from "../packages/engine/lib/resource-io/resource-refs.ts";
 
 describe("ResourceWatchRegistry", () => {
   it("shares backend watches across subscriptions and reports diagnostics", () => {
@@ -58,7 +58,7 @@ describe("ResourceWatchRegistry", () => {
     });
 
     try {
-      const { ResourceWatchRegistry: WinResourceWatchRegistry } = await import("../lib/resource-io/resource-watch-registry.ts");
+      const { ResourceWatchRegistry: WinResourceWatchRegistry } = await import("../packages/engine/lib/resource-io/resource-watch-registry.ts");
       const close = vi.fn();
       const watchPath = vi.fn(() => ({ close }));
       const registry = new WinResourceWatchRegistry({

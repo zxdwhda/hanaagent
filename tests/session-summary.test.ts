@@ -3,21 +3,21 @@ import os from "os";
 import fs from "fs";
 import path from "path";
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn(),
 }));
 
-vi.mock("../lib/pii-guard.js", () => ({
+vi.mock("../packages/engine/lib/pii-guard.js", () => ({
   scrubPII: (text) => ({ cleaned: text, detected: [] }),
 }));
 
-import { SessionSummaryManager } from "../lib/memory/session-summary.ts";
-import { callText } from "../core/llm-client.ts";
-import { readCurrentSessionBranch } from "../lib/session-jsonl.ts";
+import { SessionSummaryManager } from "../packages/engine/lib/memory/session-summary.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
+import { readCurrentSessionBranch } from "../packages/engine/lib/session-jsonl.ts";
 
 describe("SessionSummaryManager._buildConversationText", () => {
   function createManager() {

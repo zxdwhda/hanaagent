@@ -8,9 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { YUAN_METADATA, getYuanThinkingBlock } from "../shared/yuan-metadata.ts";
+import { YUAN_METADATA, getYuanThinkingBlock } from "../packages/shared/yuan-metadata.ts";
 
-const YUAN_DIR = path.join(__dirname, "..", "lib", "yuan");
+const YUAN_DIR = path.join(__dirname, "..", "packages/engine/lib", "yuan");
 
 function readTemplate(yuan: string): string {
   return fs.readFileSync(path.join(YUAN_DIR, `${yuan}.md`), "utf-8");

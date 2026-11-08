@@ -25,20 +25,20 @@ const bridgeModuleLoggerMock = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 
-vi.mock("../lib/bridge/telegram-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/telegram-adapter.js", () => ({
   createTelegramAdapter: vi.fn(),
 }));
-vi.mock("../lib/bridge/feishu-adapter.js", () => ({
+vi.mock("../packages/engine/lib/bridge/feishu-adapter.js", () => ({
   createFeishuAdapter: vi.fn(),
 }));
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => bridgeDebugMock,
   createModuleLogger: () => bridgeModuleLoggerMock,
 }));
 
 import os from "os";
-import { BridgeManager } from "../lib/bridge/bridge-manager.ts";
-import { createSlashSystem } from "../core/slash-commands/index.ts";
+import { BridgeManager } from "../packages/engine/lib/bridge/bridge-manager.ts";
+import { createSlashSystem } from "../packages/engine/core/slash-commands/index.ts";
 
 // ── Helpers ──
 

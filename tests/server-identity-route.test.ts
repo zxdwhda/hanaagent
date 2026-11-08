@@ -3,7 +3,7 @@ import { describe, expect, it, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { SERVER_PROTOCOL_VERSION } from "../shared/contract-versions.cjs";
+import { SERVER_PROTOCOL_VERSION } from "../packages/shared/contract-versions.cjs";
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-server-identity-route-"));
@@ -65,7 +65,7 @@ describe("server identity route", () => {
   it("returns token-protected local server identity metadata for the active legacy Studio", async () => {
     tmpDir = makeTmpDir();
     writeValidIdentity(tmpDir);
-    const { createServerIdentityRoute } = await import("../server/routes/server-identity.ts");
+    const { createServerIdentityRoute } = await import("../apps/server/routes/server-identity.ts");
     const app = new Hono();
     app.route("/api", createServerIdentityRoute({ hanakoHome: tmpDir, appVersion: "1.2.3" }));
 
@@ -119,7 +119,7 @@ describe("server identity route", () => {
     tmpDir = makeTmpDir();
     writeValidIdentity(tmpDir);
     fs.writeFileSync(path.join(tmpDir, "studios.json"), "{ bad json", "utf-8");
-    const { createServerIdentityRoute } = await import("../server/routes/server-identity.ts");
+    const { createServerIdentityRoute } = await import("../apps/server/routes/server-identity.ts");
     const app = new Hono();
     app.route("/api", createServerIdentityRoute({ hanakoHome: tmpDir, appVersion: "1.2.3" }));
 
@@ -135,7 +135,7 @@ describe("server identity route", () => {
   it("uses the initialized runtime context when available", async () => {
     tmpDir = makeTmpDir();
     fs.writeFileSync(path.join(tmpDir, "server-node.json"), "{ bad json", "utf-8");
-    const { createServerIdentityRoute } = await import("../server/routes/server-identity.ts");
+    const { createServerIdentityRoute } = await import("../apps/server/routes/server-identity.ts");
     const app = new Hono();
     app.route("/api", createServerIdentityRoute({
       hanakoHome: tmpDir,
@@ -211,7 +211,7 @@ describe("server identity route", () => {
   it("describes the authenticated device principal for LAN clients", async () => {
     tmpDir = makeTmpDir();
     writeValidIdentity(tmpDir);
-    const { createServerIdentityRoute } = await import("../server/routes/server-identity.ts");
+    const { createServerIdentityRoute } = await import("../apps/server/routes/server-identity.ts");
     const app = new Hono();
     app.use("*", async (c, next) => {
       (c as any).set("authPrincipal", Object.freeze({

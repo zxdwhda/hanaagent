@@ -13,7 +13,7 @@ const {
   refreshSessionModelFromRegistryMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   emitSessionShutdown: vi.fn(async () => false),
   SessionManager: {
@@ -30,7 +30,7 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   refreshSessionModelFromRegistry: refreshSessionModelFromRegistryMock,
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -38,7 +38,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 
 const LEGACY_MODEL_REF = {
   provider: "legacy-provider",

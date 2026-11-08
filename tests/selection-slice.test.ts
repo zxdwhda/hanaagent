@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSelectionSlice, type SelectionSlice } from '../desktop/src/react/stores/selection-slice';
+import { createSelectionSlice, type SelectionSlice } from '../apps/desktop/src/react/stores/selection-slice';
 
 // 用最小可变 state + set 模拟 zustand，单测 slice 行为。
 function makeSlice() {

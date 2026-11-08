@@ -18,7 +18,7 @@ import {
   writeDataEpochJournal,
   writeDataEpochRestoreJournal,
   writeDataEpochStamp,
-} from "../shared/data-epoch.cjs";
+} from "../packages/shared/data-epoch.cjs";
 
 const tempDirs: string[] = [];
 

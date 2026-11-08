@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it } from "vitest";
-import { createEnhancedReadFile } from "../lib/sandbox/read-enhanced.ts";
+import { createEnhancedReadFile } from "../packages/engine/lib/sandbox/read-enhanced.ts";
 
 describe("createEnhancedReadFile xlsx handling", () => {
   let tmpDir = null;

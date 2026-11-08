@@ -11,7 +11,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { summarizeTitle } from "../core/llm-utils.ts";
+import { summarizeTitle } from "../packages/engine/core/llm-utils.ts";
 
 function makeProxyCauseError() {
   const cause: any = new Error("connect ECONNREFUSED 127.0.0.1:7890");

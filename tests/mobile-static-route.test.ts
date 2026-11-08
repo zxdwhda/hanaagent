@@ -28,7 +28,7 @@ describe("mobile static route", () => {
     fs.writeFileSync(path.join(tmpDir, "themes", "warm-paper.css"), ":root{}", "utf-8");
     fs.writeFileSync(path.join(tmpDir, "locales", "zh.json"), "{}", "utf-8");
     fs.writeFileSync(path.join(tmpDir, "icon.png"), "png", "utf-8");
-    const { createMobileStaticRoute } = await import("../server/routes/mobile-static.ts");
+    const { createMobileStaticRoute } = await import("../apps/server/routes/mobile-static.ts");
     const app = new Hono();
     app.route("", createMobileStaticRoute({ mode: "dist", distDir: tmpDir }));
 
@@ -58,7 +58,7 @@ describe("mobile static route", () => {
     fs.mkdirSync(path.join(tmpDir, "assets"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "mobile.html"), "<!doctype html><title>Mobile</title>", "utf-8");
     fs.writeFileSync(path.join(tmpDir, "assets", "mobile.js"), "console.log('mobile')", "utf-8");
-    const { createMobileStaticRoute } = await import("../server/routes/mobile-static.ts");
+    const { createMobileStaticRoute } = await import("../apps/server/routes/mobile-static.ts");
     const app = new Hono();
     app.route("", createMobileStaticRoute({ mode: "dist", distDir: tmpDir }));
 
@@ -80,7 +80,7 @@ describe("mobile static route", () => {
   });
 
   it("guide mode serves a 200 pull-the-bundle page at the base path but 404s on asset subpaths", async () => {
-    const { createMobileStaticRoute } = await import("../server/routes/mobile-static.ts");
+    const { createMobileStaticRoute } = await import("../apps/server/routes/mobile-static.ts");
     const app = new Hono();
     app.route("", createMobileStaticRoute({ mode: "guide" }));
 
@@ -99,7 +99,7 @@ describe("mobile static route", () => {
   });
 
   it("error mode serves a 503 unavailable page across the whole surface and logs the reason once, without leaking it into the body", async () => {
-    const { createMobileStaticRoute } = await import("../server/routes/mobile-static.ts");
+    const { createMobileStaticRoute } = await import("../apps/server/routes/mobile-static.ts");
     const errorSpy = vitestSpyOnConsoleError();
     const app = new Hono();
     app.route("", createMobileStaticRoute({ mode: "error", reason: "/some/absolute/broken/path is missing mobile.html" }));
@@ -140,7 +140,7 @@ describe("resolveMobileStaticRouteOptions (startup decision, four quadrants)", (
   });
 
   it("env set + valid -> dist, using the injected directory", async () => {
-    const { resolveMobileStaticRouteOptions } = await import("../server/routes/mobile-static.ts");
+    const { resolveMobileStaticRouteOptions } = await import("../apps/server/routes/mobile-static.ts");
     tmpDir = makeTmpDir();
     fs.writeFileSync(path.join(tmpDir, "mobile.html"), "<!doctype html>", "utf-8");
     const devDistDir = makeTmpDir();
@@ -152,7 +152,7 @@ describe("resolveMobileStaticRouteOptions (startup decision, four quadrants)", (
   });
 
   it("env set + invalid -> error, never falls back to the dev tree", async () => {
-    const { resolveMobileStaticRouteOptions } = await import("../server/routes/mobile-static.ts");
+    const { resolveMobileStaticRouteOptions } = await import("../apps/server/routes/mobile-static.ts");
     tmpDir = makeTmpDir(); // exists but has no mobile.html
     const devDistDir = makeTmpDir();
     fs.writeFileSync(path.join(devDistDir, "mobile.html"), "<!doctype html>", "utf-8");
@@ -164,7 +164,7 @@ describe("resolveMobileStaticRouteOptions (startup decision, four quadrants)", (
   });
 
   it("env unset + dev tree present -> dist, using the dev tree", async () => {
-    const { resolveMobileStaticRouteOptions } = await import("../server/routes/mobile-static.ts");
+    const { resolveMobileStaticRouteOptions } = await import("../apps/server/routes/mobile-static.ts");
     tmpDir = makeTmpDir();
     fs.writeFileSync(path.join(tmpDir, "mobile.html"), "<!doctype html>", "utf-8");
 
@@ -173,7 +173,7 @@ describe("resolveMobileStaticRouteOptions (startup decision, four quadrants)", (
   });
 
   it("env unset + dev tree absent -> guide", async () => {
-    const { resolveMobileStaticRouteOptions } = await import("../server/routes/mobile-static.ts");
+    const { resolveMobileStaticRouteOptions } = await import("../apps/server/routes/mobile-static.ts");
     tmpDir = makeTmpDir();
     const missingDevDistDir = path.join(tmpDir, "does-not-exist");
 

@@ -3,10 +3,10 @@
 # ═══════════════════════════════════════════
 agents/
 user/
-!skills2set/hana-plugin-creator/agents/
-!skills2set/hana-plugin-creator/agents/**
-!skills2set/office-documents/agents/
-!skills2set/office-documents/agents/**
+!extensions/skills/hana-plugin-creator/agents/
+!extensions/skills/hana-plugin-creator/agents/**
+!extensions/skills/office-documents/agents/
+!extensions/skills/office-documents/agents/**
 
 # ═══════════════════════════════════════════
 # 文档 / 参考文件
@@ -36,16 +36,16 @@ dist-server-open/
 dist-server-artifact/
 dist-renderer-artifact/
 dist-standalone/
-desktop/dist-splash/
+apps/desktop/dist-splash/
 dist-server-bundle/
 dist-computer-use/
 dist-open-export/
-desktop/main.bundle.cjs
-desktop/preload.bundle.cjs
+apps/desktop/main.bundle.cjs
+apps/desktop/preload.bundle.cjs
 .cache/
 .local/
-desktop/dist-renderer/
-desktop/native/**/.build/
+apps/desktop/dist-renderer/
+apps/desktop/native/**/.build/
 vendor/
 inbox/
 
@@ -69,7 +69,7 @@ __pycache__/
 *.pyc
 /index.html
 homepage/
-desktop/src/react/animation-mockup/
+apps/desktop/src/react/animation-mockup/
 
 # 环境变量 / 凭证
 .env
@@ -100,7 +100,7 @@ reviews/
 
 # Local operation/migration records (not product source)
 /TaskFlowDocs/
-/build/.cli-closure-*
+/tooling/build/.cli-closure-*
 
 # Local isolated working copies
 /.worktrees/

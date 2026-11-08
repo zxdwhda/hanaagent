@@ -12,7 +12,7 @@
  * 每个 role:"tool" 必须有前驱带匹配 tool_calls 的 assistant，否则视为孤儿删除。
  */
 import { describe, expect, it } from "vitest";
-import { stripOrphanToolResults } from "../../core/provider-compat/tool-pairing.ts";
+import { stripOrphanToolResults } from "../../packages/engine/core/provider-compat/tool-pairing.ts";
 
 describe("stripOrphanToolResults — 孤儿删除", () => {
   it("删除父 tool_calls 不存在的孤儿 role:tool（#1285 核心复现）", () => {

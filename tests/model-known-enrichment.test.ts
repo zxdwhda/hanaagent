@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enrichModelFromKnownMetadata } from "../core/model-known-enrichment.ts";
+import { enrichModelFromKnownMetadata } from "../packages/engine/core/model-known-enrichment.ts";
 
 describe("enrichModelFromKnownMetadata", () => {
   it("adds Hana metadata to Pi built-in Kimi models without dropping request headers", () => {

@@ -4,12 +4,12 @@ import os from "os";
 import path from "path";
 
 // Mock callText before importing module under test
-vi.mock("../../core/llm-client.js", () => ({
+vi.mock("../../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn(),
 }));
 
-import { callText } from "../../core/llm-client.ts";
-import { summarizeSessionForRc } from "../../core/slash-commands/rc-summary.ts";
+import { callText } from "../../packages/engine/core/llm-client.ts";
+import { summarizeSessionForRc } from "../../packages/engine/core/slash-commands/rc-summary.ts";
 
 let tmpFile;
 

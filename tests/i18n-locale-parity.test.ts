@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const localesDir = path.join(process.cwd(), 'desktop/src/locales');
+const localesDir = path.join(process.cwd(), 'apps/desktop/src/locales');
 const locales = ['en', 'zh', 'zh-TW', 'ja', 'ko'];
 
 function load(name: string) {

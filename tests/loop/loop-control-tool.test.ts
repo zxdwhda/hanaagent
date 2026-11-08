@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { createLoopControlTool } from "../../lib/tools/loop-control-tool.ts";
-import { LoopAlarmError } from "../../lib/loop/alarm-service.ts";
+import { createLoopControlTool } from "../../packages/engine/lib/tools/loop-control-tool.ts";
+import { LoopAlarmError } from "../../packages/engine/lib/loop/alarm-service.ts";
 
 function makeTool(controller: any) {
   return createLoopControlTool({ getLoopController: () => controller });

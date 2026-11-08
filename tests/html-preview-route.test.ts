@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import { pathToFileURL } from "url";
 import { describe, expect, it } from "vitest";
-import { createHtmlPreviewRoute } from "../server/routes/html-preview.ts";
+import { createHtmlPreviewRoute } from "../apps/server/routes/html-preview.ts";
 
 function makeApp(options = {}) {
   const app = new Hono();

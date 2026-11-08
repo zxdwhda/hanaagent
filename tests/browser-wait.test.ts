@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   normalizeWaitState,
   waitForBrowserState,
-} from "../desktop/src/shared/browser-wait.cjs";
+} from "../apps/desktop/src/shared/browser-wait.cjs";
 
 describe("browser wait contract", () => {
   it("normalizes supported wait states and keeps idle as a stable alias", () => {

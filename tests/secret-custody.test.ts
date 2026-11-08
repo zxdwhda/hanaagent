@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("secret custody helpers", () => {
   it("masks explicitly registered default secret keys while preserving empty and similarly named fields", async () => {
-    const { MASKED_SECRET, maskSecretValue, maskObjectSecrets } = await import("../shared/secret-custody.ts");
+    const { MASKED_SECRET, maskSecretValue, maskObjectSecrets } = await import("../packages/shared/secret-custody.ts");
 
     expect(maskSecretValue("sk-test-secret")).toBe(MASKED_SECRET);
     expect(maskSecretValue("")).toBe("");
@@ -44,7 +44,7 @@ describe("secret custody helpers", () => {
   });
 
   it("resolves masked default secret values back to the saved secret instead of storing the mask", async () => {
-    const { MASKED_SECRET, resolveSecretPatch } = await import("../shared/secret-custody.ts");
+    const { MASKED_SECRET, resolveSecretPatch } = await import("../packages/shared/secret-custody.ts");
 
     expect(resolveSecretPatch({
       patch: {
@@ -74,7 +74,7 @@ describe("secret custody helpers", () => {
   });
 
   it("collects real secret mutations but ignores masked placeholders", async () => {
-    const { MASKED_SECRET, collectSecretPatchPaths } = await import("../shared/secret-custody.ts");
+    const { MASKED_SECRET, collectSecretPatchPaths } = await import("../packages/shared/secret-custody.ts");
 
     expect(collectSecretPatchPaths({
       providers: {
@@ -104,7 +104,7 @@ describe("secret custody helpers", () => {
       collectSecretPatchPaths,
       maskObjectSecrets,
       resolveSecretPatch,
-    } = await import("../shared/secret-custody.ts");
+    } = await import("../packages/shared/secret-custody.ts");
     const secretKeys = ["appSecret"];
 
     expect(maskObjectSecrets({

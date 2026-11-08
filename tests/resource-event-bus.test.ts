@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ResourceEventBus } from "../lib/resource-io/resource-event-bus.ts";
+import { ResourceEventBus } from "../packages/engine/lib/resource-io/resource-event-bus.ts";
 
 describe("ResourceEventBus", () => {
   it("adds sequence and occurredAt before emitting resource events", () => {

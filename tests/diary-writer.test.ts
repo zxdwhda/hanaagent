@@ -3,27 +3,27 @@ import os from "os";
 import path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
   t: (key) => key,
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn(),
 }));
 
-vi.mock("../lib/pii-guard.js", () => ({
+vi.mock("../packages/engine/lib/pii-guard.js", () => ({
   scrubPII: (text) => ({ cleaned: text, detected: [] }),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   generateSummary: vi.fn(async () => "临时摘要"),
 }));
 
-import { callText } from "../core/llm-client.ts";
-import { generateSummary } from "../lib/pi-sdk/index.ts";
-import { writeDiary } from "../lib/diary/diary-writer.ts";
-import { readCurrentSessionBranch } from "../lib/session-jsonl.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
+import { generateSummary } from "../packages/engine/lib/pi-sdk/index.ts";
+import { writeDiary } from "../packages/engine/lib/diary/diary-writer.ts";
+import { readCurrentSessionBranch } from "../packages/engine/lib/session-jsonl.ts";
 
 let tempRoot;
 

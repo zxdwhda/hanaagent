@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolvePersonaLocale, resolvePersonaSource } from "../core/persona-source.ts";
+import { resolvePersonaLocale, resolvePersonaSource } from "../packages/engine/core/persona-source.ts";
 
 const tempDirs: string[] = [];
 

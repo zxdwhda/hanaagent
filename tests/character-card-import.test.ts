@@ -4,10 +4,10 @@ import path from "path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createCharacterCardService } from "../lib/character-cards/service.ts";
-import { createCharacterCardsRoute } from "../server/routes/character-cards.ts";
-import { extractZip } from "../lib/extract-zip.ts";
-import { writeCompiledMemorySnapshot } from "../lib/memory/compiled-memory-snapshot.ts";
+import { createCharacterCardService } from "../packages/engine/lib/character-cards/service.ts";
+import { createCharacterCardsRoute } from "../apps/server/routes/character-cards.ts";
+import { extractZip } from "../packages/engine/lib/extract-zip.ts";
+import { writeCompiledMemorySnapshot } from "../packages/engine/lib/memory/compiled-memory-snapshot.ts";
 
 function writeJson(filePath, value) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");

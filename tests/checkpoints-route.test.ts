@@ -10,7 +10,7 @@ describe("checkpoints route", () => {
         reason,
       })),
     };
-    const { createCheckpointsRoute } = await import("../server/routes/checkpoints.ts");
+    const { createCheckpointsRoute } = await import("../apps/server/routes/checkpoints.ts");
     const app = new Hono();
     app.route("/api", createCheckpointsRoute(engine));
 
@@ -33,7 +33,7 @@ describe("checkpoints route", () => {
 
   it("rejects relative user-edit checkpoint paths", async () => {
     const engine = { createUserEditCheckpoint: vi.fn() };
-    const { createCheckpointsRoute } = await import("../server/routes/checkpoints.ts");
+    const { createCheckpointsRoute } = await import("../apps/server/routes/checkpoints.ts");
     const app = new Hono();
     app.route("/api", createCheckpointsRoute(engine));
 
@@ -50,7 +50,7 @@ describe("checkpoints route", () => {
 
   it("rejects unknown user-edit checkpoint reasons", async () => {
     const engine = { createUserEditCheckpoint: vi.fn() };
-    const { createCheckpointsRoute } = await import("../server/routes/checkpoints.ts");
+    const { createCheckpointsRoute } = await import("../apps/server/routes/checkpoints.ts");
     const app = new Hono();
     app.route("/api", createCheckpointsRoute(engine));
 

@@ -4,11 +4,11 @@ import fs from "fs";
 import fsp from "fs/promises";
 import os from "os";
 import path from "path";
-import { RcStateStore } from "../core/slash-commands/rc-state.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
-import { SubagentRunStore } from "../lib/subagent-run-store.ts";
-import { TaskRegistry } from "../lib/task-registry.ts";
+import { RcStateStore } from "../packages/engine/core/slash-commands/rc-state.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
+import { SubagentRunStore } from "../packages/engine/lib/subagent-run-store.ts";
+import { TaskRegistry } from "../packages/engine/lib/task-registry.ts";
 
 const browserMock = vi.hoisted(() => ({
   isRunning: vi.fn(() => false),
@@ -21,14 +21,14 @@ const browserMock = vi.hoisted(() => ({
   get hasAnyRunning() { return false; },
 }));
 
-vi.mock("../lib/browser/browser-manager.js", () => ({
+vi.mock("../packages/engine/lib/browser/browser-manager.js", () => ({
   BrowserManager: {
     instance: () => browserMock,
   },
 }));
 
-vi.mock("../core/message-utils.js", async () => {
-  const actual = await vi.importActual("../core/message-utils.js");
+vi.mock("../packages/engine/core/message-utils.js", async () => {
+  const actual = await vi.importActual("../packages/engine/core/message-utils.js");
   return {
     ...actual,
     extractTextContent: vi.fn(() => ({ text: "", images: [], thinking: "", toolUses: [] })),
@@ -108,7 +108,7 @@ describe("archive route: mtime semantics", () => {
     fs.utimesSync(sess, oldTs, oldTs);
 
     engine = makeEngine(tmpDir);
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     app = new Hono();
     app.route("/api", createSessionsRoute(engine));
   });
@@ -380,7 +380,7 @@ describe("POST /api/sessions/switch archived path", () => {
     archivedPath = path.join(archivedDir, "s1.jsonl");
     fs.writeFileSync(archivedPath, "{}\n");
     engine = makeEngine(tmpDir);
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     app = new Hono();
     app.route("/api", createSessionsRoute(engine));
   });
@@ -415,7 +415,7 @@ describe("GET /api/sessions/archived", () => {
         agentName: "AgentA",
       },
     ]);
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     app = new Hono();
     app.route("/api", createSessionsRoute(engine));
   });
@@ -444,7 +444,7 @@ describe("POST /api/sessions/restore", () => {
     activeDest = path.join(tmpDir, "agents", "a", "sessions", "r1.jsonl");
     fs.writeFileSync(archSrc, "{}\n");
     engine = makeEngine(tmpDir);
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     app = new Hono();
     app.route("/api", createSessionsRoute(engine));
   });
@@ -640,7 +640,7 @@ describe("POST /api/sessions/archived/delete", () => {
     activeKey = path.join(sessDir, "d1.jsonl");
     fs.writeFileSync(archPath, "{}\n");
     engine = makeEngine(tmpDir);
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     app = new Hono();
     app.route("/api", createSessionsRoute(engine));
   });
@@ -850,7 +850,7 @@ describe("POST /api/sessions/cleanup (titles orphan cleanup)", () => {
     fs.utimesSync(oldFile, oldTs, oldTs);
 
     engine = makeEngine(tmpDir);
-    const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     app = new Hono();
     app.route("/api", createSessionsRoute(engine));
   });

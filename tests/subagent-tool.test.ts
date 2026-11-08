@@ -3,10 +3,10 @@ import {
   createSubagentCloseTool,
   createSubagentReplyTool,
   createSubagentTool,
-} from "../lib/tools/subagent-tool.ts";
-import { DeferredResultCoordinator } from "../lib/deferred-result-coordinator.ts";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
-import { SubagentThreadStore } from "../lib/subagent-thread-store.ts";
+} from "../packages/engine/lib/tools/subagent-tool.ts";
+import { DeferredResultCoordinator } from "../packages/engine/lib/deferred-result-coordinator.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
+import { SubagentThreadStore } from "../packages/engine/lib/subagent-thread-store.ts";
 
 // ---- helpers ----------------------------------------------------------------
 

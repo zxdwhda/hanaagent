@@ -6,11 +6,11 @@ import {
   isAnthropicModel,
   getThinkingFormat,
   getReasoningProfile,
-} from "../core/provider-compat.ts";
+} from "../packages/engine/core/provider-compat.ts";
 import {
   resolveOutputBudgetPolicy,
   resolveOutputCapCapability,
-} from "../core/provider-compat/output-budget.ts";
+} from "../packages/engine/core/provider-compat/output-budget.ts";
 
 describe("isDeepSeekModel", () => {
   it("只把官方 DeepSeek provider / baseUrl 视为 DeepSeek 兼容路径", () => {

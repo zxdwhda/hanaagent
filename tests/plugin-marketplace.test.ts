@@ -7,7 +7,7 @@ import {
   PluginMarketplace,
   createDefaultPluginMarketplace,
   getMarketplacePluginVersionState,
-} from "../lib/plugin-marketplace.ts";
+} from "../packages/engine/lib/plugin-marketplace.ts";
 
 describe("PluginMarketplace", () => {
   it("loads local marketplace entries and resolves source/readme paths", async () => {

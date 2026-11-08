@@ -13,7 +13,7 @@ function expectNoPiRuntimeTrees(hanaHome: string) {
 }
 
 function spawnServerBootstrap(hanaHome: string, extraEnv: Record<string, string> = {}) {
-  return spawn(process.execPath, ["server/bootstrap.ts"], {
+  return spawn(process.execPath, ["apps/server/bootstrap.ts"], {
     cwd: root,
     env: {
       ...process.env,
@@ -23,7 +23,7 @@ function spawnServerBootstrap(hanaHome: string, extraEnv: Record<string, string>
       // server/main-full.ts is the thin closed composition entry:
       // server/index.ts itself only exports startServer() and boots
       // nothing on mere import.
-      HANA_SERVER_ENTRY: path.join(root, "server", "main-full.ts"),
+      HANA_SERVER_ENTRY: path.join(root, "apps/server", "main-full.ts"),
       HANA_CREATE_STARTUP_SESSION: "0",
       ...extraEnv,
     },
@@ -94,7 +94,7 @@ function listenFakeSameHomeServer(handler: http.RequestListener): Promise<{ serv
 }
 
 describe("server/index.ts source-order contract: home guards run before any store is opened", () => {
-  const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+  const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
   it("runs the mutex probe and the data-epoch gate before bindServerTransportOwnership, ensureFirstRun, ensureLocalIdentityRegistries, and HanaEngine construction", () => {
     const probeIndex = source.indexOf("await probeServerInfo({ info: existingServerInfo })");

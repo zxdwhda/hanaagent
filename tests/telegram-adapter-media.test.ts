@@ -49,12 +49,12 @@ vi.mock("node-telegram-bot-api", () => {
   return { default: MockTelegramBot };
 });
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { createTelegramAdapter } from "../lib/bridge/telegram-adapter.ts";
+import { createTelegramAdapter } from "../packages/engine/lib/bridge/telegram-adapter.ts";
 
 describe("createTelegramAdapter media delivery", () => {
   beforeEach(() => {

@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import pointerStoreModule from "../shared/artifact-core/pointer-store.cjs";
+import pointerStoreModule from "../packages/shared/artifact-core/pointer-store.cjs";
 
 const {
   artifactsRoot,

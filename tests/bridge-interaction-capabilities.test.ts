@@ -3,9 +3,9 @@ import {
   BRIDGE_INTERACTION_CAPABILITIES,
   createInteractionCapabilities,
   interactionCapabilitiesForPlatform,
-} from "../lib/bridge/interaction-capabilities.ts";
-import { BRIDGE_NOTIFY_PLATFORMS } from "../lib/bridge/bridge-context.ts";
-import { bridgeCommands } from "../core/slash-commands/bridge-commands.ts";
+} from "../packages/engine/lib/bridge/interaction-capabilities.ts";
+import { BRIDGE_NOTIFY_PLATFORMS } from "../packages/engine/lib/bridge/bridge-context.ts";
+import { bridgeCommands } from "../packages/engine/core/slash-commands/bridge-commands.ts";
 
 describe("bridge interaction capabilities", () => {
   it("validates the declaration shape", () => {

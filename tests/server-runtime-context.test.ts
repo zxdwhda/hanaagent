@@ -63,7 +63,7 @@ describe("server runtime context", () => {
   it("creates a frozen local runtime context from stable identity registries", async () => {
     tmpDir = makeTmpDir();
     writeValidIdentity(tmpDir);
-    const { createServerRuntimeContext } = await import("../core/server-runtime-context.ts");
+    const { createServerRuntimeContext } = await import("../packages/engine/core/server-runtime-context.ts");
 
     const context = createServerRuntimeContext({ hanakoHome: tmpDir, appVersion: "2.3.4" });
 
@@ -121,7 +121,7 @@ describe("server runtime context", () => {
     tmpDir = makeTmpDir();
     writeValidIdentity(tmpDir);
     fs.writeFileSync(path.join(tmpDir, "users.json"), "{ bad json", "utf-8");
-    const { createServerRuntimeContext } = await import("../core/server-runtime-context.ts");
+    const { createServerRuntimeContext } = await import("../packages/engine/core/server-runtime-context.ts");
 
     expect(() => createServerRuntimeContext({ hanakoHome: tmpDir }))
       .toThrow("invalid users.json");

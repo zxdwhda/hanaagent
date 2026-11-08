@@ -4,13 +4,13 @@ import { convertResponsesMessages } from "../../node_modules/@earendil-works/pi-
 import {
   normalizeProviderContextMessages,
   normalizeProviderPayload,
-} from "../../core/provider-compat.ts";
+} from "../../packages/engine/core/provider-compat.ts";
 import {
   getEndpointDefaultReasoningCapability,
   getReasoningReplayContract,
   normalizeModelProtocolCompat,
   withThinkingFormatCompat,
-} from "../../shared/model-capabilities.ts";
+} from "../../packages/shared/model-capabilities.ts";
 
 const OPENAI_COMPAT_BASE = {
   name: "Reasoning test model",

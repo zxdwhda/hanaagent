@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { WorkflowJournal } from "../lib/workflow/journal.ts";
+import { WorkflowJournal } from "../packages/engine/lib/workflow/journal.ts";
 
 function tmpJournalPath() {
   return path.join(os.tmpdir(), `hana-test-journal-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);

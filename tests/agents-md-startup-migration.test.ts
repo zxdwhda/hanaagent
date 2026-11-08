@@ -7,8 +7,8 @@ import {
   LEGACY_PERSONA_FILE_RENAMES,
   SUPERSEDED_LEGACY_PERSONA_SUFFIX,
   migrateAgentPersonaFileNames,
-} from "../core/agents-md-migration.ts";
-import { resolvePersonaSource } from "../core/persona-source.ts";
+} from "../packages/engine/core/agents-md-migration.ts";
+import { resolvePersonaSource } from "../packages/engine/core/persona-source.ts";
 
 const tempDirs: string[] = [];
 

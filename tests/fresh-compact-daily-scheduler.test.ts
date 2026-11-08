@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createFreshCompactDailyScheduler,
   getNextFreshCompactDelayMs,
-} from "../lib/fresh-compact/daily-scheduler.ts";
+} from "../packages/engine/lib/fresh-compact/daily-scheduler.ts";
 
 describe("fresh compact daily scheduler", () => {
   it("waits until shortly after the 4am logical-day boundary", () => {

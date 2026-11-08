@@ -69,7 +69,7 @@ describe("server identity loader", () => {
   it("loads the active local server/user/studio identity from registry files", async () => {
     tmpDir = makeTmpDir();
     writeValidIdentity(tmpDir);
-    const { loadServerIdentity } = await import("../core/server-identity.ts");
+    const { loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     expect(loadServerIdentity(tmpDir)).toEqual({
       serverId: "server_test",
@@ -98,7 +98,7 @@ describe("server identity loader", () => {
         execution: { kind: "local_process" },
       },
     });
-    const { loadServerIdentity } = await import("../core/server-identity.ts");
+    const { loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     expect(loadServerIdentity(tmpDir)).toMatchObject({
       serverId: "server_test",
@@ -110,7 +110,7 @@ describe("server identity loader", () => {
 
   it("creates ServerNode execution metadata for new local identity registries", async () => {
     tmpDir = makeTmpDir();
-    const { ensureLocalIdentityRegistries } = await import("../core/server-identity.ts");
+    const { ensureLocalIdentityRegistries } = await import("../packages/engine/core/server-identity.ts");
 
     const result = ensureLocalIdentityRegistries(tmpDir);
 
@@ -169,7 +169,7 @@ describe("server identity loader", () => {
 
   it("throws when identity registry files are missing instead of creating them at runtime", async () => {
     tmpDir = makeTmpDir();
-    const { loadServerIdentity } = await import("../core/server-identity.ts");
+    const { loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     expect(() => loadServerIdentity(tmpDir)).toThrow("server-node.json not found");
   });
@@ -187,7 +187,7 @@ describe("server identity loader", () => {
       createdAt: "2026-05-09T00:00:00.000Z",
       updatedAt: "2026-05-09T00:00:00.000Z",
     });
-    const { ensureLocalIdentityRegistries, loadServerIdentity } = await import("../core/server-identity.ts");
+    const { ensureLocalIdentityRegistries, loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     const result = ensureLocalIdentityRegistries(tmpDir);
 
@@ -215,7 +215,7 @@ describe("server identity loader", () => {
         }],
       },
     });
-    const { loadServerIdentity } = await import("../core/server-identity.ts");
+    const { loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     expect(() => loadServerIdentity(tmpDir))
       .toThrow("default Studio ownerUserId must reference an existing user");
@@ -237,7 +237,7 @@ describe("server identity loader", () => {
         }],
       },
     });
-    const { ensureLocalIdentityRegistries, loadServerIdentity } = await import("../core/server-identity.ts");
+    const { ensureLocalIdentityRegistries, loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     ensureLocalIdentityRegistries(tmpDir);
 
@@ -289,7 +289,7 @@ describe("server identity loader", () => {
       createdAt: "2026-05-09T00:00:00.000Z",
       updatedAt: "2026-05-09T00:00:00.000Z",
     });
-    const { loadServerIdentity } = await import("../core/server-identity.ts");
+    const { loadServerIdentity } = await import("../packages/engine/core/server-identity.ts");
 
     expect(loadServerIdentity(tmpDir)).toMatchObject({
       serverId: "server_legacy",

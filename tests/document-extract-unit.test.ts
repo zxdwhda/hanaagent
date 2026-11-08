@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MAX_INPUT_BYTES, extractDocument } from "../lib/document-extract/index.ts";
-import type { ExtractFailure, ExtractResult } from "../lib/document-extract/types.ts";
+import { MAX_INPUT_BYTES, extractDocument } from "../packages/engine/lib/document-extract/index.ts";
+import type { ExtractFailure, ExtractResult } from "../packages/engine/lib/document-extract/types.ts";
 
 // 测试项目关掉了 strictNullChecks，联合类型的失败分支不会被自动收窄，
 // 所以失败断言统一走这里：先真的断言 ok 为 false，再把类型交给编译器。

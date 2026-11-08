@@ -3,16 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { buildStartupReceipt, scanPersistentStores } from "../scripts/scan-persistent-stores.mjs";
+import { buildStartupReceipt, scanPersistentStores } from "../tooling/scripts/scan-persistent-stores.mjs";
 import {
   FUTURE_EPOCH_COORDINATOR_PHASE,
   STARTUP_PHASES,
   startupPhaseIndex,
-} from "../shared/persistence/startup-phases.ts";
-import { PERSISTENT_STORES } from "../shared/persistence/store-registry.ts";
+} from "../packages/shared/persistence/startup-phases.ts";
+import { PERSISTENT_STORES } from "../packages/shared/persistence/store-registry.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const STARTUP_RECEIPT_PATH = path.join(ROOT, "build", "persistence-startup-receipt.json");
+const STARTUP_RECEIPT_PATH = path.join(ROOT, "tooling/build", "persistence-startup-receipt.json");
 
 describe("persistence startup receipt", () => {
   it("uses the canonical phase order and records every registered store", () => {

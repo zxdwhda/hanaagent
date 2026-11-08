@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { PreferencesManager } from "../core/preferences-manager.ts";
-import { createPreferencesRoute } from "../server/routes/preferences.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
+import { createPreferencesRoute } from "../apps/server/routes/preferences.ts";
 
 function makeDirs() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-prefs-setup-"));

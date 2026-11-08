@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HanaEngine } from "../core/engine.ts";
-import { SessionExecutionRegistry } from "../lib/session-execution-registry.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
+import { SessionExecutionRegistry } from "../packages/engine/lib/session-execution-registry.ts";
 
 function permissionTool(name, execute = vi.fn(), kind: "read" | "routine" | "review" = "routine") {
   return {
@@ -214,7 +214,7 @@ describe("HanaEngine.buildTools", () => {
     ], {
       agentDir,
       workspace: tmpDir,
-      workspaceFolders: [path.join(tmpDir, "shared")],
+      workspaceFolders: [path.join(tmpDir, "packages/shared")],
       authorizedFolders: [path.join(tmpDir, "assets-static")],
       getAuthorizedFolders: () => [path.join(tmpDir, "assets-live")],
       getPermissionMode: () => "auto",
@@ -232,7 +232,7 @@ describe("HanaEngine.buildTools", () => {
         sessionPath,
         agentId: "focus",
         cwd: tmpDir,
-        workspaceFolders: [path.join(tmpDir, "shared")],
+        workspaceFolders: [path.join(tmpDir, "packages/shared")],
         authorizedFolders: [path.join(tmpDir, "assets-live")],
       }),
     );

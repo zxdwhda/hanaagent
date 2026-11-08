@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Hub } from "../hub/index.ts";
+import { Hub } from "../packages/engine/hub/index.ts";
 
 function createEngine(overrides: any = {}) {
   const engine: any = {

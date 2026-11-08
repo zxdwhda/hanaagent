@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { Hub } from "../hub/index.ts";
+import { Hub } from "../packages/engine/hub/index.ts";
 
 function createEngine(overrides = {}) {
   const agents = new Map([

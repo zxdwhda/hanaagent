@@ -6,7 +6,7 @@ import {
   formatSessionLine,
   reduceCliChatStreamIdentity,
   selectSession,
-} from "../cli/chat.ts";
+} from "../apps/cli/chat.ts";
 
 describe("CLI chat session helpers", () => {
   const sessions = [

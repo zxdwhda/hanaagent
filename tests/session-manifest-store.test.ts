@@ -6,8 +6,8 @@ import {
   SESSION_MANIFEST_DB_USER_VERSION,
   SessionManifestStore,
   loadBetterSqliteDatabase,
-} from "../core/session-manifest/store.ts";
-import { sessionLocatorKey } from "../core/session-manifest/path-normalizer.ts";
+} from "../packages/engine/core/session-manifest/store.ts";
+import { sessionLocatorKey } from "../packages/engine/core/session-manifest/path-normalizer.ts";
 
 const SQLITE_HOOK_TIMEOUT_MS = 30_000;
 

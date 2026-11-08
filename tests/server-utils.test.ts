@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { resolveAgentStrict } from "../server/utils/resolve-agent.ts";
-import { HttpRouteError, jsonRouteError } from "../server/http/route-errors.ts";
+import { resolveAgentStrict } from "../apps/server/utils/resolve-agent.ts";
+import { HttpRouteError, jsonRouteError } from "../apps/server/http/route-errors.ts";
 
 function mockEngine(agents) {
   return {
@@ -33,7 +33,7 @@ describe("resolveAgentStrict", () => {
 
 describe("焦点回落解析已移除", () => {
   it("只导出严格版，不再有猜 agent 的读取版", async () => {
-    const module = await import("../server/utils/resolve-agent.ts");
+    const module = await import("../apps/server/utils/resolve-agent.ts");
     expect(Object.keys(module).sort()).toEqual(["AgentNotFoundError", "resolveAgentStrict"]);
   });
 });

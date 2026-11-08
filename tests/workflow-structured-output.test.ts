@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createStructuredOutputTool } from "../lib/workflow/structured-output.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { createStructuredOutputTool } from "../packages/engine/lib/workflow/structured-output.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 describe("structured output tool", () => {
   it("工具形状正确，parameters 用传入的 schema", () => {

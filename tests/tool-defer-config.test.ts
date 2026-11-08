@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { normalizeMcpConfig } from "../core/mcp/manager.ts";
-import { PreferencesManager } from "../core/preferences-manager.ts";
+import { normalizeMcpConfig } from "../packages/engine/core/mcp/manager.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
 
 function makeDirs() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-defer-prefs-"));

@@ -3,14 +3,14 @@ import { Hono } from "hono";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { createChannelsRoute } from "../server/routes/channels.ts";
-import { ChannelManager } from "../core/channel-manager.ts";
-import { appendMessage, createChannel, getChannelMeta, readBookmarks } from "../lib/channels/channel-store.ts";
+import { createChannelsRoute } from "../apps/server/routes/channels.ts";
+import { ChannelManager } from "../packages/engine/core/channel-manager.ts";
+import { appendMessage, createChannel, getChannelMeta, readBookmarks } from "../packages/engine/lib/channels/channel-store.ts";
 import {
   getAgentPhoneProjectionPath,
   readAgentPhoneProjection,
   updateAgentPhoneProjectionMeta,
-} from "../lib/conversations/agent-phone-projection.ts";
+} from "../packages/engine/lib/conversations/agent-phone-projection.ts";
 
 function mktemp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-channels-route-test-"));

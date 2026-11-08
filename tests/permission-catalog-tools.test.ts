@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCardGuideTool } from "../lib/tools/card-guide-tool.ts";
-import { createCheckDeferredTool } from "../lib/tools/check-deferred-tool.ts";
-import { createShowCardTool } from "../lib/tools/show-card-tool.ts";
+import { createCardGuideTool } from "../packages/engine/lib/tools/card-guide-tool.ts";
+import { createCheckDeferredTool } from "../packages/engine/lib/tools/check-deferred-tool.ts";
+import { createShowCardTool } from "../packages/engine/lib/tools/show-card-tool.ts";
 import {
   createSubagentCloseTool,
   createSubagentReplyTool,
   createSubagentTool,
-} from "../lib/tools/subagent-tool.ts";
-import { createTodoTool } from "../lib/tools/todo.ts";
-import { createStopTaskTool } from "../lib/tools/stop-task-tool.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+} from "../packages/engine/lib/tools/subagent-tool.ts";
+import { createTodoTool } from "../packages/engine/lib/tools/todo.ts";
+import { createStopTaskTool } from "../packages/engine/lib/tools/stop-task-tool.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 function runtimeCtx(sessionPath = "/sessions/current.jsonl") {
   return {

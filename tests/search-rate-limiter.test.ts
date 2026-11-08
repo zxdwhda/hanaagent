@@ -3,7 +3,7 @@ import {
   SearchRateLimitError,
   createSearchRateLimiter,
   retryAfterMsFromHeaders,
-} from "../lib/tools/search-rate-limiter.ts";
+} from "../packages/engine/lib/tools/search-rate-limiter.ts";
 
 describe("SearchRateLimiter", () => {
   afterEach(() => {

@@ -9,7 +9,7 @@ const optimizeMock = vi.fn();
 const composeMock = vi.fn();
 const verifyMock = vi.fn();
 
-vi.mock("../lib/memory/dream/model-runner.ts", () => ({
+vi.mock("../packages/engine/lib/memory/dream/model-runner.ts", () => ({
   atomizeDreamMemory: (...args: any[]) => atomizeMock(...args),
   dedupeDreamMemory: (...args: any[]) => dedupeMock(...args),
   optimizeDreamMemory: (...args: any[]) => optimizeMock(...args),
@@ -18,7 +18,7 @@ vi.mock("../lib/memory/dream/model-runner.ts", () => ({
   dreamModelId: () => "utility-test",
 }));
 
-import { createMemoryDreamRunner } from "../lib/memory/dream/runner.ts";
+import { createMemoryDreamRunner } from "../packages/engine/lib/memory/dream/runner.ts";
 
 function seedMemory(memoryDir: string) {
   fs.mkdirSync(path.join(memoryDir, "daily"), { recursive: true });

@@ -13,8 +13,8 @@ function cssBlock(css, selector) {
 
 describe('settings toggle styles', () => {
   it('keeps mini toggles aligned with the base toggle thumb geometry', () => {
-    const globalCss = fs.readFileSync(path.join(ROOT, 'desktop/src/styles.css'), 'utf8');
-    const settingsCss = fs.readFileSync(path.join(ROOT, 'desktop/src/react/settings/Settings.module.css'), 'utf8');
+    const globalCss = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/styles.css'), 'utf8');
+    const settingsCss = fs.readFileSync(path.join(ROOT, 'apps/desktop/src/react/settings/Settings.module.css'), 'utf8');
 
     expect(cssBlock(globalCss, '.hana-toggle')).toMatch(/width:\s*36px/);
     expect(cssBlock(globalCss, '.hana-toggle')).toMatch(/height:\s*20px/);

@@ -4,7 +4,7 @@ import {
   projectKnownLegacyToolFailures,
   projectLiveToolResultOutcome,
   projectToolResultOutcome,
-} from "../shared/tool-outcome.ts";
+} from "../packages/shared/tool-outcome.ts";
 
 describe("tool outcome projection", () => {
   it("recognizes explicit and known legacy Hana failures", () => {

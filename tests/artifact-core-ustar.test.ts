@@ -5,7 +5,7 @@ import path from "path";
 import zlib from "zlib";
 import { afterEach, describe, expect, it } from "vitest";
 
-import ustarModule from "../shared/artifact-core/ustar.cjs";
+import ustarModule from "../packages/shared/artifact-core/ustar.cjs";
 
 const { extract, packTree } = ustarModule as {
   extract: (archivePath: string, destDir: string) => Promise<void>;

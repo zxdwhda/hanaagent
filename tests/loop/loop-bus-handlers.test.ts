@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { registerLoopBusHandlers } from "../../server/loop-bus-handlers.ts";
+import { registerLoopBusHandlers } from "../../apps/server/loop-bus-handlers.ts";
 
 function makeController() {
   return {

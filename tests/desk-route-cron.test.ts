@@ -3,9 +3,9 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StudioCronService } from "../core/studio-cron-service.ts";
-import { createAutomationTool } from "../lib/tools/automation-tool.ts";
-import { AutomationSuggestionStore } from "../lib/tools/automation-suggestion-store.ts";
+import { StudioCronService } from "../packages/engine/core/studio-cron-service.ts";
+import { createAutomationTool } from "../packages/engine/lib/tools/automation-tool.ts";
+import { AutomationSuggestionStore } from "../packages/engine/lib/tools/automation-suggestion-store.ts";
 
 const TEST_STUDIO_ID = "studio-main";
 const TEST_SESSION_ID = "session-a";
@@ -31,7 +31,7 @@ function createApp(engine, {
   runtimeStudioId = TEST_STUDIO_ID,
   authPrincipal = null,
 } = {}) {
-  return import("../server/routes/desk.ts").then(({ createDeskRoute }) => {
+  return import("../apps/server/routes/desk.ts").then(({ createDeskRoute }) => {
     const routeEngine = {
       getRuntimeContext: () => ({
         studioId: runtimeStudioId,

@@ -3,7 +3,7 @@ import {
   getReasoningProfile,
   getThinkingFormat,
   normalizeProviderPayload,
-} from "../../core/provider-compat.ts";
+} from "../../packages/engine/core/provider-compat.ts";
 
 const kimiModel = {
   id: "kimi-for-coding",

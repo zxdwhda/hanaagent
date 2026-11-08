@@ -4,13 +4,13 @@ import os from "os";
 import path from "path";
 
 // Mock summary module so tests don't touch real LLM plumbing
-vi.mock("../../core/slash-commands/rc-summary.js", () => ({
+vi.mock("../../packages/engine/core/slash-commands/rc-summary.js", () => ({
   summarizeSessionForRc: vi.fn(),
 }));
 
-import { summarizeSessionForRc } from "../../core/slash-commands/rc-summary.ts";
-import { handleRcPendingInput } from "../../core/slash-commands/rc-pending-handler.ts";
-import { RcStateStore } from "../../core/slash-commands/rc-state.ts";
+import { summarizeSessionForRc } from "../../packages/engine/core/slash-commands/rc-summary.ts";
+import { handleRcPendingInput } from "../../packages/engine/core/slash-commands/rc-pending-handler.ts";
+import { RcStateStore } from "../../packages/engine/core/slash-commands/rc-state.ts";
 
 function makeEngine({ isStreaming = () => false, agents = {} as any, sessions = [] } = {}) {
   const rcState = new RcStateStore();

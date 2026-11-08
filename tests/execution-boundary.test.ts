@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("execution boundary contract", () => {
   it("creates a stable local process boundary for a Studio on a ServerNode", async () => {
-    const { createLocalExecutionBoundary } = await import("../core/execution-boundary.ts");
+    const { createLocalExecutionBoundary } = await import("../packages/engine/core/execution-boundary.ts");
 
     const boundary = createLocalExecutionBoundary({
       serverNodeId: "server_node_1",
@@ -36,7 +36,7 @@ describe("execution boundary contract", () => {
   });
 
   it("derives a runtime-level boundary without selecting a session workbench", async () => {
-    const { createRuntimeExecutionBoundary } = await import("../core/execution-boundary.ts");
+    const { createRuntimeExecutionBoundary } = await import("../packages/engine/core/execution-boundary.ts");
 
     expect(createRuntimeExecutionBoundary({
       serverId: "server_runtime",
@@ -52,7 +52,7 @@ describe("execution boundary contract", () => {
   });
 
   it("fails explicitly when required scope is missing", async () => {
-    const { createLocalExecutionBoundary } = await import("../core/execution-boundary.ts");
+    const { createLocalExecutionBoundary } = await import("../packages/engine/core/execution-boundary.ts");
 
     expect(() => createLocalExecutionBoundary({ studioId: "studio_only" }))
       .toThrow("execution boundary requires serverNodeId");

@@ -8,7 +8,7 @@
  * 4. switchSession 只切指针，不做模型恢复
  */
 import { describe, it, expect, vi } from "vitest";
-import { findModel } from "../shared/model-ref.ts";
+import { findModel } from "../packages/shared/model-ref.ts";
 
 // ── Mock 工厂 ──
 

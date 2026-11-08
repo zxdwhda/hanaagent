@@ -5,7 +5,7 @@ import {
   XAI_OAUTH_DISCOVERY_URL,
   XAI_OAUTH_SCOPES,
   createXaiOAuthProvider,
-} from "../lib/auth/xai-oauth.ts";
+} from "../packages/engine/lib/auth/xai-oauth.ts";
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {

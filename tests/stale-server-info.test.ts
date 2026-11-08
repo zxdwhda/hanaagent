@@ -8,7 +8,7 @@
  * fail-fast」的决策抽成纯函数，独立验证。
  */
 import { describe, it, expect } from "vitest";
-import { resolveStaleServerInfoDisposition } from "../desktop/src/shared/stale-server-info.cjs";
+import { resolveStaleServerInfoDisposition } from "../apps/desktop/src/shared/stale-server-info.cjs";
 
 describe("resolveStaleServerInfoDisposition", () => {
   it("活着且占目标端口：保留文件、快速失败", () => {

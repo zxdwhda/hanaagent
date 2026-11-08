@@ -7,8 +7,8 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { generateSessionTitle } from "../server/routes/chat.ts";
-import { visiblePromptText } from "../core/session-reminders.ts";
+import { generateSessionTitle } from "../apps/server/routes/chat.ts";
+import { visiblePromptText } from "../packages/engine/core/session-reminders.ts";
 
 const REFERENCE_BLOCK = [
   "[hana_reference]",

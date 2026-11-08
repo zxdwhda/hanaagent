@@ -13,8 +13,8 @@ const {
   computeGcTargets,
   keepNamesForKind,
   gcArtifactKind,
-} = require("../desktop/src/shared/artifact-gc.cjs");
-const pointerStore = require("../shared/artifact-core/pointer-store.cjs");
+} = require("../apps/desktop/src/shared/artifact-gc.cjs");
+const pointerStore = require("../packages/shared/artifact-core/pointer-store.cjs");
 
 const tempDirs: string[] = [];
 

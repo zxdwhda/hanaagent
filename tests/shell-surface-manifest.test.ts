@@ -38,7 +38,7 @@ function stripLeadingDotSlash(p: string) {
 }
 
 const pkg = readJson("package.json");
-const manifest = readJson("build/shell-surface-manifest.json");
+const manifest = readJson("tooling/build/shell-surface-manifest.json");
 
 // electron-builder's own ${os} token mapping (darwin -> mac, win32 -> win,
 // linux -> linux) — same convention scripts/verify-seed-kit.mjs documents
@@ -100,8 +100,8 @@ describe("shell-surface-manifest.json: forward (declared sources exist)", () => 
     expect(mingit).toBeTruthy();
     expect(mingit.kind).toBe("vendoredBinary");
     expect(mingit.platform).toBe("win");
-    expect(mingit.sourcePaths).toEqual(["scripts/download-mingit.js"]);
-    expect(mingit.buildScript).toBe("scripts/download-mingit.js");
+    expect(mingit.sourcePaths).toEqual(["tooling/scripts/download-mingit.js"]);
+    expect(mingit.buildScript).toBe("tooling/scripts/download-mingit.js");
     expect(mingit.sourcePaths).not.toContain("vendor/mingit");
   });
 
@@ -164,19 +164,19 @@ describe("shell-surface-manifest.json: build:theme attribution to renderer holds
   const rendererHtmlEntries = ["index.html", "mobile.html", "settings.html", "quick-chat.html", "onboarding.html", "browser-viewer.html"];
 
   it("config/vite.config.theme.js still outputs into desktop/dist-renderer (not a shell-owned directory)", () => {
-    const themeConfig = fs.readFileSync(path.join(ROOT, "config/vite.config.theme.js"), "utf-8");
+    const themeConfig = fs.readFileSync(path.join(ROOT, "tooling/config/vite.config.theme.js"), "utf-8");
     expect(themeConfig).toContain("dist-renderer");
   });
 
   for (const htmlFile of rendererHtmlEntries) {
     it(`${htmlFile} (a renderer entry, not shipped in asar) references lib/theme.js`, () => {
-      const html = fs.readFileSync(path.join(ROOT, "desktop/src", htmlFile), "utf-8");
+      const html = fs.readFileSync(path.join(ROOT, "apps/desktop/src", htmlFile), "utf-8");
       expect(html).toContain("lib/theme.js");
     });
   }
 
   it("splash.html (the one shell-owned HTML surface) does NOT reference lib/theme.js", () => {
-    const splashHtml = fs.readFileSync(path.join(ROOT, "desktop/src/splash.html"), "utf-8");
+    const splashHtml = fs.readFileSync(path.join(ROOT, "apps/desktop/src/splash.html"), "utf-8");
     expect(splashHtml).not.toContain("lib/theme.js");
   });
 

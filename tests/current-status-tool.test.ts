@@ -2,13 +2,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { classifySessionPermission } from "../core/session-permission-mode.ts";
+import { classifySessionPermission } from "../packages/engine/core/session-permission-mode.ts";
 import {
   readAgentAvatarResource,
   writeAgentAppearanceProfileResource,
-} from "../lib/agent-appearance-summary.ts";
-import { createCurrentStatusTool } from "../lib/tools/current-status-tool.ts";
-import { loadLocale } from "../lib/i18n.ts";
+} from "../packages/engine/lib/agent-appearance-summary.ts";
+import { createCurrentStatusTool } from "../packages/engine/lib/tools/current-status-tool.ts";
+import { loadLocale } from "../packages/engine/lib/i18n.ts";
 
 function textPayload(result) {
   return JSON.parse(result.content[0].text);
@@ -182,8 +182,8 @@ describe("current_status tool", () => {
     const root = makeTempDir();
     const userDir = path.join(root, "user");
     const agentDir = path.join(root, "agents", "hana");
-    fs.mkdirSync(path.join(root, "desktop", "src", "assets"), { recursive: true });
-    fs.writeFileSync(path.join(root, "desktop", "src", "assets", "Hanako.png"), Buffer.from("yuan-default"));
+    fs.mkdirSync(path.join(root, "apps/desktop", "src", "assets"), { recursive: true });
+    fs.writeFileSync(path.join(root, "apps/desktop", "src", "assets", "Hanako.png"), Buffer.from("yuan-default"));
 
     const tool = createCurrentStatusTool({
       getAgent: () => ({

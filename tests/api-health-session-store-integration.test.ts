@@ -60,14 +60,14 @@ function waitForServerInfo(serverInfoPath: string, child: ReturnType<typeof spaw
 
 async function spawnOpenServer(hanaHome: string) {
   const serverInfoPath = path.join(hanaHome, "server-info.json");
-  const child = spawn(process.execPath, ["server/bootstrap.ts"], {
+  const child = spawn(process.execPath, ["apps/server/bootstrap.ts"], {
     cwd: root,
     env: {
       ...process.env,
       HANA_HOME: hanaHome,
       HANA_PORT: "0",
       HANA_ROOT: root,
-      HANA_SERVER_ENTRY: path.join(root, "server", "main-open.ts"),
+      HANA_SERVER_ENTRY: path.join(root, "apps/server", "main-open.ts"),
       HANA_CREATE_STARTUP_SESSION: "0",
     },
     stdio: ["ignore", "pipe", "pipe"],

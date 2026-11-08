@@ -10,11 +10,11 @@ const { callTextMock, factAddMock, factGetBySessionMock, factDeleteMock } = vi.h
   factDeleteMock: vi.fn(),
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: callTextMock,
 }));
 
-vi.mock("../lib/memory/fact-store.js", () => ({
+vi.mock("../packages/engine/lib/memory/fact-store.js", () => ({
   FactStore: vi.fn(function FactStoreMock() {
     this.add = factAddMock;
     this.getBySession = factGetBySessionMock;
@@ -23,7 +23,7 @@ vi.mock("../lib/memory/fact-store.js", () => ({
   }),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
   createModuleLogger: () => ({
     log: vi.fn(),
@@ -32,7 +32,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { ChannelRouter } from "../hub/channel-router.ts";
+import { ChannelRouter } from "../packages/engine/hub/channel-router.ts";
 
 let rootDir;
 

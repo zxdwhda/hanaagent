@@ -273,7 +273,7 @@ const GENERIC_MODEL_FALLBACKS = {
   },
 };
 
-vi.mock("../shared/known-models.js", () => ({
+vi.mock("../packages/shared/known-models.js", () => ({
   lookupKnownProvider(provider, modelId) {
     const dict = KNOWN_MODELS[provider];
     if (!dict || typeof modelId !== "string") return null;
@@ -327,7 +327,7 @@ afterEach(() => {
 });
 
 async function loadSync() {
-  const mod = await import("../core/model-sync.ts");
+  const mod = await import("../packages/engine/core/model-sync.ts");
   return mod.syncModels;
 }
 
@@ -1447,7 +1447,7 @@ describe("syncModels", () => {
 
   it("writes Pi-loadable models when Hana video capability is enabled", async () => {
     const syncModels = await loadSync();
-    const { AuthStorage, createModelRegistry } = await import("../lib/pi-sdk/index.ts");
+    const { AuthStorage, createModelRegistry } = await import("../packages/engine/lib/pi-sdk/index.ts");
 
     const providers = {
       dashscope: {
@@ -1780,7 +1780,7 @@ describe("syncModels", () => {
   });
 
   it("derives no-auth policy from ProviderRegistry for existing Ollama configs", async () => {
-    const { ModelManager } = await import("../core/model-manager.ts");
+    const { ModelManager } = await import("../packages/engine/core/model-manager.ts");
     fs.writeFileSync(path.join(tmpDir, "added-models.yaml"), [
       "providers:",
       "  ollama:",
@@ -1808,7 +1808,7 @@ describe("syncModels", () => {
   });
 
   it("stores model thinking defaults without narrowing builtin provider model availability", async () => {
-    const { ModelManager } = await import("../core/model-manager.ts");
+    const { ModelManager } = await import("../packages/engine/core/model-manager.ts");
     fs.writeFileSync(path.join(tmpDir, "added-models.yaml"), "providers: {}\n", "utf-8");
 
     const mm = new ModelManager({ hanakoHome: tmpDir });
@@ -1834,7 +1834,7 @@ describe("syncModels", () => {
   });
 
   it("ignores malformed provider records without breaking valid model projection", async () => {
-    const { ModelManager } = await import("../core/model-manager.ts");
+    const { ModelManager } = await import("../packages/engine/core/model-manager.ts");
     fs.writeFileSync(path.join(tmpDir, "added-models.yaml"), [
       "providers:",
       "  deepseek:",
@@ -1867,7 +1867,7 @@ describe("syncModels", () => {
   });
 
   it("keeps SDK-auth alias providers available without a provider model allow list", async () => {
-    const { ModelManager } = await import("../core/model-manager.ts");
+    const { ModelManager } = await import("../packages/engine/core/model-manager.ts");
     fs.writeFileSync(path.join(tmpDir, "added-models.yaml"), "providers: {}\n", "utf-8");
 
     const mm = new ModelManager({ hanakoHome: tmpDir });

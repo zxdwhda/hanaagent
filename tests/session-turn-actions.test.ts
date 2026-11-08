@@ -2,21 +2,21 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { SessionManager } from "../lib/pi-sdk/index.ts";
-import { DeferredResultCoordinator } from "../lib/deferred-result-coordinator.ts";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
+import { SessionManager } from "../packages/engine/lib/pi-sdk/index.ts";
+import { DeferredResultCoordinator } from "../packages/engine/lib/deferred-result-coordinator.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
 import {
   collectStructuredBackgroundTaskIds,
   normalizeSessionNodeTarget,
   replayLatestUserTurn,
   resolveSessionNodeTarget,
   retrySessionTurn,
-} from "../core/session-turn-actions.ts";
+} from "../packages/engine/core/session-turn-actions.ts";
 import {
   AGENT_REVIEW_RECORD_TYPE,
   MESSAGE_ORIGIN_RECORD_TYPE,
   MESSAGE_PRESENTATION_RECORD_TYPE,
-} from "../core/desktop-session-submit.ts";
+} from "../packages/engine/core/desktop-session-submit.ts";
 
 function makeNavigableSession(manager) {
   return {

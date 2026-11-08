@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { createSessionOps } from "../../core/slash-commands/session-ops.ts";
+import { createSessionOps } from "../../packages/engine/core/slash-commands/session-ops.ts";
 
 let tmpDir: any, engine: any, agents: any;
 

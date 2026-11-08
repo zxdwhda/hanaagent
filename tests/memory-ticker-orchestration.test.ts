@@ -25,7 +25,7 @@ import path from "path";
 
 // ── Mock compile / deep-memory / debug ──
 
-vi.mock("../lib/memory/compile.js", () => ({
+vi.mock("../packages/engine/lib/memory/compile.js", () => ({
   compileToday: vi.fn().mockResolvedValue("compiled"),
   compileDaily: vi.fn().mockResolvedValue("compiled"),
   assembleWeekFromDaily: vi.fn(),
@@ -38,11 +38,11 @@ vi.mock("../lib/memory/compile.js", () => ({
   migrateLegacyWeekToLongterm: vi.fn().mockResolvedValue({ migrated: false }),
 }));
 
-vi.mock("../lib/memory/deep-memory.js", () => ({
+vi.mock("../packages/engine/lib/memory/deep-memory.js", () => ({
   processDirtySessions: vi.fn().mockResolvedValue({ processed: 0, factsAdded: 0 }),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({
     log: vi.fn(),
@@ -53,8 +53,8 @@ vi.mock("../lib/debug-log.js", () => ({
 
 // ── Import under test ──
 
-import { createMemoryTicker } from "../lib/memory/memory-ticker.ts";
-import { SessionSummaryManager } from "../lib/memory/session-summary.ts";
+import { createMemoryTicker } from "../packages/engine/lib/memory/memory-ticker.ts";
+import { SessionSummaryManager } from "../packages/engine/lib/memory/session-summary.ts";
 import {
   compileToday,
   compileDaily,
@@ -62,8 +62,8 @@ import {
   compileEditableFacts,
   assemble,
   migrateLegacyWeekToLongterm,
-} from "../lib/memory/compile.ts";
-import { processDirtySessions } from "../lib/memory/deep-memory.ts";
+} from "../packages/engine/lib/memory/compile.ts";
+import { processDirtySessions } from "../packages/engine/lib/memory/deep-memory.ts";
 
 // ── Helpers ──
 

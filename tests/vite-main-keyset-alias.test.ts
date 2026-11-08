@@ -21,7 +21,7 @@ afterEach(() => {
 
 async function loadConfig() {
   vi.resetModules();
-  const mod = await import("../config/vite.config.main.js");
+  const mod = await import("../tooling/config/vite.config.main.js");
   return mod.default as { resolve?: { alias?: Array<{ find: RegExp; replacement: string }> } };
 }
 

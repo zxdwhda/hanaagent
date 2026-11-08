@@ -1,6 +1,6 @@
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { splitMediaFromOutput } from "../lib/bridge/media-utils.ts";
+import { splitMediaFromOutput } from "../packages/engine/lib/bridge/media-utils.ts";
 
 describe("Bridge reply media extraction", () => {
   it("extracts remote MEDIA URLs", () => {

@@ -4,8 +4,8 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { packDualKindSeed, seedManifestFileName } from "../scripts/build-server-artifact.mjs";
-import { verifySeedKit } from "../scripts/verify-seed-kit.mjs";
+import { packDualKindSeed, seedManifestFileName } from "../tooling/scripts/build-server-artifact.mjs";
+import { verifySeedKit } from "../tooling/scripts/verify-seed-kit.mjs";
 
 const tempDirs: string[] = [];
 const OFFICE_FONT_FIXTURE_CSS = `

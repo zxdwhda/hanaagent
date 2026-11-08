@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { SlashCommandRegistry } from "../core/slash-command-registry.ts";
+import { SlashCommandRegistry } from "../packages/engine/core/slash-command-registry.ts";
 
 describe("SlashCommandRegistry", () => {
   let r;

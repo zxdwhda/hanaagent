@@ -4,7 +4,7 @@ import {
   callTextConfigFromResolvedModel,
   callTextConfigFromUtilityConfig,
   composeResolvedModelExecution,
-} from "../core/model-execution-config.ts";
+} from "../packages/engine/core/model-execution-config.ts";
 
 describe("model execution config", () => {
   it("keeps the selected model protocol and normalized endpoint ahead of catalog credential metadata", () => {

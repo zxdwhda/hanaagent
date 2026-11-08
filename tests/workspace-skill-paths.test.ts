@@ -8,7 +8,7 @@ import {
   resolveWorkspaceSkillPaths,
   workspaceSkillPolicyFromConfig,
   WORKSPACE_SKILL_DIRS,
-} from "../shared/workspace-skill-paths.ts";
+} from "../packages/shared/workspace-skill-paths.ts";
 
 describe("workspace skill path discovery", () => {
   const roots = [];

@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { upsertStudioMount } from "../core/studio-mounts.ts";
-import { LocalFsProvider } from "../lib/resource-io/providers/local-fs-provider.ts";
-import { MountProvider } from "../lib/resource-io/providers/mount-provider.ts";
+import { upsertStudioMount } from "../packages/engine/core/studio-mounts.ts";
+import { LocalFsProvider } from "../packages/engine/lib/resource-io/providers/local-fs-provider.ts";
+import { MountProvider } from "../packages/engine/lib/resource-io/providers/mount-provider.ts";
 
 const CAPABILITY_KEYS = [
   "stat",

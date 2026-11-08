@@ -6,7 +6,7 @@ import {
   collectReferencedSubagentThreadIds,
   SubagentThreadStore,
   SUBAGENT_THREAD_STORE_VERSION,
-} from "../lib/subagent-thread-store.ts";
+} from "../packages/engine/lib/subagent-thread-store.ts";
 
 describe("SubagentThreadStore", () => {
   let tempDir;

@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
   createModuleLogger: () => ({
     log: vi.fn(),
@@ -12,7 +12,7 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-import { ChannelRouter } from "../hub/channel-router.ts";
+import { ChannelRouter } from "../packages/engine/hub/channel-router.ts";
 
 describe("ChannelRouter 群聊身份/成员表注入（#1670）", () => {
   let root;

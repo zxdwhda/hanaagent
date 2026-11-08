@@ -56,7 +56,7 @@ Other HTTP rules on the modern track:
   `Last-Event-ID` resumption) are **removed** in this revision.
 - Servers do not send JSON-RPC requests on any stream any more.
 
-Full worked example of a modern `tools/call` (headers + body) is on the streamable-http
+Full worked example of a modern `tooling/tools/call` (headers + body) is on the streamable-http
 page linked above.
 
 ## (2) Failure / non-support signals
@@ -147,7 +147,7 @@ JSON-RPC requests are no longer supported (breaking change).
   invent one.
 - At least one of the two MUST be present.
 
-Example `input_required` response to a `tools/call`:
+Example `input_required` response to a `tooling/tools/call`:
 
 ```json
 {
@@ -181,7 +181,7 @@ original `name`/`arguments`, which must be repeated:
 {
   "jsonrpc": "2.0",
   "id": 3,
-  "method": "tools/call",
+  "method": "tooling/tools/call",
   "params": {
     "name": "get_weather",
     "arguments": { "location": "New York" },
@@ -201,7 +201,7 @@ Hard client rules:
 - If `inputRequests` is present the client must gather the inputs before retrying; if
   only `requestState` is present the client MAY retry immediately.
 - `inputRequests` / `requestState` affect only the retry of that original request.
-- `input_required` is only allowed on `prompts/get`, `resources/read` and `tools/call`.
+- `input_required` is only allowed on `prompts/get`, `resources/read` and `tooling/tools/call`.
 
 ### Elicitation specifics
 
@@ -235,7 +235,7 @@ omitted for decline/cancel.
 
 Servers MUST NOT request credentials/secrets via form mode (URL mode exists for that).
 
-## (4) `ttlMs` / `cacheScope` on `tools/list`
+## (4) `ttlMs` / `cacheScope` on `tooling/tools/list`
 
 Source: <https://modelcontextprotocol.io/specification/2026-07-28/server/tools> (Listing Tools)
 
@@ -256,7 +256,7 @@ Both are **top-level fields of `result`**, siblings of `tools` and `nextCursor`:
 ```
 
 `ttlMs` is a number of milliseconds. `cacheScope` is a string; `"public"` is the value
-shown by the spec examples (also on `server/discover`, which carries the same two fields
+shown by the spec examples (also on `apps/server/discover`, which carries the same two fields
 — source: <https://modelcontextprotocol.io/specification/2026-07-28/server/discover>).
 The general caching rules live at
 <https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching>.
@@ -269,7 +269,7 @@ Source: <https://modelcontextprotocol.io/specification/2026-07-28/basic/transpor
 | Header | Source field | Required for |
 | --- | --- | --- |
 | `Mcp-Method` | `method` | All requests |
-| `Mcp-Name` | `params.name` or `params.uri` | `tools/call`, `resources/read`, `prompts/get` |
+| `Mcp-Name` | `params.name` or `params.uri` | `tooling/tools/call`, `resources/read`, `prompts/get` |
 
 These headers are REQUIRED for compliance. They mirror body values so intermediaries can
 route without parsing the body; the **body stays the source of truth** and a server that
@@ -311,7 +311,7 @@ stdio does **not** keep the `initialize` lifecycle on the modern track. Findings
   so `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` do not apply to stdio.
 - The server MUST NOT write JSON-RPC *requests* to `stdout`; server-to-client
   interactions come back as `InputRequiredResult` replies.
-- Era detection is an explicit `server/discover` probe with a three-way outcome:
+- Era detection is an explicit `apps/server/discover` probe with a three-way outcome:
   `DiscoverResult` → modern; a recognized modern error (e.g. `-32022`) → modern but
   version-mismatched, do **not** fall back; any other error or a timeout → legacy, fall
   back to `initialize`. The fallback MUST NOT be keyed to one error code.
@@ -319,7 +319,7 @@ stdio does **not** keep the `initialize` lifecycle on the modern track. Findings
   conversation as the process lifetime boundary, and should restart the process on
   unexpected exit and simply retry in-flight requests.
 
-`DiscoverResult` shape (`server/discover` is mandatory for servers):
+`DiscoverResult` shape (`apps/server/discover` is mandatory for servers):
 
 ```json
 {

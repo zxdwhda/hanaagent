@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { HanaEngine } from "../core/engine.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
 
 /**
  * 针对 HanaEngine.syncWorkspaceSkillPaths 的最小单测。

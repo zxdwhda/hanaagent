@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 
-import { createPreferencesRoute } from "../server/routes/preferences.ts";
+import { createPreferencesRoute } from "../apps/server/routes/preferences.ts";
 
 function makeApp(defaultMode = "auto") {
   let permissionMode = defaultMode;

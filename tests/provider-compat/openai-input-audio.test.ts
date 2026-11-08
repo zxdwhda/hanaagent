@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
 
 describe("provider-compat/openai-input-audio", () => {
   it("converts OpenAI audio model data URLs to input_audio parts", () => {

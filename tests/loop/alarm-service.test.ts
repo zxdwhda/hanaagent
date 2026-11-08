@@ -2,8 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { LoopStore } from "../../lib/loop/loop-store.ts";
-import { LoopAlarmService, LoopAlarmError } from "../../lib/loop/alarm-service.ts";
+import { LoopStore } from "../../packages/engine/lib/loop/loop-store.ts";
+import { LoopAlarmService, LoopAlarmError } from "../../packages/engine/lib/loop/alarm-service.ts";
 
 const tmpDirs: string[] = [];
 function makeStore() {

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   resolveCompactSessionTarget,
   toCompactionLifecycleWsMessage,
-} from "../server/routes/chat.ts";
+} from "../apps/server/routes/chat.ts";
 
 describe("chat route compaction lifecycle messages", () => {
   it("normalizes SDK compaction_start into the frontend protocol", () => {

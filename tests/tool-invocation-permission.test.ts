@@ -3,16 +3,16 @@ import {
   invocationTargetKey,
   resolveToolInvocationPermission,
   snapshotToolInvocationInput,
-} from "../lib/permission/tool-invocation-permission.ts";
-import { createDmTool } from "../lib/tools/dm-tool.ts";
-import { createNotifyTool } from "../lib/tools/notify-tool.ts";
-import { createPinnedMemoryTools } from "../lib/tools/pinned-memory.ts";
-import { createExperienceTools } from "../lib/tools/experience.ts";
+} from "../packages/engine/lib/permission/tool-invocation-permission.ts";
+import { createDmTool } from "../packages/engine/lib/tools/dm-tool.ts";
+import { createNotifyTool } from "../packages/engine/lib/tools/notify-tool.ts";
+import { createPinnedMemoryTools } from "../packages/engine/lib/tools/pinned-memory.ts";
+import { createExperienceTools } from "../packages/engine/lib/tools/experience.ts";
 import {
   createStageFilesTool,
   normalizeStageFilesParams,
-} from "../lib/tools/output-file-tool.ts";
-import { createExecCommandTools } from "../lib/exec-command/tool.ts";
+} from "../packages/engine/lib/tools/output-file-tool.ts";
+import { createExecCommandTools } from "../packages/engine/lib/exec-command/tool.ts";
 
 function resolveDescriptor(tool: Record<string, unknown>, input: unknown) {
   const result = resolveToolInvocationPermission(tool, input);

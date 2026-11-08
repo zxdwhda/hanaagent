@@ -9,23 +9,23 @@ import {
   inspectDataEpochMaintenance,
   type DataEpochCheckpointProvider,
   type DataEpochFaultEvent,
-} from "../core/data-epoch-coordinator.ts";
+} from "../packages/engine/core/data-epoch-coordinator.ts";
 import {
   DATA_EPOCH_BREAKING_REVIEWS,
   DATA_EPOCH_MIGRATIONS,
   resolveDataEpochMigrationPath,
   type DataEpochBreakingReview,
   type DataEpochMigration,
-} from "../core/data-epoch-migrations.ts";
-import { DATA_EPOCH } from "../shared/contract-versions.cjs";
+} from "../packages/engine/core/data-epoch-migrations.ts";
+import { DATA_EPOCH } from "../packages/shared/contract-versions.cjs";
 import {
   dataEpochJournalPath,
   dataEpochStampPath,
   readDataEpochStamp,
   writeDataEpochJournal,
   writeDataEpochStamp,
-} from "../shared/data-epoch.cjs";
-import { createDataEpochCheckpointProvider } from "../core/data-epoch-checkpoint-provider.ts";
+} from "../packages/shared/data-epoch.cjs";
+import { createDataEpochCheckpointProvider } from "../packages/engine/core/data-epoch-checkpoint-provider.ts";
 
 const tempDirs: string[] = [];
 

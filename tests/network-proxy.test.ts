@@ -8,7 +8,7 @@ import {
   systemProxyConfigToEnvironment,
   proxyConfigToEnvironment,
   resolveProxyForUrl,
-} from "../shared/network-proxy.ts";
+} from "../packages/shared/network-proxy.ts";
 
 describe("network proxy config", () => {
   it("defaults to system mode with local bypasses", () => {

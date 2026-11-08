@@ -8,7 +8,7 @@ const { instances } = vi.hoisted(() => ({
   instances: [],
 }));
 
-vi.mock("../core/agent.js", () => ({
+vi.mock("../packages/engine/core/agent.js", () => ({
   Agent: vi.fn().mockImplementation(function (opts) {
     this.id = opts.id;
     this.agentDir = path.join(opts.agentsDir, opts.id);
@@ -36,25 +36,25 @@ vi.mock("../core/agent.js", () => ({
   }),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-vi.mock("../lib/desk/activity-store.js", () => ({
+vi.mock("../packages/engine/lib/desk/activity-store.js", () => ({
   ActivityStore: vi.fn(),
 }));
 
-vi.mock("../lib/memory/config-loader.js", async (importOriginal) => {
+vi.mock("../packages/engine/lib/memory/config-loader.js", async (importOriginal) => {
   const actual = await importOriginal() as any;
   return { ...actual, clearConfigCache: vi.fn() };
 });
 
-vi.mock("../core/llm-utils.js", () => ({
+vi.mock("../packages/engine/core/llm-utils.js", () => ({
   generateAgentId: vi.fn(),
   generateDescription: vi.fn(),
 }));
 
-import { AgentManager } from "../core/agent-manager.ts";
+import { AgentManager } from "../packages/engine/core/agent-manager.ts";
 
 describe("AgentManager lazy runtime initialization", () => {
   let rootDir;

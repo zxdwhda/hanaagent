@@ -10,7 +10,7 @@ import {
   assertAllToolsCategorized,
   computeSettingsAvailableToolNames,
   computeToolSnapshot,
-} from "../shared/tool-categories.ts";
+} from "../packages/shared/tool-categories.ts";
 
 describe("tool-categories constants", () => {
   it("three categories are pairwise disjoint", () => {

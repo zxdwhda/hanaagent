@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { wrapWithCheckpoint } from "../lib/checkpoint-wrapper.ts";
+import { wrapWithCheckpoint } from "../packages/engine/lib/checkpoint-wrapper.ts";
 
 function makeTool(name, execute) {
   return { name, execute: execute || vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] })) };

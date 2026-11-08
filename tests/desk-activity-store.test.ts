@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ActivityStore } from "../lib/desk/activity-store.ts";
+import { ActivityStore } from "../packages/engine/lib/desk/activity-store.ts";
 
 const roots: string[] = [];
 

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MASKED_SECRET } from "../shared/secret-custody.ts";
+import { MASKED_SECRET } from "../packages/shared/secret-custody.ts";
 
 function withPrincipal(app, principal) {
   app.use("*", async (c, next) => {
@@ -28,7 +28,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("masks provider secrets in summary responses", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const engine = {
       providerRegistry: {
@@ -66,7 +66,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("reveals a provider api key only through the explicit secret endpoint", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     const engine = {
       providerRegistry: {
@@ -106,7 +106,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("requires secret scope before a remote provider api key can be revealed", async () => {
-    const { createProvidersRoute } = await import("../server/routes/providers.ts");
+    const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();
     withPrincipal(app, remotePrincipal(["providers.manage"]));
     const engine = {
@@ -138,7 +138,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("preserves saved provider secrets when a masked config patch is submitted", async () => {
-    const { createConfigRoute } = await import("../server/routes/config.ts");
+    const { createConfigRoute } = await import("../apps/server/routes/config.ts");
     const saveProvider = vi.fn();
     const engine = {
       config: {},
@@ -186,7 +186,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("masks global preference secrets and resolves masked updates back to saved values", async () => {
-    const { createPreferencesRoute } = await import("../server/routes/preferences.ts");
+    const { createPreferencesRoute } = await import("../apps/server/routes/preferences.ts");
     const setSearchConfig = vi.fn();
     const setUtilityApi = vi.fn();
     const engine = {
@@ -226,7 +226,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("masks bridge secrets in status and preserves masked config updates", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent: any = {
       id: "hana",
       config: {
@@ -357,7 +357,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("tests DingTalk bridge plaintext credentials without requiring saved config", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -411,8 +411,8 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("fingerprints the reloaded persisted DingTalk secret after config save", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
-    const { initDebugLog } = await import("../lib/debug-log.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
+    const { initDebugLog } = await import("../packages/engine/lib/debug-log.ts");
     const logDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-dingtalk-log-"));
     const debug = initDebugLog(logDir);
     const logSpy = vi.spyOn(debug, "log");
@@ -476,7 +476,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("starts DingTalk from the reloaded persisted configuration", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent: any = {
       id: "hana",
       config: { bridge: { dingtalk: {} } },
@@ -530,7 +530,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("projects enabled DingTalk without corpId as an explicit config error", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent = {
       id: "hana",
       config: {
@@ -570,7 +570,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("projects an explicitly migrated stable DingTalk config as usable", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent = {
       id: "hana",
       config: {
@@ -614,7 +614,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("tests DingTalk credentials against the configured API base URL", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -660,7 +660,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("tests saved DingTalk credentials with omitted secret and legacy aliases", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -713,7 +713,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("tests migrated stable DingTalk credentials through the legacy application endpoint", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -758,7 +758,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("preserves saved legacy mode when the UI omits it and exits it after corpId is supplied", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent: any = {
       id: "hana",
       config: {
@@ -821,7 +821,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("does not revive a legacy DingTalk secret when an existing canonical field is empty", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const agent = {
@@ -857,7 +857,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("lets a legacy DingTalk patch replace canonical saved fields", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent: any = {
       id: "hana",
       config: {
@@ -912,7 +912,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("lets an explicit DingTalk secret override the selected saved config", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -957,7 +957,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("does not read the current agent when testing explicit DingTalk plaintext", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -991,7 +991,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("clears a legacy appSecret when canonical clientSecret is explicitly empty", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent: any = {
       id: "hana",
       config: {
@@ -1050,7 +1050,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("restores a masked DingTalk alias only in explicit saved-credential mode", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -1097,7 +1097,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("requires an explicit agent for useSavedCredentials", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const app = new Hono();
@@ -1115,7 +1115,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("does not let the explicit plaintext test mode recover a displayed mask", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const app = new Hono();
@@ -1159,7 +1159,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("redacts a DingTalk secret echoed by an upstream token error", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -1190,7 +1190,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("rejects DingTalk custom webhook credentials instead of mixing chains", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent = {
       id: "hana",
       config: { bridge: { dingtalk: {} } },
@@ -1226,7 +1226,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("reports missing DingTalk Enterprise Stream fields explicitly", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const engine = {
       currentAgentId: null,
       getAgent: () => null,
@@ -1253,7 +1253,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("tests a saved legacy QQ token through the canonical appSecret request field", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ json: async () => ({ access_token: "qq-access-token" }) })
       .mockResolvedValueOnce({ json: async () => ({ id: "bot-1", username: "hana-bot" }) });
@@ -1290,7 +1290,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("clears a legacy QQ token when canonical appSecret is explicitly empty", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent: any = {
       id: "hana",
       config: {
@@ -1328,7 +1328,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("tests bridge plaintext credentials without requiring an existing saved agent config", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       json: async () => ({ code: 0 }),
     });
@@ -1380,7 +1380,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("returns structured Feishu credential diagnostics without implying webhook setup", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
@@ -1427,7 +1427,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("rejects unsupported Feishu regions on config save", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const agent = {
       id: "hana",
       config: { bridge: { feishu: { appId: "cli-id", appSecret: "fs-secret" } } },
@@ -1460,7 +1460,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("resolves masked bridge test credentials from the explicit agent only", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
         json: async () => ({ access_token: "qq-token" }),
@@ -1514,7 +1514,7 @@ describe("secret custody across HTTP routes", () => {
   });
 
   it("rejects masked bridge test credentials without an explicit agent id", async () => {
-    const { createBridgeRoute } = await import("../server/routes/bridge.ts");
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 

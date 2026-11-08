@@ -8,17 +8,17 @@ import {
   createPluginProxyRoute,
   createPluginsRoute,
   verifyPluginIframeTicketForHostRequest,
-} from "../server/routes/plugins.ts";
-import { PluginIframeTicketError } from "../core/plugin-iframe-ticket-service.ts";
-import { PluginAssetSessionError } from "../core/plugin-asset-session-service.ts";
+} from "../apps/server/routes/plugins.ts";
+import { PluginIframeTicketError } from "../packages/engine/core/plugin-iframe-ticket-service.ts";
+import { PluginAssetSessionError } from "../packages/engine/core/plugin-asset-session-service.ts";
 import {
   isMalformedPluginAssetRequest,
   isPluginAssetRequest,
   verifyPluginAssetSessionForHostRequest,
-} from "../server/http/plugin-assets.ts";
-import { PLUGIN_SURFACE_SESSION_HEADER } from "../server/http/plugin-surface-session.ts";
-import { resolveHttpRequestPrincipal } from "../server/http/request-principal.ts";
-import { createServerAuthService } from "../core/server-auth.ts";
+} from "../apps/server/http/plugin-assets.ts";
+import { PLUGIN_SURFACE_SESSION_HEADER } from "../apps/server/http/plugin-surface-session.ts";
+import { resolveHttpRequestPrincipal } from "../apps/server/http/request-principal.ts";
+import { createServerAuthService } from "../packages/engine/core/server-auth.ts";
 
 describe("plugin route proxy", () => {
   it("dispatches to registered plugin route", async () => {
@@ -605,7 +605,7 @@ describe("plugin management API", () => {
     it("issues a path-scoped asset session from iframe pages and serves static plugin assets", async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-assets-"));
       try {
-        const pluginDir = path.join(tmpDir, "plugins", "demo");
+        const pluginDir = path.join(tmpDir, "extensions/plugins", "demo");
         fs.mkdirSync(path.join(pluginDir, "assets", "dist"), { recursive: true });
         fs.writeFileSync(path.join(pluginDir, "assets", "dist", "dashboard.js"), "export const ok = true;\n");
 
@@ -656,7 +656,7 @@ describe("plugin management API", () => {
     it("serves plugin video assets with byte ranges through the official assets route", async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-video-assets-"));
       try {
-        const pluginDir = path.join(tmpDir, "plugins", "demo");
+        const pluginDir = path.join(tmpDir, "extensions/plugins", "demo");
         fs.mkdirSync(path.join(pluginDir, "assets", "videos"), { recursive: true });
         fs.writeFileSync(path.join(pluginDir, "assets", "videos", "background.mp4"), Buffer.from("0123456789abcdef"));
 
@@ -714,7 +714,7 @@ describe("plugin management API", () => {
     it("keeps asset sessions confined to static files under the plugin assets root", async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-assets-confined-"));
       try {
-        const pluginDir = path.join(tmpDir, "plugins", "demo");
+        const pluginDir = path.join(tmpDir, "extensions/plugins", "demo");
         fs.mkdirSync(path.join(pluginDir, "assets", "dist"), { recursive: true });
         fs.writeFileSync(path.join(pluginDir, "assets", "dist", "app.js"), "console.log('ok');\n");
         fs.writeFileSync(path.join(pluginDir, "assets", "dist", "app.js.map"), "{}\n");
@@ -767,7 +767,7 @@ describe("plugin management API", () => {
     it("does not let a plugin asset session authorize plugin route apps", async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-assets-api-"));
       try {
-        const pluginDir = path.join(tmpDir, "plugins", "demo");
+        const pluginDir = path.join(tmpDir, "extensions/plugins", "demo");
         fs.mkdirSync(path.join(pluginDir, "assets"), { recursive: true });
         fs.writeFileSync(path.join(pluginDir, "assets", "entry.js"), "export {};\n");
 
@@ -1641,7 +1641,7 @@ describe("plugin management API", () => {
     it("rejects dragged OpenClaw plugin zips with an explicit incompatibility error", async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-openclaw-plugin-"));
       try {
-        const userPluginsDir = path.join(tmpDir, "plugins");
+        const userPluginsDir = path.join(tmpDir, "extensions/plugins");
         const sourcePath = path.join(tmpDir, "openclaw-plugin.zip");
         fs.writeFileSync(sourcePath, makeStoredZip({
           "openclaw-voice/openclaw.plugin.json": JSON.stringify({
@@ -1686,7 +1686,7 @@ describe("plugin management API", () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-install-"));
       try {
         const sourceDir = path.join(tmpDir, "plugin-src");
-        const userPluginsDir = path.join(tmpDir, "plugins");
+        const userPluginsDir = path.join(tmpDir, "extensions/plugins");
         fs.mkdirSync(sourceDir, { recursive: true });
         fs.writeFileSync(path.join(sourceDir, "manifest.json"), JSON.stringify({
           id: "plugin-src",
@@ -1760,7 +1760,7 @@ describe("plugin management API", () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-install-dev-shadow-"));
       try {
         const sourceDir = path.join(tmpDir, "source-demo");
-        const userPluginsDir = path.join(tmpDir, "plugins");
+        const userPluginsDir = path.join(tmpDir, "extensions/plugins");
         const devPluginDir = path.join(tmpDir, "plugins-dev", "demo");
         fs.mkdirSync(sourceDir, { recursive: true });
         fs.writeFileSync(path.join(sourceDir, "manifest.json"), JSON.stringify({
@@ -2138,9 +2138,9 @@ async function loadRealPluginWithRoutes({ tmpHome, pluginId, manifestExtra = {},
   }));
   fs.writeFileSync(path.join(pluginDir, "routes", "api.js"), routeSource);
 
-  const { EventBus } = await import("../hub/event-bus.ts");
+  const { EventBus } = await import("../packages/engine/hub/event-bus.ts");
   const bus = new EventBus();
-  const { PluginManager } = await import("../core/plugin-manager.ts");
+  const { PluginManager } = await import("../packages/engine/core/plugin-manager.ts");
   const pm = new PluginManager({
     pluginsDir: pluginsDir,
     dataDir,

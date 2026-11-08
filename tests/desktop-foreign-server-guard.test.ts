@@ -20,10 +20,10 @@ const root = process.cwd();
  * proves desktop/main.cjs actually calls into it at the right spot.
  */
 describe("desktop foreign-server guard (same-HANA_HOME mutual exclusion, desktop pre-spawn)", () => {
-  const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+  const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
   it("requires the shared token-authenticated probe module", () => {
-    expect(mainSource).toContain('require("../shared/server-info-probe.cjs")');
+    expect(mainSource).toContain('require("../../packages/shared/server-info-probe.cjs")');
     expect(mainSource).toContain("probeServerInfo");
     expect(mainSource).toContain("isForeignServerBlocking");
     expect(mainSource).toContain("describeForeignServerBlock");

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { WorkflowActivityStore, WORKFLOW_ACTIVITY_STORE_VERSION } from "../lib/workflow-activity-store.ts";
+import { WorkflowActivityStore, WORKFLOW_ACTIVITY_STORE_VERSION } from "../packages/engine/lib/workflow-activity-store.ts";
 
 let dir;
 let file;

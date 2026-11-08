@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ResourceEventBus } from "../lib/resource-io/resource-event-bus.ts";
+import { ResourceEventBus } from "../packages/engine/lib/resource-io/resource-event-bus.ts";
 
 describe("ResourceIO sync cursor", () => {
   it("retains recent resource events for catch-up by sequence", () => {

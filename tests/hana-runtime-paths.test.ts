@@ -10,7 +10,7 @@ import {
   resolveHanaPiSdkResourceLoaderCwd,
   resolveHanaPiSdkRuntimeRoot,
   resolveLegacyPiSdkManagedBinDir,
-} from "../shared/hana-runtime-paths.ts";
+} from "../packages/shared/hana-runtime-paths.ts";
 
 describe("Hana runtime path contracts", () => {
   it("derives Hana-owned Pi SDK runtime paths from HANA_HOME", () => {

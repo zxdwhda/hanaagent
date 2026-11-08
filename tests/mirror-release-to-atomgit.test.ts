@@ -8,7 +8,7 @@ import {
   parseArgs,
   run,
   selectGithubReleases,
-} from "../scripts/mirror-release-to-atomgit.mjs";
+} from "../tooling/scripts/mirror-release-to-atomgit.mjs";
 
 const mirrorOptions = {
   githubOwner: "liliMozi",

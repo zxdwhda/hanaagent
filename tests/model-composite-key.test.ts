@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseModelRef, findModel, modelRefEquals, modelRefKey, requireModelRef } from "../shared/model-ref.ts";
+import { parseModelRef, findModel, modelRefEquals, modelRefKey, requireModelRef } from "../packages/shared/model-ref.ts";
 
 describe("Model composite key", () => {
   const models = [

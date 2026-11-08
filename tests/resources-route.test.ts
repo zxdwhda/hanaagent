@@ -54,7 +54,7 @@ describe("resources route", () => {
   }
 
   it("returns resource metadata from the engine resource service", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     const app = new Hono();
     app.route("/api", createResourcesRoute({
       getResource: () => ({
@@ -85,7 +85,7 @@ describe("resources route", () => {
   });
 
   it("passes request context into the resource service", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     let seenContext = null;
     const app = new Hono();
     app.route("/api", createResourcesRoute({
@@ -152,7 +152,7 @@ describe("resources route", () => {
   });
 
   it("fails explicitly when request context cannot be created", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     const app = new Hono();
     app.route("/api", createResourcesRoute({
       getRuntimeContext: () => {
@@ -175,9 +175,9 @@ describe("resources route", () => {
   });
 
   it("returns reconciled missing metadata through the real resource service", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
-    const { ResourceService } = await import("../core/resource-service.ts");
-    const { SessionFileRegistry } = await import("../lib/session-files/session-file-registry.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
+    const { ResourceService } = await import("../packages/engine/core/resource-service.ts");
+    const { SessionFileRegistry } = await import("../packages/engine/lib/session-files/session-file-registry.ts");
     const { agentsDir, fileId } = makeMissingSessionFileSidecar();
     const service = new ResourceService({
       agentsDir,
@@ -209,7 +209,7 @@ describe("resources route", () => {
   });
 
   it("streams local resource content and supports HEAD metadata", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     const filePath = makeFile();
     const app = new Hono();
     app.route("/api", createResourcesRoute({
@@ -234,7 +234,7 @@ describe("resources route", () => {
   });
 
   it("serves local content whose filename contains non-ASCII characters", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-resources-route-"));
     const filePath = path.join(tmpDir, "粘贴图片_mp0qkfvq_eb2b8042.png");
     fs.writeFileSync(filePath, "png-bytes", "utf-8");
@@ -260,7 +260,7 @@ describe("resources route", () => {
   });
 
   it("serves a byte range for local resource content", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     const filePath = makeFile();
     const app = new Hono();
     app.route("/api", createResourcesRoute({
@@ -283,7 +283,7 @@ describe("resources route", () => {
   });
 
   it("issues a short-lived content ticket and serves content without auth context when ticket is valid", async () => {
-    const { createResourcesRoute } = await import("../server/routes/resources.ts");
+    const { createResourcesRoute } = await import("../apps/server/routes/resources.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-resources-ticket-"));
     const filePath = path.join(tmpDir, "asset.txt");
     fs.writeFileSync(filePath, "ticket content", "utf-8");

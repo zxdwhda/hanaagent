@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
-import { createSettingsSnapshotRoute } from "../server/routes/settings-snapshot.ts";
-import { MASKED_SECRET } from "../shared/secret-custody.ts";
+import { createSettingsSnapshotRoute } from "../apps/server/routes/settings-snapshot.ts";
+import { MASKED_SECRET } from "../packages/shared/secret-custody.ts";
 
 let tmpRoot: string | null = null;
 

@@ -5,9 +5,9 @@ import path from "path";
 import zlib from "zlib";
 import { afterEach, describe, expect, it } from "vitest";
 
-import ustarModule from "../shared/artifact-core/ustar.cjs";
-import pointerStoreModule from "../shared/artifact-core/pointer-store.cjs";
-import activationModule from "../shared/artifact-core/activation.cjs";
+import ustarModule from "../packages/shared/artifact-core/ustar.cjs";
+import pointerStoreModule from "../packages/shared/artifact-core/pointer-store.cjs";
+import activationModule from "../packages/shared/artifact-core/activation.cjs";
 
 const { packTree } = ustarModule as {
   packTree: (srcDir: string, archivePath: string) => Promise<void>;

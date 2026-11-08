@@ -9,7 +9,7 @@ const {
   assertServerShutdownConfirmed,
   checkStagedPrecondition,
   runApplyNowSequence,
-} = require("../desktop/src/shared/train-update-apply.cjs");
+} = require("../apps/desktop/src/shared/train-update-apply.cjs");
 
 describe("train-update-apply: confirmed server shutdown", () => {
   it("accepts only an explicitly confirmed shutdown", () => {

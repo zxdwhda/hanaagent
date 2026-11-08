@@ -38,15 +38,15 @@ describe("Windows icon contract", () => {
   it("uses the app ICO for Windows packaging and installer surfaces", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8"));
 
-    expect(pkg.build.win.icon).toBe("desktop/src/icon.ico");
-    expect(pkg.build.nsis.installerIcon).toBe("desktop/src/icon.ico");
-    expect(pkg.build.nsis.uninstallerIcon).toBe("desktop/src/icon.ico");
-    expect(pkg.build.files).toContain("desktop/src/**/*.{html,icns,ico,png,svg,json}");
+    expect(pkg.build.win.icon).toBe("apps/desktop/src/icon.ico");
+    expect(pkg.build.nsis.installerIcon).toBe("apps/desktop/src/icon.ico");
+    expect(pkg.build.nsis.uninstallerIcon).toBe("apps/desktop/src/icon.ico");
+    expect(pkg.build.files).toContain("apps/desktop/src/**/*.{html,icns,ico,png,svg,json}");
     expect(pkg.scripts["dist:win"]).toContain("npm run generate:windows-icon");
   });
 
   it("keeps Windows app icon layers transparent for rounded taskbar rendering", () => {
-    const entries = readIcoEntries(path.join(ROOT, "desktop", "src", "icon.ico"));
+    const entries = readIcoEntries(path.join(ROOT, "apps/desktop", "src", "icon.ico"));
     const sizes = entries.map((entry) => entry.width).sort((a, b) => b - a);
 
     expect(sizes).toEqual([256, 128, 64, 48, 32, 24, 16]);
@@ -58,7 +58,7 @@ describe("Windows icon contract", () => {
   });
 
   it("separates app window icon from tray icon and sets Windows taskbar identity", () => {
-    const main = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
+    const main = fs.readFileSync(path.join(ROOT, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(main).toContain("app.setAppUserModelId");
     expect(main).toContain("com.zxdwhda.hanaagent");
@@ -69,10 +69,10 @@ describe("Windows icon contract", () => {
 
   it("loads tray icons from packaged resources and rejects empty native images", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8"));
-    const main = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
+    const main = fs.readFileSync(path.join(ROOT, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(pkg.build.extraResources).toEqual(expect.arrayContaining([
-      { from: "desktop/src/assets/", to: "assets/" },
+      { from: "apps/desktop/src/assets/", to: "assets/" },
     ]));
     expect(main).toContain("function resolveTrayAssetCandidates");
     expect(main).toContain("process.resourcesPath");

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { fromRoot } from "../shared/hana-root.ts";
-import { execute as listCapabilitiesExecute } from "../plugins/beautify/tools/list-capabilities.ts";
+import { fromRoot } from "../packages/shared/hana-root.ts";
+import { execute as listCapabilitiesExecute } from "../extensions/plugins/beautify/tools/list-capabilities.ts";
 import {
   HTML_STYLE_GUIDE_SECTIONS,
   HTML_STYLE_GUIDE_VERSION,
@@ -11,14 +11,14 @@ import {
   getReadSections,
   resetHtmlStyleGuideTracking,
   sessionTrackingKey,
-} from "../plugins/beautify/lib/html-style-guide.ts";
+} from "../extensions/plugins/beautify/lib/html-style-guide.ts";
 import {
   description as htmlGuideDescription,
   execute as htmlGuideExecute,
   parameters as htmlGuideParameters,
   isEnabledForAgentConfig as htmlGuideEnabled,
-} from "../plugins/beautify/tools/get-html-style-guide.ts";
-import { isBeautifyEnabledForAgentConfig } from "../plugins/beautify/lib/availability.ts";
+} from "../extensions/plugins/beautify/tools/get-html-style-guide.ts";
+import { isBeautifyEnabledForAgentConfig } from "../extensions/plugins/beautify/lib/availability.ts";
 
 function loadLocaleJson(name: string) {
   return JSON.parse(fs.readFileSync(fromRoot("desktop", "src", "locales", `${name}.json`), "utf-8"));

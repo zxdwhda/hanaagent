@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { repairProviderModelMetadata } from "../core/provider-model-metadata-migration.ts";
-import { validateProviderModels } from "../shared/provider-model-validation.ts";
+import { repairProviderModelMetadata } from "../packages/engine/core/provider-model-metadata-migration.ts";
+import { validateProviderModels } from "../packages/shared/provider-model-validation.ts";
 
 describe("repairProviderModelMetadata", () => {
   it("repairs legacy metadata without dropping models, ordering, or valid fields", () => {

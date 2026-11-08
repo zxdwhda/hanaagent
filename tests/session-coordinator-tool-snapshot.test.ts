@@ -19,7 +19,7 @@ const { createAgentSessionMock, sessionManagerCreateMock, sessionManagerOpenMock
   sessionManagerOpenMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   SessionManager: {
     create: sessionManagerCreateMock,
@@ -32,17 +32,17 @@ vi.mock("../lib/pi-sdk/index.js", () => ({
   emitSessionShutdown: vi.fn(),
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { SessionCoordinator } from "../core/session-coordinator.ts";
-import { EnvChangeLedger } from "../core/env-change-ledger.ts";
-import { SessionManifestStore } from "../core/session-manifest/store.ts";
-import { repairRestoredToolSnapshot } from "../core/tool-snapshot-repair.ts";
-import { filterToolObjectsByAvailability } from "../core/tool-availability.ts";
-import { isBeautifyEnabledForAgentConfig } from "../plugins/beautify/lib/availability.ts";
-import { CORE_TOOL_NAMES } from "../shared/tool-categories.ts";
+import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
+import { EnvChangeLedger } from "../packages/engine/core/env-change-ledger.ts";
+import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
+import { repairRestoredToolSnapshot } from "../packages/engine/core/tool-snapshot-repair.ts";
+import { filterToolObjectsByAvailability } from "../packages/engine/core/tool-availability.ts";
+import { isBeautifyEnabledForAgentConfig } from "../extensions/plugins/beautify/lib/availability.ts";
+import { CORE_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
 
 // Fake tool objects — only needs `.name` to satisfy `.map(t => t.name)` paths
 function makeTool(name) {

@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import path from "path";
-import { SkillManager, __test } from "../core/skill-manager.ts";
+import { SkillManager, __test } from "../packages/engine/core/skill-manager.ts";
 
 function makeAgent(id, enabled = [], workspaceContext = undefined) {
   return { id, config: { skills: { enabled }, workspace_context: workspaceContext } };
@@ -349,7 +349,7 @@ describe("createSkillWatchIgnore", () => {
   it("still skips heavy dirs nested inside a heavy-named skill", () => {
     // <root>/build/ is a legit skill, but <root>/build/node_modules/ inside it
     // is still a dependency tree that must be skipped.
-    expect(ignore(path.join(root, "build", "node_modules", "react", "index.js"))).toBe(true);
+    expect(ignore(path.join(root, "tooling/build", "node_modules", "react", "index.js"))).toBe(true);
     expect(ignore(path.join(root, "dist", "target", "release", "x"))).toBe(true);
   });
 });

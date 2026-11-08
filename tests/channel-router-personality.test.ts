@@ -12,15 +12,15 @@ const { runAgentPhoneSessionMock, callTextMock } = vi.hoisted(() => ({
   callTextMock: vi.fn(async () => "NO"),
 }));
 
-vi.mock("../hub/agent-executor.js", () => ({
+vi.mock("../packages/engine/hub/agent-executor.js", () => ({
   runAgentPhoneSession: runAgentPhoneSessionMock,
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: callTextMock,
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
   createModuleLogger: () => ({
     log: vi.fn(),
@@ -29,13 +29,13 @@ vi.mock("../lib/debug-log.js", () => ({
   }),
 }));
 
-vi.mock("../lib/memory/config-loader.js", () => ({
+vi.mock("../packages/engine/lib/memory/config-loader.js", () => ({
   loadConfig: vi.fn(() => {
     throw new Error("loadConfig should not be part of phone delivery gating");
   }),
 }));
 
-import { ChannelRouter } from "../hub/channel-router.ts";
+import { ChannelRouter } from "../packages/engine/hub/channel-router.ts";
 
 describe("ChannelRouter._executeCheck phone delivery", () => {
   it("does not run utility gating or disk personality fallback before the phone session", async () => {

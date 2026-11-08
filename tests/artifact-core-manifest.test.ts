@@ -1,7 +1,7 @@
 import { generateKeyPairSync, sign as cryptoSign } from "crypto";
 import { describe, expect, it } from "vitest";
 
-import manifestModule from "../shared/artifact-core/manifest.cjs";
+import manifestModule from "../packages/shared/artifact-core/manifest.cjs";
 
 const { parseManifest, validateManifest, verifyManifest, checkMonotonic } = manifestModule as {
   parseManifest: (bytes: Buffer | string) => any;

@@ -20,11 +20,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn().mockResolvedValue("compiled content from llm"),
 }));
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
 }));
 
@@ -36,16 +36,16 @@ import {
   assemble,
   migrateLegacyEditableFacts,
   readCompiledMemorySections,
-} from "../lib/memory/compile.ts";
+} from "../packages/engine/lib/memory/compile.ts";
 import {
   readCompiledResetAt,
   writeCompiledResetMarker,
   clearCompiledMemoryArtifacts,
   clearCompiledSummarySources,
   normalizeCompiledSectionBody,
-} from "../lib/memory/compiled-memory-state.ts";
-import { SessionSummaryManager } from "../lib/memory/session-summary.ts";
-import { callText } from "../core/llm-client.ts";
+} from "../packages/engine/lib/memory/compiled-memory-state.ts";
+import { SessionSummaryManager } from "../packages/engine/lib/memory/session-summary.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
 
 const RESOLVED_MODEL = { model: "m", api: "openai-completions", api_key: "k", base_url: "http://x" };
 

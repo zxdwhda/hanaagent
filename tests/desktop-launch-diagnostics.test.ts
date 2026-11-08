@@ -19,7 +19,7 @@ describe("desktop launch diagnostics", () => {
 
   it("writes redacted startup events to a stable desktop-launch log path", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-launch-diagnostics-"));
-    const mod = await import("../desktop/src/shared/desktop-launch-diagnostics.cjs");
+    const mod = await import("../apps/desktop/src/shared/desktop-launch-diagnostics.cjs");
     const { createDesktopLaunchDiagnostics } = mod.default || mod;
     let tick = 0;
     const diagnostics = createDesktopLaunchDiagnostics({
@@ -60,7 +60,7 @@ describe("desktop launch diagnostics", () => {
   });
 
   it("keeps main-process window lifecycle coverage for blank-launch diagnostics", () => {
-    const source = readSource("desktop/main.cjs");
+    const source = readSource("apps/desktop/main.cjs");
 
     for (const required of [
       "createDesktopLaunchDiagnostics",
@@ -90,9 +90,9 @@ describe("desktop launch diagnostics", () => {
   });
 
   it("marks renderer bootstrap phases in console for persisted main-process capture", () => {
-    const main = readSource("desktop/src/main.tsx");
-    const app = readSource("desktop/src/react/App.tsx");
-    const init = readSource("desktop/src/react/app-init.ts");
+    const main = readSource("apps/desktop/src/main.tsx");
+    const app = readSource("apps/desktop/src/react/App.tsx");
+    const init = readSource("apps/desktop/src/react/app-init.ts");
 
     expect(main).toContain("renderer-entry");
     expect(main).toContain("securitypolicyviolation");

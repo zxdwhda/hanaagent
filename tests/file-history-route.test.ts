@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import path from "path";
-import { createFileHistoryRoute } from "../server/routes/file-history.ts";
+import { createFileHistoryRoute } from "../apps/server/routes/file-history.ts";
 
 function makeApp() {
   const root = path.resolve("/tmp/hana-fh-route-ws");

@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { collectWorkspaceInstructionFiles } from "../core/workspace-instruction-files.ts";
+import { collectWorkspaceInstructionFiles } from "../packages/engine/core/workspace-instruction-files.ts";
 
 const tempDirs: string[] = [];
 

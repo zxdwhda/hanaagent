@@ -22,7 +22,7 @@ const sessionManagerOpenMock = vi.fn();
 const sessionManagerCreateMock = vi.fn();
 const createAgentSessionMock = vi.fn();
 
-vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
+vi.mock("../packages/engine/lib/pi-sdk/index.js", async (importOriginal) => {
   const actual: any = await importOriginal();
   return {
     ...actual,
@@ -38,7 +38,7 @@ vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
 // ── session-health mock，让测试能追踪调用顺序 ──
 const repairMock = vi.fn(() => ({ repaired: false, removed: 0 }));
 
-vi.mock("../core/session-health.js", async (importOriginal) => {
+vi.mock("../packages/engine/core/session-health.js", async (importOriginal) => {
   const actual: any = await importOriginal();
   return {
     ...actual,
@@ -60,7 +60,7 @@ const pruneInlineMediaMock = vi.fn(() => ({
   strippedAudios: 0,
 }));
 
-vi.mock("../core/session-inline-media-prune.js", async (importOriginal) => {
+vi.mock("../packages/engine/core/session-inline-media-prune.js", async (importOriginal) => {
   const actual: any = await importOriginal();
   return {
     ...actual,
@@ -69,12 +69,12 @@ vi.mock("../core/session-inline-media-prune.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => null,
   createModuleLogger: () => ({ log: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-import { BridgeSessionManager } from "../core/bridge-session-manager.ts";
+import { BridgeSessionManager } from "../packages/engine/core/bridge-session-manager.ts";
 
 // ── 测试脚手架 ──
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toAgentActivityWsMessage } from "../server/routes/chat.ts";
+import { toAgentActivityWsMessage } from "../apps/server/routes/chat.ts";
 
 // 回归：ActivityHub 广播的 agent_activity 事件必须经 chat.js 的 hub.subscribe 转发链
 // broadcast 到 WS client，否则右侧「子助手 / workflow / 巡检」卡永远收不到数据。

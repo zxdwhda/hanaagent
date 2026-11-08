@@ -4,7 +4,7 @@ import {
   createSessionTurnContextExtension,
   injectSessionTurnContextMessages,
   normalizeSessionTurnContext,
-} from "../core/session-turn-context.ts";
+} from "../packages/engine/core/session-turn-context.ts";
 
 describe("session turn context injection", () => {
   it("normalizes explicit system and user-side context blocks", () => {

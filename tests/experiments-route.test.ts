@@ -2,17 +2,17 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { createExperimentsRoute } from "../server/routes/experiments.ts";
+import { createExperimentsRoute } from "../apps/server/routes/experiments.ts";
 import {
   CACHE_SNAPSHOT_EXPERIMENT_ID,
   COMPACTION_MODE_EXPERIMENT_ID,
   DEEPSEEK_ROLEPLAY_REASONING_PATCH_EXPERIMENT_ID,
   INSTANT_SIMPLE_COMPACTION_EXPERIMENT_ID,
-} from "../lib/experiments/registry.ts";
+} from "../packages/engine/lib/experiments/registry.ts";
 import {
   readCacheSnapshotObservation,
   writeCacheSnapshotObservation,
-} from "../lib/memory/cache-snapshot-observation.ts";
+} from "../packages/engine/lib/memory/cache-snapshot-observation.ts";
 
 function makeEngine() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-experiments-route-"));

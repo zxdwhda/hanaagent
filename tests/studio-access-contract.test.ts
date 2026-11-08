@@ -4,7 +4,7 @@ import {
   deriveStudioAccessGrant,
   getStudioConnectionProfile,
   validateStudioConnectionTrust,
-} from "../shared/studio-access-contract.ts";
+} from "../packages/shared/studio-access-contract.ts";
 
 function localConnection( patch: any = {}) {
   return {

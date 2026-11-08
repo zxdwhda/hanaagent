@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isCurrentCliAgent, pickCliAgent } from "../server/cli.ts";
+import { isCurrentCliAgent, pickCliAgent } from "../apps/server/cli.ts";
 
 describe("CLI agent selection", () => {
   it("names the agent this terminal session is attached to", () => {

@@ -7,7 +7,7 @@ import {
   ensureSecretDirModeSync,
   ensureSecretFileModeSync,
   writeSecretFileSync,
-} from "../shared/secret-fs.ts";
+} from "../packages/shared/secret-fs.ts";
 
 const POSIX = process.platform !== "win32";
 

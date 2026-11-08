@@ -7,11 +7,11 @@ import {
   parameters,
   promptGuidelines,
   sessionPermission,
-} from "../plugins/media/tools/get-guide.ts";
+} from "../extensions/plugins/media/tools/get-guide.ts";
 import {
   MEDIA_GENERATION_GUIDE,
   MEDIA_GENERATION_GUIDE_VERSION,
-} from "../plugins/media/lib/generation-guide.ts";
+} from "../extensions/plugins/media/lib/generation-guide.ts";
 
 describe("media_get-guide", () => {
   it("exposes a read-only tool that takes no arguments", () => {

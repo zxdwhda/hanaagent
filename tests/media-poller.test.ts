@@ -7,10 +7,10 @@
 
 import path from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { shouldCheckThisTick, Poller } from "../core/media/poller.ts";
+import { shouldCheckThisTick, Poller } from "../packages/engine/core/media/poller.ts";
 
 // Mock readImageSize so poller tests don't depend on real file I/O.
-vi.mock("../core/media/image-size.ts", () => ({
+vi.mock("../packages/engine/core/media/image-size.ts", () => ({
   readImageSize: vi.fn(async () => null),
 }));
 

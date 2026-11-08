@@ -3,17 +3,17 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-vi.mock("../lib/i18n.js", () => ({
+vi.mock("../packages/engine/lib/i18n.js", () => ({
   getLocale: () => "zh-CN",
   t: (key: string, values?: Record<string, unknown>) => values?.reply ? `${key}:${values.reply}` : key,
 }));
 
-vi.mock("../core/llm-client.js", () => ({
+vi.mock("../packages/engine/core/llm-client.js", () => ({
   callText: vi.fn(),
 }));
 
-import { callText } from "../core/llm-client.ts";
-import { createInstallSkillTool, safetyReview } from "../lib/tools/install-skill.ts";
+import { callText } from "../packages/engine/core/llm-client.ts";
+import { createInstallSkillTool, safetyReview } from "../packages/engine/lib/tools/install-skill.ts";
 
 describe("install_skill safety review", () => {
   let tmpDir: string | null = null;
@@ -85,8 +85,8 @@ describe("install_skill safety review", () => {
   });
 
   it("keeps Agent and AgentManager resolver wrappers option-aware for install_skill", () => {
-    const agentSource = fs.readFileSync(path.join(process.cwd(), "core", "agent.ts"), "utf-8");
-    const managerSource = fs.readFileSync(path.join(process.cwd(), "core", "agent-manager.ts"), "utf-8");
+    const agentSource = fs.readFileSync(path.join(process.cwd(), "packages/engine/core", "agent.ts"), "utf-8");
+    const managerSource = fs.readFileSync(path.join(process.cwd(), "packages/engine/core", "agent-manager.ts"), "utf-8");
 
     expect(agentSource).toContain(
       "resolveUtilityConfig: (options) => this._cb?.resolveUtilityConfigFresh?.(options)",

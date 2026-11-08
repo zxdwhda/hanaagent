@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
  */
 describe("agents route: /agents/switch error surfacing", () => {
   async function switchWith(switchAgent) {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const app = new Hono();
     const engine = {
       currentAgentId: "target",
@@ -116,7 +116,7 @@ describe("agents route: /agents/switch error surfacing", () => {
   });
 
   it("logs the failure server-side instead of relying on the client", async () => {
-    const { createAgentsRoute } = await import("../server/routes/agents.ts");
+    const { createAgentsRoute } = await import("../apps/server/routes/agents.ts");
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const app = new Hono();

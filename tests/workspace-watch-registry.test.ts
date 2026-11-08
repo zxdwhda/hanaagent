@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import path from "path";
-import { createWorkspaceWatchRegistry } from "../desktop/workspace-watch-registry.cjs";
+import { createWorkspaceWatchRegistry } from "../apps/desktop/workspace-watch-registry.cjs";
 
 class FakeWatcher {
   declare close: any;

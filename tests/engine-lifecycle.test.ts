@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HanaEngine } from "../core/engine.ts";
-import { autoProjectIdForCwd, UNCATEGORIZED_PROJECT_ID } from "../shared/session-projects.ts";
+import { HanaEngine } from "../packages/engine/core/engine.ts";
+import { autoProjectIdForCwd, UNCATEGORIZED_PROJECT_ID } from "../packages/shared/session-projects.ts";
 
 // ---------------------------------------------------------------------------
 // Computer Use lazy runtime

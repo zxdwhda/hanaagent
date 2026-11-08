@@ -5,7 +5,7 @@ import {
   hitTestMessages,
   rangeIds,
   type SelectionRect,
-} from '../desktop/src/react/utils/box-selection';
+} from '../apps/desktop/src/react/utils/box-selection';
 
 describe('rectFromPoints', () => {
   it('normalizes points regardless of drag direction', () => {

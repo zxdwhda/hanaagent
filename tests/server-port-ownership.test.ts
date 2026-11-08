@@ -9,7 +9,7 @@ const root = process.cwd();
 
 describe("server transport ownership", () => {
   it("binds the server endpoint before first-run, engine init, plugins, and schedulers", () => {
-    const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     const bindIndex = source.indexOf("await bindServerTransportOwnership");
     expect(bindIndex).toBeGreaterThan(-1);
@@ -22,7 +22,7 @@ describe("server transport ownership", () => {
   });
 
   it("repairs local identity registries after first-run and before engine initialization", () => {
-    const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     const firstRunIndex = source.indexOf("ensureFirstRun(");
     const identityIndex = source.indexOf("ensureLocalIdentityRegistries(");
@@ -34,7 +34,7 @@ describe("server transport ownership", () => {
   });
 
   it("registers compaction framework extensions before plugin startup lifecycles", () => {
-    const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     const compactionIndex = source.indexOf("await engine.registerExtensionFactory(createCompactionGuardExtension");
     const pluginInitIndex = source.indexOf("await engine.initPlugins(");
@@ -45,7 +45,7 @@ describe("server transport ownership", () => {
   });
 
   it("reports PORT_IN_USE with host, port, network mode, and recovery suggestions", () => {
-    const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(source).toContain("code: \"PORT_IN_USE\"");
     expect(source).toContain("networkMode");
@@ -54,14 +54,14 @@ describe("server transport ownership", () => {
   });
 
   it("uses the configured server network host as the transport bind host", () => {
-    const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(source).toContain("bindHost: serverNetwork.host");
     expect(source).not.toContain("bindHost: \"0.0.0.0\"");
   });
 
   it("reports LISTEN_PERMISSION_DENIED for EACCES listen failures", () => {
-    const source = fs.readFileSync(path.join(root, "server", "index.ts"), "utf-8");
+    const source = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
 
     expect(source).toContain("code: \"LISTEN_PERMISSION_DENIED\"");
     expect(source).toContain("isListenPermissionError");
@@ -76,7 +76,7 @@ describe("server transport ownership", () => {
     });
     const port = (blocker.address() as any).port;
     const hanaHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-port-conflict-test-"));
-    const child = spawn(process.execPath, ["server/bootstrap.ts"], {
+    const child = spawn(process.execPath, ["apps/server/bootstrap.ts"], {
       cwd: root,
       env: {
         ...process.env,
@@ -86,7 +86,7 @@ describe("server transport ownership", () => {
         // server/main-full.ts is the thin closed composition entry:
         // server/index.ts itself only exports startServer() and boots
         // nothing on mere import.
-        HANA_SERVER_ENTRY: path.join(root, "server", "main-full.ts"),
+        HANA_SERVER_ENTRY: path.join(root, "apps/server", "main-full.ts"),
         HANA_CREATE_STARTUP_SESSION: "0",
       },
       stdio: ["ignore", "pipe", "pipe"],

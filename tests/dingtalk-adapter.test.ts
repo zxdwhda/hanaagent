@@ -4,7 +4,7 @@ import {
   DINGTALK_BOT_CALLBACK_TOPIC,
   DINGTALK_STREAMING_CAPABILITIES,
   createDingTalkAdapter,
-} from "../lib/bridge/dingtalk-adapter.ts";
+} from "../packages/engine/lib/bridge/dingtalk-adapter.ts";
 
 type FakeWebSocketHandler = (payload?: unknown) => void;
 

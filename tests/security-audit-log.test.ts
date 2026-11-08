@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { MASKED_SECRET } from "../shared/secret-custody.ts";
+import { MASKED_SECRET } from "../packages/shared/secret-custody.ts";
 
 describe("security audit log", () => {
   let tmpDir = null;
@@ -13,7 +13,7 @@ describe("security audit log", () => {
   });
 
   it("redacts secret-like metadata before writing audit JSONL", async () => {
-    const { appendSecurityAuditEvent, securityAuditLogPath } = await import("../core/security-audit-log.ts");
+    const { appendSecurityAuditEvent, securityAuditLogPath } = await import("../packages/engine/core/security-audit-log.ts");
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-security-audit-"));
 
     const record = appendSecurityAuditEvent(tmpDir, {

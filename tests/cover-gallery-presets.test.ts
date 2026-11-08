@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 import {
   COVER_GALLERY_PRESETS,
   getCoverGalleryPreset,
-} from "../shared/cover-gallery-presets.ts";
-import { resolveCoverGalleryPresetImagePath } from "../plugins/beautify/lib/cover-gallery-assets.ts";
+} from "../packages/shared/cover-gallery-presets.ts";
+import { resolveCoverGalleryPresetImagePath } from "../extensions/plugins/beautify/lib/cover-gallery-assets.ts";
 
 describe("cover gallery presets", () => {
   it("keeps built-in cover presets as plain bundled asset file names", () => {
@@ -25,7 +25,7 @@ describe("cover gallery presets", () => {
   it("resolves a preset image under the cover gallery asset directory", () => {
     const preset = COVER_GALLERY_PRESETS[0];
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-cover-gallery-root-"));
-    const assetDir = path.join(rootDir, "desktop", "src", "assets", "cover-gallery");
+    const assetDir = path.join(rootDir, "apps/desktop", "src", "assets", "cover-gallery");
     fs.mkdirSync(assetDir, { recursive: true });
     fs.writeFileSync(path.join(assetDir, preset.fileName), "image");
 

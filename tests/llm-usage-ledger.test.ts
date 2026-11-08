@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUsageLedger } from "../lib/llm/usage-ledger.ts";
+import { createUsageLedger } from "../packages/engine/lib/llm/usage-ledger.ts";
 
 function sessionContext(sessionPath = "/tmp/session.jsonl", sessionId: string | null = null) {
   return {

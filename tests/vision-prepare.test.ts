@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { AppError } from "../shared/errors.ts";
-import { prepareVisionInputForTextOnlyModel } from "../core/vision-prepare.ts";
+import { AppError } from "../packages/shared/errors.ts";
+import { prepareVisionInputForTextOnlyModel } from "../packages/engine/core/vision-prepare.ts";
 
 const textOnlyModel = { id: "deepseek-chat", provider: "deepseek", input: ["text"] };
 const deepseekImageDeclaredModel = {

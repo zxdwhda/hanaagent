@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { bridgeCommands } from "../../core/slash-commands/bridge-commands.ts";
-import { SlashCommandRegistry } from "../../core/slash-command-registry.ts";
+import { bridgeCommands } from "../../packages/engine/core/slash-commands/bridge-commands.ts";
+import { SlashCommandRegistry } from "../../packages/engine/core/slash-command-registry.ts";
 
 const loopCmd = () => bridgeCommands.find((c) => c.name === "loop");
 

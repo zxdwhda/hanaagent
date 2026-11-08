@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-const root = path.resolve(process.cwd(), "desktop/src/react");
+const root = path.resolve(process.cwd(), "apps/desktop/src/react");
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

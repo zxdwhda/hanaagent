@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const SCAN_DIRS = ["core", "server", "lib", "hub"];
-const ADAPTER_DIR = path.join(ROOT, "lib", "pi-sdk");
+const ADAPTER_DIR = path.join(ROOT, "packages/engine/lib", "pi-sdk");
 
 function walk(dir, files = []) {
   if (!fs.existsSync(dir)) return files;

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   SessionCollabDraftStore,
   SessionCollabPartialSuccessError,
-} from "../lib/session-collab/draft-store.ts";
+} from "../packages/engine/lib/session-collab/draft-store.ts";
 
 function makeEntry(overrides: any = {}) {
   return {

@@ -9,7 +9,7 @@ import {
   dreaminaCandidatePaths,
   parseDreaminaTaskOutput,
   resolveDreaminaCommand,
-} from "../plugins/jimeng-cli/adapters/dreamina.ts";
+} from "../extensions/plugins/jimeng-cli/adapters/dreamina.ts";
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-jimeng-cli-"));

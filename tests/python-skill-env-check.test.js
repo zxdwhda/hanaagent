@@ -6,8 +6,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const skillCreatorCheck = path.join(repoRoot, "skills2set", "skill-creator", "scripts", "check_env.mjs");
-const pluginCreatorCheck = path.join(repoRoot, "skills2set", "hana-plugin-creator", "scripts", "check_env.mjs");
+const skillCreatorCheck = path.join(repoRoot, "extensions/skills", "skill-creator", "scripts", "check_env.mjs");
+const pluginCreatorCheck = path.join(repoRoot, "extensions/skills", "hana-plugin-creator", "scripts", "check_env.mjs");
 
 function isolatedPathEnv(directory) {
   const env = { ...process.env, PATH: directory };

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ActivityHub } from "../lib/activity-hub.ts";
-import { WorkflowActivityStore } from "../lib/workflow-activity-store.ts";
+import { ActivityHub } from "../packages/engine/lib/activity-hub.ts";
+import { WorkflowActivityStore } from "../packages/engine/lib/workflow-activity-store.ts";
 
 // 端到端：跑 workflow（hub.upsert 写穿持久化）→ 模拟重启（新建 store + hub 实例）→
 // 右侧卡数据仍在 + 会话载入重发。覆盖 §3.6 收尾验收条件。

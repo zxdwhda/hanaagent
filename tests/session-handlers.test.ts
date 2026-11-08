@@ -5,12 +5,12 @@
  * registers itself — tests are self-contained, no need to instantiate Hub.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { EventBus } from "../hub/event-bus.ts";
-import { stripSessionReminderBlocks } from "../core/session-reminders.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
+import { stripSessionReminderBlocks } from "../packages/engine/core/session-reminders.ts";
 
 // ── helpers: register handlers inline (mirrors _setupSessionHandlers logic) ──
 
-vi.mock("../core/message-utils.js", () => ({
+vi.mock("../packages/engine/core/message-utils.js", () => ({
   extractTextContent: (content, opts: any = {}) => {
     if (typeof content === "string") return { text: content, thinking: "", toolUses: [], images: [] };
     if (!Array.isArray(content)) return { text: "", thinking: "", toolUses: [], images: [] };
@@ -29,7 +29,7 @@ import {
   extractTextContent,
   loadSessionHistoryMessages,
   isValidSessionPath,
-} from "../core/message-utils.ts";
+} from "../packages/engine/core/message-utils.ts";
 
 function registerHandlers(bus, engine) {
   const cleanups = [];

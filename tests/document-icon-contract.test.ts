@@ -15,8 +15,8 @@ function readPngColorType(filePath: string) {
 
 describe("Markdown document icon contract", () => {
   it("ships a transparent PNG source and macOS ICNS for the Markdown document icon", () => {
-    const pngPath = path.join(ROOT, "desktop", "src", "markdown-document-icon.png");
-    const icnsPath = path.join(ROOT, "desktop", "src", "markdown-document-icon.icns");
+    const pngPath = path.join(ROOT, "apps/desktop", "src", "markdown-document-icon.png");
+    const icnsPath = path.join(ROOT, "apps/desktop", "src", "markdown-document-icon.icns");
 
     expect(fs.existsSync(pngPath)).toBe(true);
     expect(fs.existsSync(icnsPath)).toBe(true);

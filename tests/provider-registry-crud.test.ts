@@ -10,7 +10,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import YAML from "js-yaml";
-import { ProviderRegistry } from "../core/provider-registry.ts";
+import { ProviderRegistry } from "../packages/engine/core/provider-registry.ts";
 
 const tmpDir = path.join(os.tmpdir(), "hana-test-pr-crud-" + Date.now());
 

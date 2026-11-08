@@ -7,8 +7,8 @@ jobs:
   # renderer 归档（renderer-<version>.tar.gz）是纯 web 静态资源，构建结果平台
   # 无关。这里单点构建一次，四个平台的 build job 下载同一份字节复用——避免
   # 各平台各自现场打包出"内容相同、字节不同、sha256 不同"的四份归档（packTree
-  # 在 tar 头里写入真实文件 mtime）。见 scripts/pack-renderer-box.mjs 与
-  # scripts/build-server-artifact.mjs 的 packDualKindSeed prebuiltRendererArchive
+  # 在 tar 头里写入真实文件 mtime）。见 tooling/scripts/pack-renderer-box.mjs 与
+  # tooling/scripts/build-server-artifact.mjs 的 packDualKindSeed prebuiltRendererArchive
   # / HANA_PREBUILT_RENDERER_BOX 入参。
   renderer-box:
     # Source-only publication: installer distribution needs a separate decision.
@@ -28,7 +28,7 @@ jobs:
 
       # 顺序不能颠倒：build:theme 的产物写进 dist-renderer/lib/theme.js，
       # 必须在 build:renderer 的 emptyOutDir 清空该目录之后才落地
-      # （见 config/vite.config.theme.js 文件头注释）。
+      # （见 tooling/config/vite.config.theme.js 文件头注释）。
       - name: Build renderer bundle
         run: npm run build:renderer
 
@@ -36,7 +36,7 @@ jobs:
         run: npm run build:theme
 
       - name: Pack renderer hot-update box
-        run: node scripts/pack-renderer-box.mjs
+        run: node tooling/scripts/pack-renderer-box.mjs
 
       - name: Upload renderer box
         uses: actions/upload-artifact@v4
@@ -84,12 +84,12 @@ jobs:
       # Windows: 下载官方 MinGit（git + sh-compatible shell + coreutils，非交互运行时），打包进安装包
       - name: Download MinGit
         if: runner.os == 'Windows'
-        run: node scripts/download-mingit.js
+        run: node tooling/scripts/download-mingit.js
 
       # 实测 git 全流程（init/commit/clone）+ sh + coreutils 可运行；runtime 残缺时 fail fast，不出残缺包
       - name: Smoke-test MinGit
         if: runner.os == 'Windows'
-        run: node scripts/smoke-mingit.mjs vendor/mingit
+        run: node tooling/scripts/smoke-mingit.mjs vendor/mingit
 
       - name: Build client bundles (main + preload + renderer)
         run: npm run build:client
@@ -120,7 +120,7 @@ jobs:
       # 这里先手动搞定，再把 CSC_KEYCHAIN 传给 electron-builder 让它复用。
       # 位置必须在 "Build server bundle" 之前：build-server.mjs 的
       # packDualKindSeed 会在装箱前对 seed 箱内 Mach-O 做 Developer ID 签名
-      # （先签名后装箱铁律，见 scripts/build-server-artifact.mjs 文件头），
+      # （先签名后装箱铁律，见 tooling/scripts/build-server-artifact.mjs 文件头），
       # 签名时 codesign 需要本 keychain 已就位。
       - name: Setup macOS signing keychain
         if: runner.os == 'macOS'
@@ -157,7 +157,7 @@ jobs:
       # identity 不硬编码进本 public 文件，证书是唯一来源，保证 mask 串与 electron-builder
       # 实际打印的串一致、永不漏配；读取不到就 fail（report，不静默降级）。
       # 同时导出 HANA_MACHO_SIGN_IDENTITY：build-server.mjs 的 seed 签名器
-      # （scripts/build-server-artifact.mjs defaultSignMachOFiles）据此从
+      # （tooling/scripts/build-server-artifact.mjs defaultSignMachOFiles）据此从
       # ad-hoc 切换为 Developer ID + hardened runtime + secure timestamp
       # Apple notary 会递归验签箱内 Mach-O，ad-hoc 签名无法通过公证。
       - name: Mask signing identity in logs
@@ -188,8 +188,8 @@ jobs:
           path: prebuilt-renderer
 
       # 把共享归档的绝对路径通过 HANA_PREBUILT_RENDERER_BOX 环境变量透传给
-      # scripts/build-server.mjs 末尾调用的 packDualKindSeed（该函数默认从
-      # process.env 读取这个变量，见 scripts/build-server-artifact.mjs）。
+      # tooling/scripts/build-server.mjs 末尾调用的 packDualKindSeed（该函数默认从
+      # process.env 读取这个变量，见 tooling/scripts/build-server-artifact.mjs）。
       # 这个变量之后由 Node（fs 原生 API）读取，不是再喂给另一个 bash 命令，
       # 所以必须写成 Windows 原生路径（D:\... / D:/...），而不是 git-bash 的
       # /d/... 风格路径——Node 在原生 Windows 上不认识 /d/... 这种挂载点写法。
@@ -215,23 +215,23 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
-            node scripts/build-server.mjs darwin ${{ matrix.arch }}
+            node tooling/scripts/build-server.mjs darwin ${{ matrix.arch }}
           elif [ "$RUNNER_OS" = "Linux" ]; then
-            node scripts/build-server.mjs linux ${{ matrix.arch }}
+            node tooling/scripts/build-server.mjs linux ${{ matrix.arch }}
           else
-            node scripts/build-server.mjs win32 ${{ matrix.arch }}
+            node tooling/scripts/build-server.mjs win32 ${{ matrix.arch }}
           fi
 
       - name: Build Computer Use helper
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          HANA_COMPUTER_USE_HELPER_ARCH=${{ matrix.arch }} node scripts/build-computer-use-helper.mjs ${{ matrix.arch }}
+          HANA_COMPUTER_USE_HELPER_ARCH=${{ matrix.arch }} node tooling/scripts/build-computer-use-helper.mjs ${{ matrix.arch }}
 
       - name: Build Windows sandbox helper
         if: runner.os == 'Windows'
         shell: pwsh
-        run: node scripts/build-windows-sandbox-helper.mjs ${{ matrix.arch }}
+        run: node tooling/scripts/build-windows-sandbox-helper.mjs ${{ matrix.arch }}
 
       # 独立 Server 下载包与桌面 seed/OTA 是两个发布边界。直接使用本次
       # build-windows-sandbox-helper 的输出，不依赖 electron-builder、
@@ -240,15 +240,15 @@ jobs:
       - name: Build Windows standalone server archive
         if: runner.os == 'Windows'
         shell: pwsh
-        run: node scripts/build-standalone-server-artifact.mjs ${{ matrix.arch }}
+        run: node tooling/scripts/build-standalone-server-artifact.mjs ${{ matrix.arch }}
 
       - name: Verify Windows standalone server archive
         if: runner.os == 'Windows'
         shell: pwsh
-        run: node scripts/verify-standalone-server-artifact.mjs ${{ matrix.arch }} --smoke
+        run: node tooling/scripts/verify-standalone-server-artifact.mjs ${{ matrix.arch }} --smoke
 
       # 装箱前 fail-closed 复核：electron-builder 是直调（不经过 package.json
-      # 的 pack/dist/dist:win/dist:linux 脚本链），scripts/verify-seed-kit.mjs
+      # 的 pack/dist/dist:win/dist:linux 脚本链），tooling/scripts/verify-seed-kit.mjs
       # 挂在那条脚本链里、这里不会自动生效，必须单独接线，否则一份陈旧/串
       # 平台的 seed 四件套能被原样装进安装包（见脚本文件头列举的三类事故）。
       # platform/arch 显式传参，不用脚本默认的 process.platform/process.arch——
@@ -256,7 +256,7 @@ jobs:
       # 会算错要校验的 dist-server-artifact/{os}-{arch}/ 目录。
       - name: Verify seed kit (macOS)
         if: runner.os == 'macOS'
-        run: node scripts/verify-seed-kit.mjs darwin ${{ matrix.arch }}
+        run: node tooling/scripts/verify-seed-kit.mjs darwin ${{ matrix.arch }}
 
       # macOS 打包（签名 + 公证）
       # keychain 与 identity 已由 "Build server bundle" 之前的两个步骤就位
@@ -282,7 +282,7 @@ jobs:
       # 同上：Windows job 直调 electron-builder，seed kit 校验必须单独接线。
       - name: Verify seed kit (Windows)
         if: runner.os == 'Windows'
-        run: node scripts/verify-seed-kit.mjs win32 ${{ matrix.arch }}
+        run: node tooling/scripts/verify-seed-kit.mjs win32 ${{ matrix.arch }}
 
       # Windows 打包
       # --publish never：和 mac 同理，由 release job 单点上传。
@@ -299,7 +299,7 @@ jobs:
       # 同上：Linux job 直调 electron-builder，seed kit 校验必须单独接线。
       - name: Verify seed kit (Linux)
         if: runner.os == 'Linux'
-        run: node scripts/verify-seed-kit.mjs linux ${{ matrix.arch }}
+        run: node tooling/scripts/verify-seed-kit.mjs linux ${{ matrix.arch }}
 
       # Linux Preview 打包
       # AppImage 给下载即用体验，deb 给 Ubuntu/Debian 系安装。
@@ -311,7 +311,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # dist-server-artifact/*/server-*.tar.gz and dist-renderer-artifact/renderer-*.tar.gz
-      # are the hot-update boxes packed by packDualKindSeed (see scripts/build-server-artifact.mjs).
+      # are the hot-update boxes packed by packDualKindSeed (see tooling/scripts/build-server-artifact.mjs).
       # The renderer box here is just this platform's copy of the SAME bytes downloaded from
       # the renderer-box job (packDualKindSeed reuses it via HANA_PREBUILT_RENDERER_BOX rather
       # than packing dist-renderer/ on the spot) — all four uploads are byte-identical now.
@@ -320,7 +320,7 @@ jobs:
       # manifest now names the platform-arch it describes, so four same-named-but-different-
       # content files are no longer possible). This per-platform seed manifest is still NOT
       # what the release job publishes as the OTA train manifest — that one is generated
-      # separately by scripts/publish-train.mjs from the merged server-*.tar.gz set, not by
+      # separately by tooling/scripts/publish-train.mjs from the merged server-*.tar.gz set, not by
       # copying any one platform's local seed manifest.
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -385,14 +385,14 @@ jobs:
       # 合并双架构的 latest-mac.yml（本地生成，不上传；上传由下一步统一处理）
       - name: Generate merged latest-mac.yml
         run: |
-          node scripts/merge-latest-mac-yml.cjs artifacts latest-mac.yml
+          node tooling/scripts/merge-latest-mac-yml.cjs artifacts latest-mac.yml
 
       # 更新摘要必须在本地 tag 前生成并提交。CI 只校验，不调用 LLM。
       - name: Validate committed release digest
         run: |
-          node scripts/validate-release-digest.mjs \
+          node tooling/scripts/validate-release-digest.mjs \
             --tag "${{ github.ref_name }}" \
-            --file build/releases/release-digest.v1.json
+            --file tooling/build/releases/release-digest.v1.json
 
       # 单点上传所有 release assets（dmg/zip/exe/AppImage/deb/yml），blockmap 不上传
       - name: Upload release assets
@@ -427,7 +427,7 @@ jobs:
 
           # Renderer archive is platform-independent AND now byte-identical across all four
           # matrix jobs: it is built once by the renderer-box job and downloaded/reused by
-          # every platform (see scripts/pack-renderer-box.mjs and packDualKindSeed's
+          # every platform (see tooling/scripts/pack-renderer-box.mjs and packDualKindSeed's
           # prebuiltRendererArchive / HANA_PREBUILT_RENDERER_BOX). Which platform's copy we
           # publish here no longer matters for correctness — macOS arm64 is kept only to
           # avoid widening this step's diff.
@@ -454,7 +454,7 @@ jobs:
           gh release upload "${{ github.ref_name }}" latest-mac.yml --clobber
 
           echo "=== Uploading release digest ==="
-          gh release upload "${{ github.ref_name }}" build/releases/release-digest.v1.json --clobber
+          gh release upload "${{ github.ref_name }}" tooling/build/releases/release-digest.v1.json --clobber
 
           echo "=== Uploading latest-linux.yml ==="
           LINUX_YML=$(find artifacts -name 'latest-linux.yml' | head -1)
@@ -525,7 +525,7 @@ jobs:
 
   # Publishes the hot-update train that already-installed clients pull automatically —
   # separate from (and downstream of) the installer release above, so a failure here never
-  # touches the already-published installer assets. scripts/publish-train.mjs is resumable:
+  # touches the already-published installer assets. tooling/scripts/publish-train.mjs is resumable:
   # rerunning this job after a partial failure is always safe (see the script's file header).
   publish-train:
     needs: release
@@ -581,12 +581,12 @@ jobs:
         if: steps.source_release.outputs.is_prerelease == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/publish-train.mjs --tag "${{ github.ref_name }}" --channel stable
+        run: node tooling/scripts/publish-train.mjs --tag "${{ github.ref_name }}" --channel stable
 
       - name: Publish beta train
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/publish-train.mjs --tag "${{ github.ref_name }}" --channel beta
+        run: node tooling/scripts/publish-train.mjs --tag "${{ github.ref_name }}" --channel beta
 
       - name: Publish train summary
         if: always()

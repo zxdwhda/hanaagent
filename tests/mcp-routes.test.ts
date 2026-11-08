@@ -5,8 +5,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { Hono } from "hono";
-import { createMcpRoute } from "../server/routes/mcp.ts";
-import { createPluginProxyRoute } from "../server/routes/plugins.ts";
+import { createMcpRoute } from "../apps/server/routes/mcp.ts";
+import { createPluginProxyRoute } from "../apps/server/routes/plugins.ts";
 
 function createApp(mcp) {
   const app = new Hono();

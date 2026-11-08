@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLlmContextCachePrefixContract,
   diffCachePrefixContracts,
-} from "../lib/llm/cache-prefix-contract.ts";
+} from "../packages/engine/lib/llm/cache-prefix-contract.ts";
 
 function tool(name, description = "desc") {
   return {

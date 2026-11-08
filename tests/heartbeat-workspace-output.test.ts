@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createHeartbeat } from "../lib/desk/heartbeat.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { createHeartbeat } from "../packages/engine/lib/desk/heartbeat.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 let tempRoot;
 

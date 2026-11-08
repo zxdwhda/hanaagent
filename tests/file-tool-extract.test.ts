@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFileTool } from "../lib/tools/file-tool.ts";
+import { createFileTool } from "../packages/engine/lib/tools/file-tool.ts";
 
 describe("file tool extract action", () => {
   let tmpDir: string | null = null;

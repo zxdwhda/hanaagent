@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-const localeDir = path.join(process.cwd(), "desktop", "src", "locales");
-const workbenchDir = path.join(process.cwd(), "desktop", "src", "react", "workbench");
+const localeDir = path.join(process.cwd(), "apps/desktop", "src", "locales");
+const workbenchDir = path.join(process.cwd(), "apps/desktop", "src", "react", "workbench");
 const workbenchLocaleCallFiles = [
   "PreviewTabsButton.tsx",
   "WorkbenchChatSurface.tsx",

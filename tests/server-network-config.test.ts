@@ -20,7 +20,7 @@ describe("server network config", () => {
     const {
       loadServerNetworkConfig,
       resolveServerListenOptions,
-    } = await import("../core/server-network-config.ts");
+    } = await import("../packages/engine/core/server-network-config.ts");
 
     expect(loadServerNetworkConfig(tmpDir)).toMatchObject({
       schemaVersion: 1,
@@ -45,7 +45,7 @@ describe("server network config", () => {
       createdAt: "2026-05-16T00:00:00.000Z",
       updatedAt: "2026-05-16T00:00:00.000Z",
     }, null, 2), "utf-8");
-    const { loadServerNetworkConfig } = await import("../core/server-network-config.ts");
+    const { loadServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
 
     expect(loadServerNetworkConfig(tmpDir)).toMatchObject({
       schemaVersion: 1,
@@ -60,7 +60,7 @@ describe("server network config", () => {
     const {
       resolveServerListenOptions,
       saveServerNetworkConfig,
-    } = await import("../core/server-network-config.ts");
+    } = await import("../packages/engine/core/server-network-config.ts");
 
     saveServerNetworkConfig(tmpDir, {
       schemaVersion: 1,
@@ -81,7 +81,7 @@ describe("server network config", () => {
 
   it("rejects public hosts in loopback mode", async () => {
     tmpDir = makeTmpDir();
-    const { saveServerNetworkConfig } = await import("../core/server-network-config.ts");
+    const { saveServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
 
     expect(() => saveServerNetworkConfig(tmpDir, {
       schemaVersion: 1,
@@ -92,7 +92,7 @@ describe("server network config", () => {
 
   it("rejects unknown modes and invalid hosts explicitly", async () => {
     tmpDir = makeTmpDir();
-    const { saveServerNetworkConfig } = await import("../core/server-network-config.ts");
+    const { saveServerNetworkConfig } = await import("../packages/engine/core/server-network-config.ts");
 
     expect(() => saveServerNetworkConfig(tmpDir, {
       schemaVersion: 1,

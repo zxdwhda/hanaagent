@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePreparingText } from '../desktop/src/react/splash/SplashApp';
+import { resolvePreparingText } from '../apps/desktop/src/react/splash/SplashApp';
 
 describe('resolvePreparingText', () => {
   it('uses the named template with the agent name when configured', () => {

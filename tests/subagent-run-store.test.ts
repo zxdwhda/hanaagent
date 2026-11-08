@@ -8,7 +8,7 @@ import {
   rewriteForkedSubagentRunReferences,
   rewriteForkedWorkflowRunReferences,
   SubagentRunStore,
-} from "../lib/subagent-run-store.ts";
+} from "../packages/engine/lib/subagent-run-store.ts";
 
 describe("SubagentRunStore", () => {
   let tempDir;

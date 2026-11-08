@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProviderMediaConfigMap } from "../core/provider-media-config.ts";
+import { normalizeProviderMediaConfigMap } from "../packages/engine/core/provider-media-config.ts";
 
 describe("provider media config migration", () => {
   it("moves legacy image model entries out of chat models into media.image_generation", () => {

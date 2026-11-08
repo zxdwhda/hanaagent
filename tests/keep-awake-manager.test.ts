@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 async function loadModule() {
-  const mod = await import("../desktop/keep-awake.cjs");
+  const mod = await import("../apps/desktop/keep-awake.cjs");
   return mod.default || mod;
 }
 

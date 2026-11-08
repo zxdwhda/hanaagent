@@ -4,7 +4,7 @@ import {
   subscribeWsClientToSession,
   wsClientCanReceiveEvent,
   wsClientCanSendMessage,
-} from "../server/ws-scope.ts";
+} from "../apps/server/ws-scope.ts";
 
 describe("websocket scope filtering", () => {
   it("allows local owner to receive legacy global events", () => {

@@ -2,8 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PreferencesManager } from "../core/preferences-manager.ts";
-import { runBestEffortStartupMigrationStep } from "../core/engine.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
+import { runBestEffortStartupMigrationStep } from "../packages/engine/core/engine.ts";
 
 const tempDirs: string[] = [];
 

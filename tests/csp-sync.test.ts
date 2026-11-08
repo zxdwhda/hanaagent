@@ -14,7 +14,7 @@ import * as vm from 'node:vm';
 
 // 从 config/vite.csp-profiles.ts 源码中提取 CSP_PROFILES（不 import，避免引入 Vite 依赖）
 function extractCspProfiles(): Record<string, string> {
-  const src = fs.readFileSync(path.resolve(__dirname, '..', 'config/vite.csp-profiles.ts'), 'utf-8');
+  const src = fs.readFileSync(path.resolve(__dirname, '..', 'tooling/config/vite.csp-profiles.ts'), 'utf-8');
   const profiles: Record<string, string> = {};
 
   // 匹配 'filename.html': "csp-value" 或 'filename.html':\n    "csp-value"
@@ -45,7 +45,7 @@ function normalizeCsp(csp: string): string {
 
 describe('CSP sync', () => {
   const profiles = extractCspProfiles();
-  const htmlDir = path.resolve(__dirname, '..', 'desktop', 'src');
+  const htmlDir = path.resolve(__dirname, '..', 'apps/desktop', 'src');
 
   it('should have extracted all 8 profiles', () => {
     expect(Object.keys(profiles)).toHaveLength(8);

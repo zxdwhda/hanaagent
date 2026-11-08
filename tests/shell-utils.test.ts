@@ -9,7 +9,7 @@ import {
   resolveWin32DefaultPowerShellExecutable,
   resolveWin32PowerShellExecutable,
   splitShellLikeArgs,
-} from "../lib/shell/shell-utils.ts";
+} from "../packages/engine/lib/shell/shell-utils.ts";
 
 describe("shell utils", () => {
   it("reads environment variables case-insensitively", () => {

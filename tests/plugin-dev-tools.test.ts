@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPluginDevTools } from "../core/plugin-dev-tools.ts";
+import { createPluginDevTools } from "../packages/engine/core/plugin-dev-tools.ts";
 
 describe("createPluginDevTools", () => {
   it("wraps dev lifecycle operations as Agent-callable tools", async () => {

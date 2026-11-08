@@ -2,10 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PreferencesManager } from "../core/preferences-manager.ts";
-import { UniversalMediaManager } from "../core/media/universal-media-manager.ts";
-import { resolveMediaParameters } from "../core/media/media-parameters.ts";
-import { SessionFileRegistry } from "../lib/session-files/session-file-registry.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
+import { UniversalMediaManager } from "../packages/engine/core/media/universal-media-manager.ts";
+import { resolveMediaParameters } from "../packages/engine/core/media/media-parameters.ts";
+import { SessionFileRegistry } from "../packages/engine/lib/session-files/session-file-registry.ts";
 
 function makeRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-universal-media-"));
@@ -445,7 +445,7 @@ describe("UniversalMediaManager adapter registration bus contract", () => {
   it("registers an injected built-in adapter list in the native media runtime", async () => {
     const root = makeRoot();
     roots.push(root);
-    const { builtinImageGenAdapters } = await import("../core/media-adapters/builtin-adapters.ts");
+    const { builtinImageGenAdapters } = await import("../packages/engine/core/media-adapters/builtin-adapters.ts");
     const manager = new UniversalMediaManager({
       hanakoHome: root,
       preferences: makePreferences(root),
@@ -543,7 +543,7 @@ describe("UniversalMediaManager adapter registration bus contract", () => {
         pluginId: "dreamina",
         pluginKey: "community:dreamina",
         source: "community",
-        pluginDir: path.join(root, "plugins", "dreamina"),
+        pluginDir: path.join(root, "extensions/plugins", "dreamina"),
         dataDir: pluginDataDir,
         config: pluginConfig,
         log: pluginLog,

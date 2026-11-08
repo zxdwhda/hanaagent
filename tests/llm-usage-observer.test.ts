@@ -3,7 +3,7 @@ import {
   buildUsageDebugRecord,
   logLlmUsage,
   normalizeLlmUsage,
-} from "../lib/llm/usage-observer.ts";
+} from "../packages/engine/lib/llm/usage-observer.ts";
 
 describe("LLM usage observer", () => {
   // Providers disagree on what "input" counts. OpenAI's prompt_tokens is the

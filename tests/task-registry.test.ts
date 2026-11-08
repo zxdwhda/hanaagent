@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { TaskRegistry } from "../lib/task-registry.ts";
+import { TaskRegistry } from "../packages/engine/lib/task-registry.ts";
 
 afterEach(() => {
   vi.useRealTimers();

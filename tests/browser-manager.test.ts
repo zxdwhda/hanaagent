@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BrowserManager } from "../lib/browser/browser-manager.ts";
+import { BrowserManager } from "../packages/engine/lib/browser/browser-manager.ts";
 
 const SP1 = "/sessions/session-1.json";
 const SP2 = "/sessions/session-2.json";

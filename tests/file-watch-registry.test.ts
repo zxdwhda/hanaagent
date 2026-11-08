@@ -3,8 +3,8 @@ import os from "os";
 import path from "path";
 import { EventEmitter } from "events";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createFileWatchRegistry } from "../desktop/file-watch-registry.cjs";
-import { createStableFileWatcher } from "../desktop/file-watch-adapter.cjs";
+import { createFileWatchRegistry } from "../apps/desktop/file-watch-registry.cjs";
+import { createStableFileWatcher } from "../apps/desktop/file-watch-adapter.cjs";
 
 describe("file-watch-registry", () => {
   let watchMock;

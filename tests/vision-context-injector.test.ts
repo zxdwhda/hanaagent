@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   runVisionContextInjection,
   VISION_CONTEXT_INJECTION_FAILED,
-} from "../core/vision-context-injector.ts";
-import { VISION_CONTEXT_START } from "../core/vision-bridge.ts";
+} from "../packages/engine/core/vision-context-injector.ts";
+import { VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
 
 describe("VisionContextInjector", () => {
   it("returns structured diagnostics instead of silently running blind when injection fails", async () => {

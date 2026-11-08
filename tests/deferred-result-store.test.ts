@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { DeferredResultStore } from "../lib/deferred-result-store.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
 
 describe("DeferredResultStore", () => {
   let store;

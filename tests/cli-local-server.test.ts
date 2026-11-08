@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { readLocalServerInfo, resolveConnection } from "../cli/local-server.ts";
+import { readLocalServerInfo, resolveConnection } from "../apps/cli/local-server.ts";
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-cli-server-"));

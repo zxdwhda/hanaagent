@@ -1,9 +1,9 @@
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { WIN32_DEFAULT_ONE_SHOT_SHELL, renderCommandWithWorkdir, resolveExecShell } from "../lib/exec-command/shell.ts";
-import { execCommandDescription } from "../lib/exec-command/guidance.ts";
-import { createExecCommandTools } from "../lib/exec-command/tool.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { WIN32_DEFAULT_ONE_SHOT_SHELL, renderCommandWithWorkdir, resolveExecShell } from "../packages/engine/lib/exec-command/shell.ts";
+import { execCommandDescription } from "../packages/engine/lib/exec-command/guidance.ts";
+import { createExecCommandTools } from "../packages/engine/lib/exec-command/tool.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 const DEFAULT_TEST_CWD = "/tmp/work";
 

@@ -2,11 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TaskStore } from "../core/media/task-store.ts";
+import { TaskStore } from "../packages/engine/core/media/task-store.ts";
 import {
   collectRetainedMediaTaskState,
   rewriteForkedMediaTaskReferences,
-} from "../core/media/session-fork.ts";
+} from "../packages/engine/core/media/session-fork.ts";
 
 const tempDirs: string[] = [];
 const sourceSessionPath = "/sessions/source.jsonl";

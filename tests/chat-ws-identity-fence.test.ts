@@ -10,7 +10,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // 内部断言原文直怼移动端用户的事故。此围栏锁死通道数量：一条。
 describe("chat.ts ws identity fence", () => {
   const source = fs.readFileSync(
-    path.join(ROOT, "server", "routes", "chat.ts"),
+    path.join(ROOT, "apps/server", "routes", "chat.ts"),
     "utf8",
   );
   const FENCE_HINT = "身份解析已收口到 resolveWsSessionContext：消费 ctx 的字段，不要另开一条身份通道";

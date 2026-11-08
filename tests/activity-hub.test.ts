@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ActivityHub } from "../lib/activity-hub.ts";
+import { ActivityHub } from "../packages/engine/lib/activity-hub.ts";
 
 function makeBus() {
   return { emit: vi.fn() };

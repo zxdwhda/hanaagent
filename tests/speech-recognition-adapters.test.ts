@@ -7,7 +7,7 @@ import {
   mimoSpeechRecognitionAdapter,
   openaiSpeechRecognitionAdapter,
   volcengineSpeechRecognitionAdapter,
-} from "../core/speech-recognition/adapters.ts";
+} from "../packages/engine/core/speech-recognition/adapters.ts";
 
 let tmpDir;
 let audioFile;

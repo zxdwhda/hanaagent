@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { buildImageParams, retryImageTask } from "../core/media/image-task-runner.ts";
+import { buildImageParams, retryImageTask } from "../packages/engine/core/media/image-task-runner.ts";
 
 async function flushBackgroundSubmits() {
   await Promise.resolve();

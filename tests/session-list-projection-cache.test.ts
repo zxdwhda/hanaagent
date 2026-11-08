@@ -6,7 +6,7 @@ import path from "path";
 import {
   SessionListProjectionCache,
   sessionFileRevision,
-} from "../core/session-list-projection-cache.ts";
+} from "../packages/engine/core/session-list-projection-cache.ts";
 
 function writeSessionFile(dir: string, name: string, entries: unknown[]): string {
   const filePath = path.join(dir, name);

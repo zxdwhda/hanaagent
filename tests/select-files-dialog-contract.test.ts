@@ -3,8 +3,8 @@ import fs from "fs";
 import path from "path";
 
 const root = process.cwd();
-const mainPath = path.join(root, "desktop", "main.cjs");
-const preloadPath = path.join(root, "desktop", "preload.cjs");
+const mainPath = path.join(root, "apps/desktop", "main.cjs");
+const preloadPath = path.join(root, "apps/desktop", "preload.cjs");
 
 function selectFilesHandler(source) {
   const match = source.match(/wrapIpcBestEffortHandler\("select-files"[\s\S]*?\n\}\);/);

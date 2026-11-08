@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 
-import { createBridgeRoute } from "../server/routes/bridge.ts";
+import { createBridgeRoute } from "../apps/server/routes/bridge.ts";
 
 function makeApp() {
   let readOnly = false;

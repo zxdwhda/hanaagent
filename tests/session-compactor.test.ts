@@ -20,7 +20,7 @@ const {
   prepareCompactionMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => ({
+vi.mock("../packages/engine/lib/pi-sdk/index.js", async (importOriginal) => ({
   ...await importOriginal<any>(),
   completeSimple: completeSimpleMock,
   convertAgentMessagesToLlm: convertAgentMessagesToLlmMock,
@@ -42,11 +42,11 @@ import {
   runCachePreservingCompactionForSession,
   runLossyLocalCompactionForSession,
   shouldHardTruncateCachePreservingCompaction,
-} from "../core/session-compactor.ts";
-import * as sessionCompactorModule from "../core/session-compactor.ts";
-import { buildSessionCacheSnapshot } from "../core/session-cache-snapshot.ts";
-import { createUsageLedger } from "../lib/llm/usage-ledger.ts";
-import { runSessionSnapshotSideTask } from "../lib/llm/session-snapshot-side-task-runner.ts";
+} from "../packages/engine/core/session-compactor.ts";
+import * as sessionCompactorModule from "../packages/engine/core/session-compactor.ts";
+import { buildSessionCacheSnapshot } from "../packages/engine/core/session-cache-snapshot.ts";
+import { createUsageLedger } from "../packages/engine/lib/llm/usage-ledger.ts";
+import { runSessionSnapshotSideTask } from "../packages/engine/lib/llm/session-snapshot-side-task-runner.ts";
 
 const VALID_COMPACTION_SUMMARY = `## Goal
 Keep the session useful.
@@ -426,7 +426,7 @@ describe("session-compactor", () => {
   });
 
   it("proves a first-compaction boundary from a real Pi SessionManager context", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     const manager = actualPiSdk.SessionManager.inMemory("/workspace");
     manager.appendMessage(piUser("old request", 1));
     manager.appendMessage(piAssistant("old response", 2));
@@ -448,7 +448,7 @@ describe("session-compactor", () => {
   });
 
   it("uses the live compactionSummary as the sole previous-summary representation", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     const manager = actualPiSdk.SessionManager.inMemory("/workspace");
     manager.appendMessage(piUser("old request", 1));
     manager.appendMessage(piAssistant("old response", 2));
@@ -483,7 +483,7 @@ describe("session-compactor", () => {
   });
 
   it("composes a second real Pi compaction from Summary-1 plus the retained tail and new turns", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     prepareCompactionMock.mockImplementation(actualPiSdk.prepareCompaction);
     const manager = actualPiSdk.SessionManager.inMemory("/workspace");
     const oldUser = piUser("DELETED_BY_SUMMARY_ONE_USER", 1);
@@ -709,7 +709,7 @@ describe("session-compactor", () => {
   });
 
   it("proves a split-turn boundary with one retained provider-visible suffix", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     const manager = actualPiSdk.SessionManager.inMemory("/workspace");
     manager.appendMessage(piUser("older request", 1));
     manager.appendMessage(piAssistant("older answer", 2));
@@ -732,7 +732,7 @@ describe("session-compactor", () => {
   });
 
   it("derives the provider boundary after convertToLlm filters non-visible messages", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     const manager = actualPiSdk.SessionManager.inMemory("/workspace");
     manager.appendMessage(piUser("old request", 1));
     manager.appendMessage({
@@ -766,7 +766,7 @@ describe("session-compactor", () => {
   });
 
   it("throws a typed prefix-contract error when the live partition cannot be proven", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     const deriveBoundary = (sessionCompactorModule as any).deriveCachePreservingCompactionBoundary;
 
     await expect(deriveBoundary({
@@ -1448,7 +1448,7 @@ describe("session-compactor", () => {
   });
 
   it("appends Pi's exact firstKeptEntryId and rebuilds summary plus an unchanged recent tail", async () => {
-    const actualPiSdk = await vi.importActual<any>("../lib/pi-sdk/index.ts");
+    const actualPiSdk = await vi.importActual<any>("../packages/engine/lib/pi-sdk/index.ts");
     const manager = actualPiSdk.SessionManager.inMemory("/workspace");
     manager.appendMessage(piUser("old request", 1));
     manager.appendMessage(piAssistant("old response", 2));

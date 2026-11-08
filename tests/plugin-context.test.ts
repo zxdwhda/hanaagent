@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { createPluginContext } from "../core/plugin-context.ts";
+import { createPluginContext } from "../packages/engine/core/plugin-context.ts";
 
 async function makeBus() {
-  const { EventBus } = await import("../hub/event-bus.ts");
+  const { EventBus } = await import("../packages/engine/hub/event-bus.ts");
   return new EventBus();
 }
 

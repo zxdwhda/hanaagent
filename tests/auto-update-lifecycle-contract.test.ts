@@ -6,7 +6,7 @@ const root = process.cwd();
 
 describe("auto-update lifecycle contract", () => {
   it("does not install a downloaded update implicitly from the app quit path", () => {
-    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
 
     expect(mainSource).not.toContain('installDownloadedUpdate("app-quit")');
     expect(mainSource).not.toContain("getUpdateState().status === \"downloaded\"");

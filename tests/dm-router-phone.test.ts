@@ -2,18 +2,18 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { DmRouter } from "../hub/dm-router.ts";
-import { getAgentPhoneProjectionPath, readAgentPhoneProjection, updateAgentPhoneProjectionMeta } from "../lib/conversations/agent-phone-projection.ts";
+import { DmRouter } from "../packages/engine/hub/dm-router.ts";
+import { getAgentPhoneProjectionPath, readAgentPhoneProjection, updateAgentPhoneProjectionMeta } from "../packages/engine/lib/conversations/agent-phone-projection.ts";
 
 const { runAgentPhoneSessionMock } = vi.hoisted(() => ({
   runAgentPhoneSessionMock: vi.fn(async () => "收到 <done/>"),
 }));
 
-vi.mock("../hub/agent-executor.js", () => ({
+vi.mock("../packages/engine/hub/agent-executor.js", () => ({
   runAgentPhoneSession: runAgentPhoneSessionMock,
 }));
 
-vi.mock("../lib/debug-log.js", () => ({
+vi.mock("../packages/engine/lib/debug-log.js", () => ({
   debugLog: () => ({ log: vi.fn(), error: vi.fn(), warn: vi.fn() }),
   createModuleLogger: () => ({
     log: vi.fn(),

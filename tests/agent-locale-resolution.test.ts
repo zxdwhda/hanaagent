@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Agent } from "../core/agent.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
 
 // config.yaml 里没有任何代码会写 locale 字段——缺失是常态。Agent.resolveLocale()
 // 的语义链是 config.locale（显式覆盖）→ 全局 prefs 的 locale → "en"。

@@ -6,12 +6,12 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   MESSAGE_ORIGIN_RECORD_TYPE,
   recordMessageOriginEntry,
-} from "../core/desktop-session-submit.ts";
+} from "../packages/engine/core/desktop-session-submit.ts";
 import {
   annotateOriginMessages,
   loadSessionHistoryMessages,
-} from "../core/message-utils.ts";
-import { SessionManager } from "../lib/pi-sdk/index.ts";
+} from "../packages/engine/core/message-utils.ts";
+import { SessionManager } from "../packages/engine/lib/pi-sdk/index.ts";
 
 let tmpDir: string;
 

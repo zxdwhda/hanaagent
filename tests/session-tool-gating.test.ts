@@ -13,7 +13,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/memory/memory-ticker.js", () => ({
+vi.mock("../packages/engine/lib/memory/memory-ticker.js", () => ({
   createMemoryTicker: () => ({
     start: vi.fn(),
     stop: vi.fn().mockResolvedValue(undefined),
@@ -27,9 +27,9 @@ vi.mock("../lib/memory/memory-ticker.js", () => ({
   }),
 }));
 
-import { Agent } from "../core/agent.ts";
-import { classifySessionPermission } from "../core/session-permission-mode.ts";
-import { OPTIONAL_TOOL_NAMES, DEFAULT_DISABLED_TOOL_NAMES } from "../shared/tool-categories.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
+import { classifySessionPermission } from "../packages/engine/core/session-permission-mode.ts";
+import { OPTIONAL_TOOL_NAMES, DEFAULT_DISABLED_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
 
 // 照抄 tests/agent-interactive-card-tools.test.ts 的 bootstrapAgent 构造方式
 // （agent-config-tools-disabled.test.ts 用的是 fakeAgent 静态数组，不实际调用
@@ -65,7 +65,7 @@ function bootstrapAgent(rootDir: string) {
   fs.writeFileSync(path.join(agentDir, "AGENTS.md"), "persona\n", "utf-8");
   fs.writeFileSync(path.join(userDir, "user.md"), "user profile\n", "utf-8");
 
-  const productDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "lib");
+  const productDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "packages", "engine", "lib");
   return { agentsDir, productDir, userDir };
 }
 

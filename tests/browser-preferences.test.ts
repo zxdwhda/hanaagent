@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_BROWSER_PREFERENCES,
   normalizeBrowserPreferences,
-} from "../shared/browser-preferences.ts";
-import { PreferencesManager } from "../core/preferences-manager.ts";
-import { createPreferencesRoute } from "../server/routes/preferences.ts";
+} from "../packages/shared/browser-preferences.ts";
+import { PreferencesManager } from "../packages/engine/core/preferences-manager.ts";
+import { createPreferencesRoute } from "../apps/server/routes/preferences.ts";
 import fs from "fs";
 import os from "os";
 import path from "path";

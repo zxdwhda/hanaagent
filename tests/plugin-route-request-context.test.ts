@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { EventBus } from "../hub/event-bus.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
 import {
   PluginBusCapabilityError,
   createPluginRouteRequestContext,
-} from "../core/plugin-route-request-context.ts";
+} from "../packages/engine/core/plugin-route-request-context.ts";
 
 function makeBusWithSessionCreate() {
   const bus = new EventBus();

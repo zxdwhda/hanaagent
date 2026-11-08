@@ -34,7 +34,7 @@ function walkCssFiles(dir: string, out: string[] = []): string[] {
 
 describe("css structural token references", () => {
   it("every no-fallback reference to --space/--fs/--radius/--duration/--ease resolves to a definition", () => {
-    const root = path.join(process.cwd(), "desktop", "src");
+    const root = path.join(process.cwd(), "apps/desktop", "src");
     const files = walkCssFiles(root);
     expect(files.length).toBeGreaterThan(10);
 

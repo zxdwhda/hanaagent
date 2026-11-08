@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAvatarRoute } from "../server/routes/avatar.ts";
+import { createAvatarRoute } from "../apps/server/routes/avatar.ts";
 
 /**
  * The agent half of /api/avatar/:role names an agent directory. The request has

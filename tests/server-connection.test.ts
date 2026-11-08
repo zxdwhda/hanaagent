@@ -3,7 +3,7 @@ import {
   buildConnectionWsUrl,
   createDeviceServerConnection,
   createLocalServerConnection,
-} from "../desktop/src/react/services/server-connection.ts";
+} from "../apps/desktop/src/react/services/server-connection.ts";
 
 describe("server connection websocket URLs", () => {
   it("keeps loopback query token support for local owner connections", () => {

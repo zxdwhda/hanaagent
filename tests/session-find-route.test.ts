@@ -14,7 +14,7 @@ function jsonlLine(id: string, parentId: string | null, role: string, content: u
 }
 
 async function buildApp(agentsDir: string) {
-  const { createSessionsRoute } = await import("../server/routes/sessions.ts");
+  const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
   const app = new Hono();
   const manifestSessionPath = path.join(agentsDir, "hana", "sessions", "find-target.jsonl");
   const engine = {

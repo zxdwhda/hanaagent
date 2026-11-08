@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const searchWebMock = vi.fn();
 
-vi.mock("../lib/browser/browser-manager.js", () => ({
+vi.mock("../packages/engine/lib/browser/browser-manager.js", () => ({
   BrowserManager: {
     instance: () => ({
       searchWeb: searchWebMock,
@@ -15,7 +15,7 @@ import {
   resetWebSearchRateLimiterForTests,
   searchProviderRequiresApiKey,
   verifySearchKey,
-} from "../lib/tools/web-search.ts";
+} from "../packages/engine/lib/tools/web-search.ts";
 
 describe("web_search browser providers", () => {
   beforeEach(() => {

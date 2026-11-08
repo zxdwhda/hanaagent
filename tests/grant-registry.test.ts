@@ -7,7 +7,7 @@ import {
   createGrant,
   findActiveGrantsForPrincipal,
   revokeGrant,
-} from "../core/grant-registry.ts";
+} from "../packages/engine/core/grant-registry.ts";
 
 describe("grant registry", () => {
   let tmpDir;

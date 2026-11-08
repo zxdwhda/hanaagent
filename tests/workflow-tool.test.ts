@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createWorkflowTool } from "../lib/tools/workflow-tool.ts";
+import { createWorkflowTool } from "../packages/engine/lib/tools/workflow-tool.ts";
 
 function makeCtx() {
   return { sessionManager: { getSessionFile: () => "/s.jsonl", getCwd: () => "/w" } };

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { ResourceIO } from "../lib/resource-io/resource-io.ts";
-import { providerIdForResourceRef } from "../lib/resource-io/resource-refs.ts";
+import { ResourceIO } from "../packages/engine/lib/resource-io/resource-io.ts";
+import { providerIdForResourceRef } from "../packages/engine/lib/resource-io/resource-refs.ts";
 
 describe("ResourceIO provider contract", () => {
   it("maps ResourceRef kinds to stable provider ids", () => {

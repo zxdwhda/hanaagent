@@ -3,7 +3,7 @@ import {
   OPTIONAL_TOOL_NAMES,
   DEFAULT_DISABLED_TOOL_NAMES,
   computeToolSnapshot,
-} from "../shared/tool-categories.ts";
+} from "../packages/shared/tool-categories.ts";
 
 // workflow 从「全局高权限设置页开关」迁移为「per-agent 工具开关」：
 // 纳入与否由 agent config 的 tools.disabled + computeToolSnapshot 决定，默认关。

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ResourceIO } from "../lib/resource-io/resource-io.ts";
+import { ResourceIO } from "../packages/engine/lib/resource-io/resource-io.ts";
 
 describe("ResourceIO audit", () => {
   function makeAuditSink() {

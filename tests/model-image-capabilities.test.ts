@@ -5,7 +5,7 @@ import {
   modelSupportsDirectImageInput,
   modelSupportsImageInput,
   resolveModelImageInputTransport,
-} from "../shared/model-capabilities.ts";
+} from "../packages/shared/model-capabilities.ts";
 
 describe("model image capability transport", () => {
   it("keeps user-declared image support direct for unknown providers", () => {

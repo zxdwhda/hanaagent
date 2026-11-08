@@ -12,7 +12,7 @@ import {
   refreshAgentAppearanceSummary,
   sanitizeAgentAppearanceSummary,
   writeCachedAgentAppearanceSummary,
-} from "../lib/agent-appearance-summary.ts";
+} from "../packages/engine/lib/agent-appearance-summary.ts";
 
 const PNG_BYTES = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lw6N6wAAAABJRU5ErkJggg==",

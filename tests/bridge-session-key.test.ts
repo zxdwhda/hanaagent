@@ -5,7 +5,7 @@ import {
   resolveBridgeSessionIdentity,
   SESSION_PREFIX_MAP,
   KNOWN_PLATFORMS,
-} from "../lib/bridge/session-key.ts";
+} from "../packages/engine/lib/bridge/session-key.ts";
 
 // ── parseSessionKey ──
 

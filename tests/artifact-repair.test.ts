@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 
-const { repairSubpaths, computeRepairTargets, repairArtifacts } = require("../desktop/src/shared/artifact-repair.cjs");
-const pointerStore = require("../shared/artifact-core/pointer-store.cjs");
+const { repairSubpaths, computeRepairTargets, repairArtifacts } = require("../apps/desktop/src/shared/artifact-repair.cjs");
+const pointerStore = require("../packages/shared/artifact-core/pointer-store.cjs");
 
 const tempDirs: string[] = [];
 

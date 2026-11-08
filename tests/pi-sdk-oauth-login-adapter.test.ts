@@ -4,7 +4,7 @@ import {
   AuthStorage,
   loginOAuthProvider,
   type OAuthLoginCallbacks,
-} from "../lib/pi-sdk/index.ts";
+} from "../packages/engine/lib/pi-sdk/index.ts";
 
 describe("Pi SDK OAuth login adapter", () => {
   it("satisfies the real 0.80.3 selector contract before browser I/O starts", async () => {

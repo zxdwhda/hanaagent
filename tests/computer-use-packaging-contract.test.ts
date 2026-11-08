@@ -5,7 +5,7 @@ import { createRequire } from "module";
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const fixModules = require("../scripts/fix-modules.cjs").default;
+const fixModules = require("../tooling/scripts/fix-modules.cjs").default;
 
 const tempDirs = [];
 
@@ -48,7 +48,7 @@ describe("Computer Use packaging contract", () => {
 
   it("runs the helper build before electron-builder in the GitHub macOS release workflow", () => {
     const workflow = fs.readFileSync(path.resolve(".github", "workflows", "build.yml"), "utf8");
-    const helperBuild = workflow.indexOf("node scripts/build-computer-use-helper.mjs");
+    const helperBuild = workflow.indexOf("node tooling/scripts/build-computer-use-helper.mjs");
     const macBuilder = workflow.indexOf("npx electron-builder --mac");
 
     expect(helperBuild).toBeGreaterThanOrEqual(0);

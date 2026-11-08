@@ -2,18 +2,18 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import registry from '../desktop/src/shared/theme-registry.cjs';
+import registry from '../apps/desktop/src/shared/theme-registry.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 
 const HTMLS = [
-  'desktop/src/index.html',
-  'desktop/src/onboarding.html',
-  'desktop/src/settings.html',
-  'desktop/src/viewer-window.html',
-  'desktop/src/browser-viewer.html',
+  'apps/desktop/src/index.html',
+  'apps/desktop/src/onboarding.html',
+  'apps/desktop/src/settings.html',
+  'apps/desktop/src/viewer-window.html',
+  'apps/desktop/src/browser-viewer.html',
 ];
 
 describe('HTML 首屏默认 CSS 与 registry.DEFAULT_THEME 对齐', () => {

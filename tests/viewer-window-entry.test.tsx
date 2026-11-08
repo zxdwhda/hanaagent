@@ -15,15 +15,15 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ViewerApp } from '../desktop/src/viewer-window-entry';
+import { ViewerApp } from '../apps/desktop/src/viewer-window-entry';
 
-vi.mock('../desktop/src/react/components/PreviewEditor', () => ({
+vi.mock('../apps/desktop/src/react/components/PreviewEditor', () => ({
   PreviewEditor: (props: { content: string; filePath: string }) => (
     <div data-testid="mock-preview-editor">{props.filePath}:{props.content}</div>
   ),
 }));
 
-vi.mock('../desktop/src/viewer-resource-events', () => ({
+vi.mock('../apps/desktop/src/viewer-resource-events', () => ({
   retainViewerLocalFileResourceWatch: () => ({
     ready: Promise.resolve(),
     release: () => {},

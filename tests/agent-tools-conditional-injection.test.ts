@@ -17,7 +17,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/memory/memory-ticker.js", () => ({
+vi.mock("../packages/engine/lib/memory/memory-ticker.js", () => ({
   createMemoryTicker: () => ({
     start: vi.fn(),
     stop: vi.fn().mockResolvedValue(undefined),
@@ -31,7 +31,7 @@ vi.mock("../lib/memory/memory-ticker.js", () => ({
   }),
 }));
 
-import { Agent } from "../core/agent.ts";
+import { Agent } from "../packages/engine/core/agent.ts";
 
 function bootstrapAgent(rootDir: string) {
   const agentsDir = path.join(rootDir, "agents");
@@ -66,7 +66,7 @@ function bootstrapAgent(rootDir: string) {
   fs.writeFileSync(path.join(agentDir, "AGENTS.md"), "persona\n", "utf-8");
   fs.writeFileSync(path.join(userDir, "user.md"), "user profile\n", "utf-8");
 
-  const productDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "lib");
+  const productDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "packages", "engine", "lib");
   return { agentsDir, productDir, userDir, channelsDir };
 }
 

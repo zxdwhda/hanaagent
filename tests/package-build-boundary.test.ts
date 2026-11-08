@@ -10,6 +10,6 @@ const packageJson = JSON.parse(
 describe('package build boundary', () => {
   it('declares plugin packages as npm workspaces without packaging their source into the app', () => {
     expect(packageJson.workspaces).toEqual(['packages/*']);
-    expect(packageJson.build?.files).toContain('!packages/**');
+    expect(packageJson.build?.files).toContain('!packages/plugin-*/**');
   });
 });

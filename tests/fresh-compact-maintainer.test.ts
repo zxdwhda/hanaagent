@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { updateAgentPhoneProjectionMeta } from "../lib/conversations/agent-phone-projection.ts";
+import { updateAgentPhoneProjectionMeta } from "../packages/engine/lib/conversations/agent-phone-projection.ts";
 
-import { FreshCompactMaintainer } from "../hub/fresh-compact-maintainer.ts";
+import { FreshCompactMaintainer } from "../packages/engine/hub/fresh-compact-maintainer.ts";
 
 let rootDir;
 

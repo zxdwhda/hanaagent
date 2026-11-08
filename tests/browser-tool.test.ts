@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BrowserManager } from "../lib/browser/browser-manager.ts";
-import { createBrowserTool } from "../lib/tools/browser-tool.ts";
-import { resolveToolInvocationPermission } from "../lib/permission/tool-invocation-permission.ts";
+import { BrowserManager } from "../packages/engine/lib/browser/browser-manager.ts";
+import { createBrowserTool } from "../packages/engine/lib/tools/browser-tool.ts";
+import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();

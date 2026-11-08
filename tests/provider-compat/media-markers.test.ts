@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProviderPayload } from "../../core/provider-compat.ts";
+import { normalizeProviderPayload } from "../../packages/engine/core/provider-compat.ts";
 
 describe("provider-compat media attachment markers", () => {
   it("strips attached_image markers from provider-visible text when the same message carries native image data", () => {

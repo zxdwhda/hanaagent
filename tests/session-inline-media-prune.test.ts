@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   pruneSessionInlineMediaHistory,
   repairSessionInlineMediaEntriesInFile,
-} from "../core/session-inline-media-prune.ts";
+} from "../packages/engine/core/session-inline-media-prune.ts";
 
 const IMG_BLOCK = { type: "image", data: "BASE64DATA", mimeType: "image/png" };
 const AUDIO_BLOCK = { type: "audio", data: "BASE64AUDIO", mimeType: "audio/wav" };

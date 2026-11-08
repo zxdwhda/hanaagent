@@ -16,7 +16,7 @@ const emitSessionShutdownMock = vi.fn(async (session) => {
 });
 const PNG_BASE64 = "iVBORw0KGgo=";
 
-vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
+vi.mock("../packages/engine/lib/pi-sdk/index.js", async (importOriginal) => {
   const actual = await importOriginal() as any;
   return {
     ...actual,
@@ -40,9 +40,9 @@ vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
   };
 });
 
-import { BridgeSessionManager } from "../core/bridge-session-manager.ts";
-import { VisionBridge, VISION_CONTEXT_START } from "../core/vision-bridge.ts";
-import { CORE_TOOL_NAMES } from "../shared/tool-categories.ts";
+import { BridgeSessionManager } from "../packages/engine/core/bridge-session-manager.ts";
+import { VisionBridge, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
+import { CORE_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
 
 function makeAgent(rootDir, id = "agent-a") {
   const sessionDir = path.join(rootDir, "sessions");
