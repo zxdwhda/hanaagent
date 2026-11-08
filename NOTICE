@@ -1,0 +1,11 @@
+hanaagent
+
+Independently maintained by zxdwhda.
+Based on the public HanaAgent / openhanako source by liliMozi and contributors:
+https://github.com/liliMozi/openhanako
+Public baseline: 9a6cabf8c513db5edc6cf8179a538c9075885c6e (0.450.0 implementation).
+
+Original copyright and license notices are retained.
+Independent modifications: Copyright 2026 zxdwhda.
+Distributed under the Apache License, Version 2.0; see LICENSE.
+Third-party components retain their respective notices and licenses.
