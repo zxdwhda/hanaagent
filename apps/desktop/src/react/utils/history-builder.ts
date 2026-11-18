@@ -528,8 +528,6 @@ export function buildItemsFromHistory(data: HistoryApiResponse): ChatListItem[] 
       }
 
       const { text, files, attachedImages, attachedVideos, attachedAudios, sessionFileRefs, deskContext, quotedText } = parseUserAttachments(rawContent);
-      const hasMarkerMedia = attachedImages.length > 0 || attachedVideos.length > 0 || attachedAudios.length > 0;
-      const visibleText = normalizeUserVisibleText(text, hasMarkerMedia);
       const consumedSessionFileMarkers = new Set<number>();
       const fileAtts = files.map((f) => {
         const marker = consumeSessionFileMarkerForAttachment(sessionFileRefs, consumedSessionFileMarkers, f);
@@ -560,6 +558,10 @@ export function buildItemsFromHistory(data: HistoryApiResponse): ChatListItem[] 
       const markerVideoAtts = attachedVideos.map((ref) => attachmentFromRef(ref, sessionFileLookup));
       const markerAudioAtts = attachedAudios.map((ref) => attachmentFromRef(ref, sessionFileLookup));
       const allAtts = [...fileAtts, ...markerImageAtts, ...markerVideoAtts, ...markerAudioAtts, ...imageAtts];
+      const hasMediaAttachment = allAtts.some(attachment =>
+        /^(image|video|audio)\//.test(attachment.mimeType || ''),
+      ) || attachedImages.length > 0 || attachedVideos.length > 0 || attachedAudios.length > 0;
+      const visibleText = normalizeUserVisibleText(text, hasMediaAttachment);
       const msg: ChatMessage = {
         id,
         sourceEntryId: m.entryId,
