@@ -543,11 +543,14 @@ export class SessionSummaryManager {
       && projection.legacySyntheticIds !== true && Array.isArray(projection.messages)
       ? projection.messages
       : null;
+    const priorProvenance: UserFactProvenance | undefined = existing?.userFactProvenance;
+    const priorProvenanceMatches = projectedSources !== null && priorProvenance
+      && revalidateUserFactProvenance(priorProvenance, projectedSources);
     // A pending replacement can advance its cursor before it has verified
     // provenance. Rebuild from the current branch even when there is no delta.
     const needsReplacementProof = projectedSources !== null
       && existing?.factReplacementRequired === true
-      && existing.userFactProvenance?.status !== "verified";
+      && (priorProvenance?.status !== "verified" || !priorProvenanceMatches);
     let mode = "legacy";
     let prevSummary = existing?.summary || "";
     let newMessages = messages;
@@ -581,9 +584,7 @@ export class SessionSummaryManager {
 
     const timeZone = resolveMemoryTimeZone(opts.timeZone);
     const sourceTimeRange = buildSourceTimeRange(messages, { timeZone });
-    const priorProvenance: UserFactProvenance | undefined = existing?.userFactProvenance;
-    const priorSources = mode === "append" && projectedSources && priorProvenance
-      && revalidateUserFactProvenance(priorProvenance, projectedSources)
+    const priorSources = mode === "append" && priorProvenanceMatches
       ? priorProvenance.candidates
       : [];
     const priorIds = new Set(priorSources.map(({ source }) => source.entryId));

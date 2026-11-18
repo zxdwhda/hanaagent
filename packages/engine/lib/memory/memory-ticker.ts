@@ -46,7 +46,7 @@ import { processDirtySessions } from "./deep-memory.ts";
 import { getLocale } from "../i18n.ts";
 import { getLogicalDay, shiftLogicalDate } from "../time-utils.ts";
 import { readCompiledResetAt } from "./compiled-memory-state.ts";
-import { listSessionFiles, readCurrentSessionBranch, SessionBranchError, sessionIdFromFilename } from "../session-jsonl.ts";
+import { isSessionJsonlFilename, listSessionFiles, readCurrentSessionBranch, SessionBranchError, sessionIdFromFilename } from "../session-jsonl.ts";
 import { isAgentPhoneSessionPath } from "../conversations/agent-phone-session.ts";
 import { buildSourceTimeRange } from "./time-context.ts";
 import { writeCacheSnapshotObservation } from "./cache-snapshot-observation.ts";
@@ -106,6 +106,7 @@ function dreamTickerError(code: DreamErrorCode, message: string, cause?: unknown
  * @param {function} [opts.getDreamAutoEnabled] - 返回当前 agent 的每日自动 Dream 开关
  * @param {(sessionPath: string) => boolean} [opts.isSessionMemoryEnabled] - 返回指定 session 的记忆状态
  * @param {function} [opts.getTimezone] - 返回用户配置时区
+ * @param {(sessionId: string) => object|null} [opts.getSessionManifest] - 查询已知会话当前的权威 locator
  * @param {(sessionPath: string) => object|null} [opts.getSessionBranchHeadForPath] - 读取持久化 branch head 元数据
  * @param {(sessionPath: string, options?: object) => object} [opts.readSessionBranchForPath] - 读取 manifest 选中的当前 branch
  * @param {function} [opts.getCacheSnapshotReflectionMode] - retired; runtime is hard-gated to off
@@ -138,6 +139,7 @@ export function createMemoryTicker(opts) {
     ensureSessionLoaded,
     getSessionStreamFn,
     getSessionIdForPath,
+    getSessionManifest,
     getSessionBranchHeadForPath,
     readSessionBranchForPath,
     envChangeLedger,
@@ -177,7 +179,29 @@ export function createMemoryTicker(opts) {
     } catch {}
     return sessionIdFromFilename(path.basename(sessionPath));
   };
+  const archiveDir = sessionDir ? path.resolve(sessionDir, "archived") : null;
+  const _isArchivedMemoryPath = (sessionPath) => archiveDir !== null
+    && path.dirname(path.resolve(sessionPath)) === archiveDir;
+  const _archiveLocatorFor = (sessionId, manifest = getSessionManifest?.(sessionId)) => {
+    const filePath = manifest?.currentLocator?.path;
+    if (
+      !agentId || manifest?.sessionId !== sessionId || manifest?.ownerAgentId !== agentId
+      || manifest.domain !== "desktop" || manifest.lifecycle !== "archived"
+      || typeof filePath !== "string" || !_isArchivedMemoryPath(filePath)
+      || !isSessionJsonlFilename(path.basename(filePath))
+    ) return null;
+    return filePath;
+  };
   const _readSessionBranch = (sessionPath, options: any = {}) => {
+    const sessionId = typeof getSessionManifest === "function" ? _sessionIdentityForPath(sessionPath) : null;
+    const currentPath = sessionId ? _archiveLocatorFor(sessionId) : null;
+    if (currentPath || _isArchivedMemoryPath(sessionPath)) {
+      if (currentPath && path.resolve(currentPath) === path.resolve(sessionPath)) {
+        const projection = readSessionBranchForPath?.(sessionPath, { ...options, persistRecovery: false });
+        if (projection?.sessionId === sessionId) return projection;
+      }
+      throw new SessionBranchError("session_archive_unavailable", "Archived session has no current manifest-backed branch", { filePath: sessionPath });
+    }
     if (typeof readSessionBranchForPath === "function") {
       const projection = readSessionBranchForPath(sessionPath, options);
       if (projection) return projection;
@@ -235,24 +259,64 @@ export function createMemoryTicker(opts) {
   };
   const _dailyDir = () => path.join(memoryDir, "daily");
   const _createSourceTimeRangeResolver = () => {
-    const filesById = new Map(
-      listSessionFiles(sessionDir).map((entry) => [_sessionIdentityForPath(entry.filePath), entry.filePath]),
-    );
+    const resolveProjection = _createSessionBranchProjectionResolver();
     return (sessionId) => {
-      const filePath = filesById.get(sessionId);
-      if (!filePath) return null;
-      const { messages } = _readSessionBranch(filePath);
-      return buildSourceTimeRange(messages, { timeZone: _getTimezone() });
+      const projection = resolveProjection(sessionId);
+      return projection ? buildSourceTimeRange(projection.messages, { timeZone: _getTimezone() }) : null;
     };
+  };
+  const _tryReadArchivedProjection = (sessionPath) => {
+    try {
+      const projection = _readSessionBranch(sessionPath);
+      return projection.legacySyntheticIds ? null : projection;
+    } catch (err) {
+      if (err instanceof SessionBranchError) return null;
+      throw err;
+    }
+  };
+  const _listActiveMemorySources = () => {
+    const sessions = listSessionFiles(sessionDir);
+    return typeof getSessionManifest === "function"
+      ? sessions.filter(({ filePath }) => !_archiveLocatorFor(_sessionIdentityForPath(filePath)))
+      : sessions;
   };
   const _createSessionBranchProjectionResolver = () => {
     const filesById = new Map(
-      listSessionFiles(sessionDir).map((entry) => [_sessionIdentityForPath(entry.filePath), entry.filePath]),
+      _listActiveMemorySources().map((entry) => [_sessionIdentityForPath(entry.filePath), entry.filePath]),
     );
     return (sessionId) => {
+      const manifest = getSessionManifest?.(sessionId);
+      if (manifest?.lifecycle === "archived") {
+        const archive = _archiveLocatorFor(sessionId, manifest);
+        return archive && _isSessionMemoryOn(archive) ? _tryReadArchivedProjection(archive) : null;
+      }
       const filePath = filesById.get(sessionId);
       return filePath ? _readSessionBranch(filePath) : null;
     };
+  };
+  const _listMemoryRecoverySources = (resetAt) => {
+    const sessions = _listActiveMemorySources();
+    if (typeof getSessionManifest !== "function" || typeof summaryManager.getDirtySessions !== "function") return sessions;
+    const archiveIds = new Set(_branchReplacementPending);
+    for (const summary of summaryManager.getDirtySessions({ since: resetAt })) {
+      if (summary.factReplacementRequired === true) archiveIds.add(summary.session_id);
+    }
+    for (const sessionId of archiveIds) {
+      const archive = _archiveLocatorFor(sessionId);
+      if (!archive || !_isSessionMemoryOn(archive)) continue;
+      const projection = _tryReadArchivedProjection(archive);
+      if (!projection) continue;
+      const summary = summaryManager.getSummary(sessionId);
+      if (
+        !_branchReplacementPending.has(sessionId)
+        && _summaryCursorBelongsToProjection(summary, projection)
+        && summary?.userFactProvenance?.status === "verified"
+        && revalidateUserFactProvenance(summary.userFactProvenance, projection.messages)
+      ) continue;
+      // A pending replacement is eligible independent of the old file's mtime.
+      sessions.push({ filePath: archive, mtime: new Date(0), filename: path.basename(archive), sessionId });
+    }
+    return sessions;
   };
   const _readMemoryReflectionSnapshot = (sessionPath) => {
     try {
@@ -1055,6 +1119,18 @@ export function createMemoryTicker(opts) {
     }
   }
 
+  function _checkPeriodicMemoryJob() {
+    if (_branchReplacementPending.size === 0) {
+      _checkDailyJob();
+      return;
+    }
+    if (_stopped || _tickInFlight || !_isMemoryMasterOn() || _dailyRunning || _dreamRunner.isRunning()) return;
+    void tick().catch((err) => {
+      _markFailure("rollingSummary", err);
+      _logStepError("periodic branch memory recovery", err);
+    });
+  }
+
   // ── 公开 API ──
 
   /**
@@ -1172,7 +1248,7 @@ export function createMemoryTicker(opts) {
   function start() {
     if (_stopped) return;
     if (_timer) return;
-    _timer = setInterval(() => _checkDailyJob(), DAILY_CHECK_INTERVAL);
+    _timer = setInterval(_checkPeriodicMemoryJob, DAILY_CHECK_INTERVAL);
     if (_timer.unref) _timer.unref();
     log.log(`v3 已启动（turn-based，每日任务备用 timer 1h）`);
   }
@@ -1199,13 +1275,15 @@ export function createMemoryTicker(opts) {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const resetAt = _getCompiledResetAt();
     const resetMs = resetAt ? Date.parse(resetAt) : null;
-    const sessions = listSessionFiles(sessionDir);
+    const sessions = _listMemoryRecoverySources(resetAt);
     let recovered = 0;
     for (const { filePath, mtime } of sessions) {
+      if (_stopped) break;
       if (!_isSessionMemoryOn(filePath)) continue;
       const sessionId = _sessionIdentityForPath(filePath);
       const existing = summaryManager.getSummary(sessionId);
-      const replacementPending = existing?.factReplacementRequired === true;
+      const pendingInMemory = _branchReplacementPending.has(sessionId);
+      const replacementPending = pendingInMemory || existing?.factReplacementRequired === true;
       const existingSummaryAt = existing?.updated_at ? new Date(existing.updated_at).getTime() : 0;
       const summaryAt = resetMs ? Math.max(existingSummaryAt, resetMs) : existingSummaryAt;
       const pendingForkBaseline = !!existing?.fork_baseline
@@ -1230,7 +1308,9 @@ export function createMemoryTicker(opts) {
       }
       if (!pendingForkBaseline && !replacementPending && !branchCursorMismatch && mtime.getTime() < cutoff) continue;
       if (!pendingForkBaseline && !replacementPending && !branchCursorMismatch && resetMs && mtime.getTime() <= resetMs) continue;
-      if (replacementPending || branchCursorMismatch) _markBranchReplacementPending(sessionId);
+      if (!pendingInMemory && (replacementPending || branchCursorMismatch)) {
+        _markBranchReplacementPending(sessionId);
+      }
       if (pendingForkBaseline || replacementPending || branchCursorMismatch || mtime.getTime() > summaryAt + 5000) {
         const outcome = await _doRollingSummary(filePath, "recovery");
         if (outcome?.ok) recovered += 1;
@@ -1245,6 +1325,7 @@ export function createMemoryTicker(opts) {
    */
   async function tick() {
     if (_stopped) return;
+    if (_tickInFlight) return _tickInFlight;
     const p = _tickCore();
     _tickInFlight = p;
     try { await p; } finally { if (_tickInFlight === p) _tickInFlight = null; }
@@ -1253,7 +1334,7 @@ export function createMemoryTicker(opts) {
   async function _tickCore() {
     if (!_isMemoryMasterOn()) return;
     const recovered = await _recoverUnsummarized(); // 补偿崩溃/重启前未收尾的 session
-    if (_branchReplacementPending.size > 0) return;
+    if (_stopped || _branchReplacementPending.size > 0) return;
     let context = _restoreDailyProgress();
     if (recovered > 0) {
       _clearPersistedDailyProgress(context, "summary recovery");

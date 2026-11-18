@@ -3122,7 +3122,7 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Optional user-fact provenance and retry-safe generated-line tracking preserve legacy records, editable text, and the existing SQLite schema and data epoch.",
+    "compatibilityReason": "Continue existing branch and deep-memory recovery from the current archive locator, with unchanged stored records and data epoch.",
     "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38"
   },
   "schemas": [

@@ -66,13 +66,23 @@ function stripLeadingThoughtBlocks(text) {
   return out;
 }
 
+function isFactJsonContext(text: string) {
+  if (/[[\]{}]/u.test(text)) return false;
+  return text.split(/\r?\n/).every((rawLine) => {
+    const line = rawLine.trim();
+    // Reject scalar output even if it is followed on a later line by prose.
+    if (/^(?:null|true|false|-?\d+(?:\.\d*)?(?:[eE][+-]?\d*)?)$/u.test(line)) return false;
+    // A quote can introduce prose if it closes and the sentence continues.
+    return !line.startsWith('"') || /^"(?:[^"\\]|\\.)*"\s*\S/u.test(line);
+  });
+}
+
 function findJsonArrayCandidate(text) {
   const s = String(text || "");
   const start = s.indexOf("[");
-  if (start === -1) return "";
+  if (start === -1 || !isFactJsonContext(s.slice(0, start))) return "";
   let depth = 0;
   let inString = false;
-  let quote = "";
   let escaped = false;
   for (let i = start; i < s.length; i++) {
     const ch = s[i];
@@ -81,21 +91,21 @@ function findJsonArrayCandidate(text) {
         escaped = false;
       } else if (ch === "\\") {
         escaped = true;
-      } else if (ch === quote) {
+      } else if (ch === '"') {
         inString = false;
-        quote = "";
       }
       continue;
     }
-    if (ch === '"' || ch === "'") {
+    if (ch === '"') {
       inString = true;
-      quote = ch;
       continue;
     }
     if (ch === "[") depth += 1;
     else if (ch === "]") {
       depth -= 1;
-      if (depth === 0) return s.slice(start, i + 1);
+      if (depth === 0) {
+        return isFactJsonContext(s.slice(i + 1)) ? s.slice(start, i + 1) : "";
+      }
     }
   }
   return "";
@@ -104,9 +114,7 @@ function findJsonArrayCandidate(text) {
 function normalizeFactJsonOutput(raw) {
   const withoutFence = stripFullMarkdownFence(raw);
   const withoutThoughts = stripLeadingThoughtBlocks(withoutFence);
-  const normalized = stripFullMarkdownFence(withoutThoughts).trim();
-  if (normalized.startsWith("[")) return normalized;
-  return findJsonArrayCandidate(normalized);
+  return findJsonArrayCandidate(stripFullMarkdownFence(withoutThoughts));
 }
 
 /**
