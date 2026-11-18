@@ -19,7 +19,7 @@ import {
   TURN_INPUT_CONSUMPTION_EVENT_TYPE,
   TURN_INPUT_PRESENTATION_EVENT_TYPE,
 } from "../lib/turn-input-presentation.ts";
-import { repairOversizedSessionEntriesInFile } from "./session-jsonl-file.ts";
+import { repairOversizedSessionEntries } from "./session-jsonl-file.ts";
 import { isAssistantCommentaryTextBlock } from "../../shared/text-signature.ts";
 import { TOOL_ARG_SUMMARY_KEYS, summarizeToolArgs } from "../../shared/tool-arg-summary.ts";
 import { projectSessionMessageForDisplay } from "./session-reminders.ts";
@@ -109,11 +109,12 @@ export async function loadSessionHistoryMessages(engine, explicitPath) {
 
   try {
     if (await looksLikePiSessionFile(sessionPath)) {
-      repairOversizedSessionEntriesInFile(sessionPath);
       const manager = typeof engine?.openSessionManagerAtCurrentBranch === "function"
         ? engine.openSessionManagerAtCurrentBranch(sessionPath, path.dirname(sessionPath))
         : SessionManager.open(sessionPath, path.dirname(sessionPath));
-      const branch = manager.getBranch();
+      // History reads can overlap with loading or appending through the live manager.
+      // Project the display branch without replacing the writer's file.
+      const branch = repairOversizedSessionEntries(manager.getBranch()).entries;
       const messages = [];
       for (const entry of branch) {
         const message = historyMessageFromEntry(entry);

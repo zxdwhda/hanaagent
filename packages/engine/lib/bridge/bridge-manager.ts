@@ -315,6 +315,43 @@ function cleanSegments(segments) {
     .join("");
 }
 
+/** 开闭标签必须位于正文；块内的代码不应把同一内省块切断。 */
+function stripPairedInternalBlocks(text: string): string {
+  const tags = new RegExp(`<(\\/?)(?:${STRIP_TAGS.join("|")})>`, "gi");
+  const kept: string[] = [];
+  let offset = 0;
+  let consumed = 0;
+  let pending: { start: number; tag: string } | null = null;
+  for (const segment of splitCodeAndProse(text)) {
+    if (!segment.code) {
+      tags.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = tags.exec(segment.text))) {
+        const start = offset + match.index;
+        if (start < consumed) continue;
+        const closing = match[1] === "/";
+        const tag = match[0].slice(closing ? 2 : 1, -1).toLowerCase();
+        if (!pending && !closing) pending = { start, tag };
+        else if (pending && closing && pending.tag === tag) {
+          kept.push(text.slice(consumed, pending.start));
+          const tagEnd = start + match[0].length;
+          consumed = tagEnd;
+          while (consumed < text.length && /\s/.test(text[consumed])) consumed++;
+          // Keep the code fence on its own line when visible prose precedes the block.
+          if (text.startsWith("```", consumed)) {
+            const newline = text.lastIndexOf("\n", consumed - 1);
+            if (newline >= tagEnd) consumed = text[newline - 1] === "\r" ? newline - 1 : newline;
+          }
+          pending = null;
+        }
+      }
+    }
+    offset += segment.text.length;
+  }
+  kept.push(text.slice(consumed));
+  return kept.join("");
+}
+
 /**
  * 出站清洗单一源：剥离全部 Bridge 内部标签，保护 code fence / 行内 code，
  * 绝不吃正文。详见上方设计纪律。
@@ -328,7 +365,7 @@ function stripInternalTags(text) {
   // backtick 形态的内省块必须先删（否则会被当作受保护 code fence）。
   const work = text.replace(BACKTICK_INTERNAL_RE, "");
 
-  return cleanSegments(splitCodeAndProse(work)).trim();
+  return cleanSegments(splitCodeAndProse(stripPairedInternalBlocks(work))).trim();
 }
 
 /**
@@ -352,13 +389,20 @@ function stripInternalTagsLine(line) {
  */
 function cleanStreamSnapshot(text) {
   let cleaned = stripInternalTags(text || "");
-  // 流式可能停在「开标签 + 内容」但还没等到闭合：截掉这截不完整内省块。
-  for (const tag of STRIP_TAGS) {
-    const open = new RegExp(`<${tag}>[\\s\\S]*$`, "i");
-    cleaned = cleaned.replace(open, "");
+  const segments = splitCodeAndProse(cleaned);
+  const last = segments.at(-1);
+  const openTag = new RegExp(`<(?:${STRIP_TAGS.join("|")})>`, "i");
+  let offset = 0;
+  for (const segment of segments) {
+    const open = segment.code ? -1 : segment.text.search(openTag);
+    if (open !== -1) {
+      // An opening tag remaining in prose starts an unfinished internal block.
+      cleaned = cleaned.slice(0, offset + open);
+      break;
+    }
+    if (segment === last && !segment.code) cleaned = cleaned.replace(/<[^>\s]*$/g, "");
+    offset += segment.text.length;
   }
-  // 停在半个标签起手（如 "<thi"）：截掉。
-  cleaned = cleaned.replace(/<[^>\s]*$/g, "");
   const { text: textOnly, mediaUrls } = splitMediaFromOutput(cleaned);
   return { text: textOnly, mediaUrls };
 }

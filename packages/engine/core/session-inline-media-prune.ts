@@ -10,6 +10,7 @@
 import { stripAllInlineMediaForHistory } from "./message-sanitizer.ts";
 import {
   readSessionEntriesFile,
+  replaceSessionManagerEntries,
   writeSessionEntriesFile,
 } from "./session-jsonl-file.ts";
 
@@ -25,23 +26,8 @@ function addCounts(target, source) {
 }
 
 function pruneSessionManagerEntries(sessionManager) {
-  const result = emptyResult();
-  const entries = Array.isArray(sessionManager?.fileEntries) ? sessionManager.fileEntries : [];
-  let changed = false;
-
-  for (const entry of entries) {
-    if (entry?.type !== "message" || !entry.message) continue;
-    const stripped = stripAllInlineMediaForHistory([entry.message]);
-    if (stripped.stripped === 0) continue;
-    entry.message = stripped.messages[0];
-    addCounts(result, stripped);
-    changed = true;
-  }
-
-  if (changed && typeof sessionManager?._rewriteFile === "function") {
-    sessionManager._rewriteFile();
-  }
-
+  const { entries, ...result } = repairSessionInlineMediaEntries(sessionManager?.fileEntries);
+  if (result.stripped > 0) replaceSessionManagerEntries(sessionManager, entries);
   return result;
 }
 

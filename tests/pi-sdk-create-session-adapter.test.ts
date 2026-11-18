@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@earendil-works/pi-coding-agent", async () => ({
   createAgentSession: vi.fn(async opts => ({ session: { opts }, modelFallbackMessage: null })),
-  SessionManager: { create: vi.fn(), open: vi.fn() },
+  SessionManager: class {
+    static create = vi.fn();
+    static open = vi.fn();
+  },
   SettingsManager: { inMemory: vi.fn() },
   createReadTool: vi.fn(),
   createWriteTool: vi.fn(),
