@@ -609,6 +609,7 @@ export const PERSISTENT_STORES: readonly StoreDescriptor[] = Object.freeze([
       ...rules([
         "packages/engine/core/session-coordinator.ts",
         "packages/engine/core/session-jsonl-file.ts",
+        "packages/engine/lib/pi-sdk/session-persistence.ts",
         "packages/engine/core/slash-commands/session-ops.ts",
         "packages/engine/hub/agent-executor.ts",
       ], "Creates, repairs, archives, restores, or appends session JSONL locators."),

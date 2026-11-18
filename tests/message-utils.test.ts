@@ -23,6 +23,7 @@ import {
   isDesktopSessionPath,
 } from "../packages/engine/core/message-utils.ts";
 import { SessionManager } from "../packages/engine/lib/pi-sdk/index.ts";
+import { DEFAULT_SESSION_JSONL_MAX_LINE_BYTES } from "../packages/engine/core/session-jsonl-file.ts";
 import { TURN_INPUT_CONSUMPTION_EVENT_TYPE } from "../packages/engine/lib/turn-input-presentation.ts";
 
 let tmpDir;
@@ -440,6 +441,27 @@ describe("loadSessionHistoryMessages", () => {
       "prompt",
       "selected answer",
     ]);
+  });
+
+  it("projects oversized tool arguments for history without replacing the active writer's JSONL", async () => {
+    const manager = SessionManager.create(tmpDir, path.join(tmpDir, "live-history"));
+    const payload = "x".repeat(DEFAULT_SESSION_JSONL_MAX_LINE_BYTES);
+    manager.appendMessage({
+      role: "assistant",
+      content: [
+        { type: "text", text: "visible reply" },
+        { type: "toolCall", id: "fixture-call", name: "fixture", arguments: { payload } },
+      ],
+    } as any);
+    const sessionPath = manager.getSessionFile();
+    const before = fs.readFileSync(sessionPath);
+
+    const result = await loadSessionHistoryMessages({}, sessionPath);
+
+    expect(result[0].content[0]).toEqual({ type: "text", text: "visible reply" });
+    expect(result[0].content[1].arguments.payload).not.toBe(payload);
+    expect(fs.readFileSync(sessionPath).equals(before)).toBe(true);
+    expect(() => manager.appendMessage({ role: "user", content: "next prompt" } as any)).not.toThrow();
   });
 
   it("从 Pi session 分支恢复 custom_message 供后台结果重建 UI 块", async () => {

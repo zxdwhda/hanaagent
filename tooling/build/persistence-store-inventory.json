@@ -5999,15 +5999,6 @@
       "ordinal": 0
     },
     {
-      "sourceFile": "packages/engine/core/session-jsonl-file.ts",
-      "kind": "write-file",
-      "excerpt": "fs.writeFileSync(sessionPath, serializeSessionEntries(entries))",
-      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
-      "storeId": "session-jsonl",
-      "exemptionId": null,
-      "ordinal": 0
-    },
-    {
       "sourceFile": "packages/engine/core/session-manifest/checkpoint.ts",
       "kind": "atomic-write",
       "excerpt": "atomicWriteSync(path.join(checkpointDirectory, \"checkpoint.json\"), `${JSON.stringify(receipt, null, 2)}\\n`)",
@@ -7759,6 +7750,51 @@
       "excerpt": "createWriteStream(dest)",
       "reason": "Populates a Hana-owned regenerable runtime cache.",
       "storeId": "managed-runtime-caches",
+      "exemptionId": null,
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/pi-sdk/session-persistence.ts",
+      "kind": "remove-path",
+      "excerpt": "fs.rmSync(temp, { force: true })",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
+      "exemptionId": null,
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/pi-sdk/session-persistence.ts",
+      "kind": "rename",
+      "excerpt": "fs.renameSync(temp, destination)",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
+      "exemptionId": null,
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/pi-sdk/session-persistence.ts",
+      "kind": "write-file",
+      "excerpt": "fs.openSync(temp, \"wx\", mode)",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
+      "exemptionId": null,
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/pi-sdk/session-persistence.ts",
+      "kind": "write-file",
+      "excerpt": "fs.writeFileSync(fd, entryLine(entry))",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
+      "exemptionId": null,
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/pi-sdk/session-persistence.ts",
+      "kind": "write-file",
+      "excerpt": "fs.writeFileSync(fd, line)",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
       "exemptionId": null,
       "ordinal": 0
     },

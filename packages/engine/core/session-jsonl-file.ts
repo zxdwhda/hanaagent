@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { isSessionJsonlFilename } from "../lib/session-jsonl.ts";
+import { writeSessionEntriesAtomically } from "../lib/pi-sdk/session-persistence.ts";
 import { stripAllInlineMediaForHistory } from "./message-sanitizer.ts";
 
 export const DEFAULT_SESSION_JSONL_MAX_LINE_BYTES = 1024 * 1024;
@@ -295,7 +296,23 @@ export function repairOversizedSessionEntriesInFile(sessionPath, opts: { maxLine
  * @param {Array} entries
  */
 export function writeSessionEntriesFile(sessionPath, entries) {
-  fs.writeFileSync(sessionPath, serializeSessionEntries(entries));
+  writeSessionEntriesAtomically(sessionPath, entries);
+}
+
+/** Publish a projected history before replacing the live manager index. */
+export function replaceSessionManagerEntries(manager, entries) {
+  const previousEntries = manager.fileEntries;
+  const leaf = manager.getLeafId?.() ?? null;
+  manager.fileEntries = entries;
+  try {
+    manager._rewriteFile?.();
+  } catch (error) {
+    manager.fileEntries = previousEntries;
+    throw error;
+  }
+  manager._buildIndex?.();
+  if (leaf === null) manager.resetLeaf?.();
+  else if (manager.getEntry?.(leaf)) manager.branch?.(leaf);
 }
 
 function hasAssistantEntry(entries) {

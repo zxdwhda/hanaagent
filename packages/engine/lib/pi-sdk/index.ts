@@ -15,6 +15,8 @@ import {
   AuthStorage,
   createAgentSession as rawCreateAgentSession,
   ModelRegistry,
+  SessionManager,
+  SettingsManager,
   resizeImage as rawResizeImage,
   formatDimensionNote as rawFormatDimensionNote,
   convertToLlm as rawConvertToLlm,
@@ -31,6 +33,7 @@ import {
 } from "./session-options.ts";
 import { installAssistantStreamGuard } from "./stream-guard.ts";
 import { installToolOutcomeAdapter } from "./tool-outcome-adapter.ts";
+import { installSessionPersistenceAdapter } from "./session-persistence.ts";
 import {
   createFindTool,
   createGrepTool,
@@ -41,7 +44,8 @@ import {
 } from "../../../../node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js";
 
 // ── Session 管理 ──
-export { SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
+installSessionPersistenceAdapter(SessionManager);
+export { SessionManager, SettingsManager };
 
 // ── 低层 AgentLoop（隔离 side lane 用）──
 export { runAgentLoop } from "@earendil-works/pi-agent-core";

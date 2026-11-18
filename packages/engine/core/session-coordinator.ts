@@ -72,6 +72,7 @@ import {
   flushSessionManagerSnapshot,
   repairOversizedSessionEntries,
   repairOversizedSessionEntriesInFile,
+  replaceSessionManagerEntries,
   schedulePreAssistantSessionManagerFlush,
 } from "./session-jsonl-file.ts";
 import { createVisionContextInjectionExtension } from "./vision-context-injector.ts";
@@ -1717,6 +1718,7 @@ export class SessionCoordinator {
 
   async createSession(sessionMgr: any, cwd: any, memoryEnabled = true, model: any = null, {
     restore = false,
+    focus = true,
     agent: explicitAgent = null,
     agentId: explicitAgentId = null,
     preserveAgentMemoryState = false,
@@ -1759,7 +1761,7 @@ export class SessionCoordinator {
     // restore 模式通常由 PI SDK 从 JSONL 恢复模型。唯一例外是历史模型当前不可用：
     // 下方会传入同 provider/id 的不可执行占位对象，阻止 SDK 静默 fallback。
     const effectiveModel = restore ? null : (model || this._pendingModel || models.currentModel);
-    this._pendingModel = null;
+    if (focus) this._pendingModel = null;
     log.log(`createSession cwd=${effectiveCwd} restore=${restore} (传入: ${cwd || "未指定"})`);
 
     const workspaceSkillContext = await this._d.onBeforeSessionCreate?.(effectiveCwd, {
@@ -1977,7 +1979,7 @@ export class SessionCoordinator {
     let initialPermissionMode = restore
       ? normalizeSessionPermissionMode(restoredPermissionMode)
       : normalizeSessionPermissionMode(this._pendingPermissionMode || this._getDefaultPermissionMode());
-    this._pendingPermissionMode = null;
+    if (focus) this._pendingPermissionMode = null;
     let initialAccessMode = legacyAccessModeFromPermissionMode(initialPermissionMode);
     let initialPlanMode = isReadOnlyPermissionMode(initialPermissionMode);
     const sessionEntry = {
@@ -2201,9 +2203,11 @@ export class SessionCoordinator {
     sessionPathRef.current = sessionPath || sessionPathRef.current || null;
     targetModelRef.current = resolvedModel || targetModelRef.current || null;
     flushSessionManagerSnapshot(session.sessionManager);
-    this._session = session;
-    this._currentSessionPath = sessionPath || null;
-    this._sessionStarted = false;
+    if (focus) {
+      this._session = session;
+      this._currentSessionPath = sessionPath || null;
+      this._sessionStarted = false;
+    }
     if (restore && sessionPath && !restoredCapabilitySnapshot) {
       restoredCapabilitySnapshot = this._readSessionCapabilitySnapshot(sessionPath);
     }
@@ -2606,9 +2610,8 @@ export class SessionCoordinator {
 
     // LRU 淘汰：按 lastTouchedAt 排序，跳过 streaming 和焦点 session
     if (this._sessions.size > MAX_CACHED_SESSIONS) {
-      const focusPath = this.currentSessionPath;
       const candidates = [...this._sessions.entries()]
-        .filter(([key, e]) => key !== mapKey && key !== focusPath && !e.session.isStreaming)
+        .filter(([key, e]) => key !== mapKey && e.session !== this._session && !e.session.isStreaming)
         .sort((a, b) => a[1].lastTouchedAt - b[1].lastTouchedAt);
       for (const [key, entry] of candidates) {
         // 记忆收尾（fire-and-forget，淘汰场景不阻塞）
@@ -4654,71 +4657,26 @@ export class SessionCoordinator {
     // 切到已有 session 时清空 pendingModel（用户的临时选择不应跟到别的 session）
     this._pendingModel = null;
 
-    // 从 session-owned state 恢复记忆开关（model 由 PI SDK 从 JSONL 恢复，不在此处读取）
-    const memoryEnabled = this.getSessionMemoryEnabled(sessionPath);
-
-    // 如果已在 map 中，切指针
-    const existing = this._getSessionEntryByPath(sessionPath);
-    if (existing) {
-      if (this._session && this._session !== existing.session) {
-        const oldSp = this._session.sessionManager?.getSessionFile?.();
-        if (oldSp) {
-          const oldEntry = this._getSessionEntryByPath(oldSp);
-          const oldAgent = oldEntry ? this._d.getAgentById(oldEntry.agentId) : this._d.getAgent();
-          // fire-and-forget：memory flush 不阻塞 switch。memory.md 由 onCompiled 回调
-          // 刷到 agent._systemPrompt，只影响下次新建 session；老 session 用自己创建时的
-          // 快照，对后台异步刷新完全透明。
-          oldAgent?._memoryTicker?.notifySessionEnd(oldSp).catch((err) =>
-            log.warn(`switchSession ${path.basename(oldSp)}: notifySessionEnd failed: ${err.message}`),
-          );
-        }
-      }
-      this._session = existing.session;
-      this._currentSessionPath = sessionPath;
-      existing.lastTouchedAt = Date.now();
-      return existing.session;
-    }
-
-    const ownerAgentId = targetAgentId || this._d.getActiveAgentId();
-    let targetAgent = this._d.getAgentById?.(ownerAgentId)
-      || (ownerAgentId === this._d.getActiveAgentId() ? this._d.getAgent() : null);
-    targetAgent = await this._ensureAgentRuntimeReady(ownerAgentId, {
-      agent: targetAgent,
-      reason: "switchSession",
-    });
-
-    // 不在 map 中，先触发旧 session 的 memory flush（后台跑），再新建
-    if (this._session) {
+    const wasLoaded = !!this._getSessionEntryByPath(sessionPath);
+    const nextSession = await this.ensureSessionLoaded(sessionPath);
+    if (this._session && this._session !== nextSession) {
       const oldSp = this._session.sessionManager?.getSessionFile?.();
       if (oldSp) {
         const oldEntry = this._getSessionEntryByPath(oldSp);
         const oldAgent = oldEntry ? this._d.getAgentById(oldEntry.agentId) : this._d.getAgent();
+        // Fire and forget: the previous turn's memory flush must not block focus.
         oldAgent?._memoryTicker?.notifySessionEnd(oldSp).catch((err) =>
           log.warn(`switchSession ${path.basename(oldSp)}: notifySessionEnd failed: ${err.message}`),
         );
       }
     }
-    // #521: 在恢复前扫描会话尾部，若最近 N 条 assistant 大量 stopReason=error
-    // 说明用户已经撞到了"反复 empty_stream"循环，给前端发警告事件让 UI 提示用户
-    // 新建会话或修复。restore 本身仍然继续，避免破坏用户预期。
-    this._emitSessionHealthWarning(sessionPath);
-    // 在 open 前修复巨型/坏 JSONL 行，避免 SessionManager.open 整文件 parse 卡住。
-    this._repairOversizedSessionHistory(sessionPath);
-    // #1285: 在 open 前修复坏会话的孤儿 toolResult（必须早于 SessionManager.open）
-    this._repairOrphanToolHistory(sessionPath);
-    this._repairInlineMediaHistory(sessionPath);
-
-    // 冷启动恢复：model 由 PI SDK 从 session JSONL 恢复（单一数据源），不从 session-meta.json 读
-    const reminderState = this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath);
-    const sessionMgr = SessionManager.open(sessionPath, targetAgent.sessionDir);
-    const cwd = sessionMgr.getCwd?.() || undefined;
-    const result = await this.createSession(sessionMgr, cwd, memoryEnabled, null, {
-      restore: true,
-      agent: targetAgent,
-      agentId: ownerAgentId,
-      reminderState,
-    });
-    return result.session;
+    this._session = nextSession;
+    this._currentSessionPath = sessionPath;
+    if (!wasLoaded) {
+      this._sessionStarted = false;
+      this._pendingPermissionMode = null;
+    }
+    return nextSession;
   }
 
   /** @private 检查 session 健康度并在 unhealthy 时 log + emit 事件，不抛错 */
@@ -4782,14 +4740,9 @@ export class SessionCoordinator {
     try {
       const manager = session?.sessionManager;
       if (!Array.isArray(manager?.fileEntries)) return;
-      const selectedLeafId = manager.getLeafId?.() ?? null;
       const result = repairOversizedSessionEntries(manager.fileEntries);
       if (result.projected === 0) return;
-      manager.fileEntries = result.entries;
-      manager._buildIndex?.();
-      if (selectedLeafId == null) manager.resetLeaf?.();
-      else if (manager.getEntry?.(selectedLeafId)) manager.branch?.(selectedLeafId);
-      manager._rewriteFile?.();
+      replaceSessionManagerEntries(manager, result.entries);
       log.warn(
         `session turn: ${path.basename(sessionPath || manager.getSessionFile?.() || "session")} `
         + `projected ${result.projected} oversized JSONL entries`
@@ -6324,9 +6277,8 @@ export class SessionCoordinator {
    * 确保 sessionPath 已加载进 _sessions cache，但**不改 this._session（UI 焦点）**。
    *
    * 供 /rc 接管态使用：bridge 端操作桌面 session 时，该 session 可能未被
-   * UI 打开过（不在 cache 里）。switchSession 会切焦点 + flush 旧 session，
-   * 副作用太重。此方法走 createSession 的 cold-load 路径后回滚 this._session 指针，
-   * 保证 UI 焦点和内存态不受影响。
+   * UI 打开过（不在 cache 里）。桌面冷切与后台 attach 共用装载，只有
+   * switchSession 会设置 UI 焦点。
    *
    * 幂等：已缓存则直接返回，刷新 lastTouchedAt。
    *
@@ -6339,6 +6291,10 @@ export class SessionCoordinator {
       throw new Error("ensureSessionLoaded: session belongs to a deleted agent");
     }
     this._assertCurrentActiveSessionLocator(sessionPath, "ensureSessionLoaded");
+    // The locator key stays stable even if the load establishes a manifest.
+    const loadKey = path.resolve(sessionPath);
+    const inFlight = this._ensureSessionLoadedInFlight.get(loadKey);
+    if (inFlight) return inFlight;
     const existing = this._getSessionEntryByPath(sessionPath);
     if (existing) {
       existing.lastTouchedAt = Date.now();
@@ -6353,12 +6309,10 @@ export class SessionCoordinator {
     // 键用 sessionPath：入口的 _assertCurrentActiveSessionLocator 保证同一
     // session 同一时刻只有一个 active locator path，避免 manifest 创建过程中
     // sessionId/path 双键漂移绕过去重。
-    const inFlight = this._ensureSessionLoadedInFlight.get(sessionPath);
-    if (inFlight) return inFlight;
     const loadPromise = this._loadSessionForAttach(sessionPath).finally(() => {
-      this._ensureSessionLoadedInFlight.delete(sessionPath);
+      this._ensureSessionLoadedInFlight.delete(loadKey);
     });
-    this._ensureSessionLoadedInFlight.set(sessionPath, loadPromise);
+    this._ensureSessionLoadedInFlight.set(loadKey, loadPromise);
     return loadPromise;
   }
 
@@ -6368,7 +6322,8 @@ export class SessionCoordinator {
     if (!targetAgentId) {
       throw new Error(`ensureSessionLoaded: cannot resolve agentId for ${sessionPath}`);
     }
-    const agent = this._d.getAgentById(targetAgentId);
+    const agent = this._d.getAgentById?.(targetAgentId)
+      || (targetAgentId === this._d.getActiveAgentId() ? this._d.getAgent() : null);
     if (!agent) {
       throw new Error(`ensureSessionLoaded: agent "${targetAgentId}" not found`);
     }
@@ -6381,32 +6336,21 @@ export class SessionCoordinator {
     const memoryEnabled = this.getSessionMemoryEnabled(sessionPath);
     const reminderState = this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath);
 
-    // 保存焦点：createSession 副作用会设 this._session / _sessionStarted，
-    // /rc 这类纯 attach 路径结束后必须完整回滚，避免污染桌面 UI 的当前会话态。
-    const prevFocus = this._session;
-    const prevCurrentSessionPath = this._currentSessionPath;
-    const prevSessionStarted = this._sessionStarted;
-    try {
-      // #521: attach 路径同样要做健康度评估，否则 bridge / RC 自动恢复时也会反复失败
-      this._emitSessionHealthWarning(sessionPath);
-      this._repairOversizedSessionHistory(sessionPath);
-      // #1285: 在 open 前修复坏会话的孤儿 toolResult（必须早于 SessionManager.open）
-      this._repairOrphanToolHistory(sessionPath);
-      this._repairInlineMediaHistory(sessionPath);
-      const sessionMgr = SessionManager.open(sessionPath, readyAgent.sessionDir);
-      const cwd = sessionMgr.getCwd?.() || undefined;
-      await this.createSession(sessionMgr, cwd, memoryEnabled, null, {
-        restore: true,
-        agent: readyAgent,
-        agentId: targetAgentId,
-        preserveAgentMemoryState: true,
-        reminderState,
-      });
-    } finally {
-      this._session = prevFocus;
-      this._currentSessionPath = prevCurrentSessionPath;
-      this._sessionStarted = prevSessionStarted;
-    }
+    // Evaluate and repair persisted history before Pi reads the JSONL.
+    this._emitSessionHealthWarning(sessionPath);
+    this._repairOversizedSessionHistory(sessionPath);
+    this._repairOrphanToolHistory(sessionPath);
+    this._repairInlineMediaHistory(sessionPath);
+    const sessionMgr = SessionManager.open(sessionPath, readyAgent.sessionDir);
+    const cwd = sessionMgr.getCwd?.() || undefined;
+    await this.createSession(sessionMgr, cwd, memoryEnabled, null, {
+      restore: true,
+      focus: false,
+      agent: readyAgent,
+      agentId: targetAgentId,
+      preserveAgentMemoryState: true,
+      reminderState,
+    });
 
     const entry = this._getSessionEntryByPath(sessionPath);
     if (!entry) throw new Error(`ensureSessionLoaded: session not in cache after createSession`);
