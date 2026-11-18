@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:7a524d2a1f05b289e75770de02b9dc9e6827e986598f22c1b1a9893396d63a33",
+  "payloadFingerprint": "sha256:1193a7c109e1dd228c946f3760c0ef6eeaa361c31bf140658d07d8723d63f074",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Source-only layout migration into apps, packages, extensions and tooling. Relative imports and bundled resource paths are rebased together. Persistent store IDs, user-data pathPatterns, serialized formats, write-site ownership, DATA_EPOCH and SQLite layouts are unchanged; source-file metadata and executable source hashes are repinned. Inventory replays the existing fixed scan date 2026-07-13 because upstream exemptions expired 2026-10-31; no expiry or schema guards weakened.",
-    "payloadFingerprint": "sha256:7a524d2a1f05b289e75770de02b9dc9e6827e986598f22c1b1a9893396d63a33"
+    "compatibilityReason": "Building patrol context no longer rewrites the workspace log. Existing log contents, Hana-owned store schemas, and startup order remain compatible.",
+    "payloadFingerprint": "sha256:1193a7c109e1dd228c946f3760c0ef6eeaa361c31bf140658d07d8723d63f074"
   },
   "schemas": [
     {
@@ -3425,7 +3425,7 @@
       "contract": "normalizeMcpConfig read-time normalization (servers/connectors alias, auth and OAuth field defaults, per-connector permission policy defaults, deferred-loading defaults)",
       "kind": "runtime-contract",
       "module": "packages/engine/core/mcp/manager.ts",
-      "sourceHash": "sha256:cbd5857f080b687f62e61aa43f046cc9d2b8122e40f1d9711237738ec237304c",
+      "sourceHash": "sha256:f7f5ddd3936446cc04a72f3a35da375e30925bef991adb77b46d74cff3323bee",
       "storeId": "mcp-config"
     },
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:34a2cae5653bde146792b28dab2a5ef10f3e0460cc7801192ddc1962f403fe01"
+          "sourceHash": "sha256:e7fe112c2acaf096887c8d4c67190614984beebbfdd95608986086c42e48dd65"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",
@@ -7730,14 +7730,6 @@
       "reason": "Writes the activity index or activity session lifecycle state.",
       "sourceFile": "packages/engine/lib/desk/desk-manager.ts",
       "storeId": "desk-activity"
-    },
-    {
-      "exemptionId": "external-heartbeat-workspace",
-      "kind": "atomic-write",
-      "ordinal": 0,
-      "reason": "Writes heartbeat/task files inside an explicitly mounted workspace, not a Hana-owned persistence root.",
-      "sourceFile": "packages/engine/lib/desk/heartbeat.ts",
-      "storeId": null
     },
     {
       "exemptionId": "external-heartbeat-workspace",

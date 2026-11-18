@@ -2910,7 +2910,7 @@ export class HanaEngine {
     );
     const bridgeTools = createBridgeTools({
       catalog,
-      mcpCall: (serverId, toolName, args, ctx) => this._mcp.callTool(serverId, toolName, args, ctx),
+      mcpCall: (serverId, toolName, args, ctx, signal) => this._mcp.callTool(serverId, toolName, args, ctx, signal),
       resolveMcpPermission: (serverId, toolName) =>
         this._mcp?.resolveToolPermissionKind?.(serverId, toolName) ?? "review",
       // A deferred builtin keeps its own permission voice rather than being
@@ -3485,7 +3485,7 @@ export class HanaEngine {
 
   async summarizeActivity(sp, preloaded, opts: any = {}) {
     const utilityOptions = this._utilityOptionsForContext({ ...opts, sessionPath: opts.sessionPath || sp });
-    return _summarizeActivity(await this.resolveUtilityConfigFresh(utilityOptions), sp, (msg) => this.emitDevLog(msg), preloaded);
+    return _summarizeActivity(await this.resolveUtilityConfigFresh(utilityOptions), sp, (msg) => this.emitDevLog(msg), preloaded, opts.signal);
   }
 
   async summarizeActivityQuick(activityId) {

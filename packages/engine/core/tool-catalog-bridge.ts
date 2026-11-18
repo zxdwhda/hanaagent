@@ -28,7 +28,7 @@ const CALL_TOOL_NAME = "mcp_call";
 
 export interface BridgeToolDeps {
   catalog: ToolCatalog;
-  mcpCall: (serverId: string, toolName: string, args: Record<string, unknown>, ctx?: unknown) => Promise<unknown>;
+  mcpCall: (serverId: string, toolName: string, args: Record<string, unknown>, ctx?: unknown, signal?: AbortSignal) => Promise<unknown>;
   resolveMcpPermission: (serverId: string, toolName: string) => string;
   /** Resolves a deferred builtin tool's own invocation descriptor. */
   resolveBuiltinInvocation?: (name: string, params: unknown) => unknown;
@@ -270,7 +270,7 @@ export function createBridgeTools({
         };
       },
     },
-    execute: async (_id: string, params: any, _signal: unknown, _onUpdate: unknown, ctx: unknown) => {
+    execute: async (_id: string, params: any, signal: unknown, _onUpdate: unknown, ctx: unknown) => {
       const entry = resolveTarget(catalog, params?.server, params?.tool);
       if (!entry) {
         const suggestions = nearNames(catalog, String(params?.tool ?? ""));
@@ -301,7 +301,9 @@ export function createBridgeTools({
           if (!builtinCall) return text(`${entry.name} 当前不可调用。`);
           return await builtinCall(entry.name, args, ctx) as any;
         }
-        return await mcpCall(entry.serverId, entry.toolName, args, ctx) as any;
+        return signal instanceof AbortSignal
+          ? await mcpCall(entry.serverId, entry.toolName, args, ctx, signal) as any
+          : await mcpCall(entry.serverId, entry.toolName, args, ctx) as any;
       } catch (error: any) {
         log?.warn?.(`mcp_call ${entry.name} failed: ${error?.message || error}`);
         return text(`调用 ${entry.name} 失败：${error?.message || String(error)}`);

@@ -432,11 +432,11 @@ function readPatrolLogText(filePath) {
 }
 
 /**
- * 读取并截断 patrol-log.md，保留最近 N 条
+ * 读取最近的巡检条目，供提示词使用。
  * @param {string} filePath
  * @returns {string|null} 截断后的内容（null = 文件不存在或为空）
  */
-function readAndTruncatePatrolLog(filePath) {
+function readRecentPatrolLog(filePath) {
   const raw = readPatrolLogText(filePath);
   if (!raw.trim()) return null;
 
@@ -444,14 +444,7 @@ function readAndTruncatePatrolLog(filePath) {
   const entries = lines.filter(l => l.startsWith("- ["));
   if (entries.length === 0) return null;
 
-  if (entries.length > PATROL_LOG_MAX_ENTRIES) {
-    const kept = entries.slice(-PATROL_LOG_MAX_ENTRIES);
-    try {
-      atomicWriteSync(filePath, kept.join("\n") + "\n");
-    } catch {}
-    return kept.join("\n");
-  }
-  return entries.join("\n");
+  return entries.slice(-PATROL_LOG_MAX_ENTRIES).join("\n");
 }
 
 function createPatrolLogTool({ patrolLogPath, isZh }) {
@@ -593,8 +586,8 @@ function scanJianDirs(wsPath) {
  * @param {() => string} [opts.getWorkspacePath] - 获取工作台路径
  * @param {() => string} [opts.getAgentName] - 获取当前 agent 名称
  * @param {string} [opts.registryPath] - jian-registry.json 存储路径
- * @param {(prompt: string) => Promise<void>} opts.onBeat - 工作台巡检回调
- * @param {(prompt: string, cwd: string) => Promise<void>} [opts.onJianBeat] - 笺巡检回调（带 cwd）
+ * @param {(prompt: string, opts: { signal: AbortSignal, customTools: any[] }) => Promise<void>} opts.onBeat - 工作台巡检回调
+ * @param {(prompt: string, cwd: string, opts: { signal: AbortSignal, customTools: any[] }) => Promise<void>} [opts.onJianBeat] - 笺巡检回调（带 cwd）
  * @param {number} [opts.intervalMinutes] - 巡检间隔（分钟），默认 31
  * @param {(text: string, level?: string) => void} [opts.emitDevLog]
  * @returns {{ start, stop, beat, triggerNow }}
@@ -619,6 +612,17 @@ export function createHeartbeat({
   let _lastTrigger = 0;
   /** @type {Map<string, number>} name → mtime */
   let _lastDeskSnapshot = new Map();
+
+  async function runWithPatrolDeadline(run: (signal: AbortSignal) => Promise<void>, timeoutMessage: string) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error(timeoutMessage)), BEAT_TIMEOUT);
+    try {
+      await run(controller.signal);
+    } finally {
+      clearTimeout(timer);
+      controller.signal.throwIfAborted();
+    }
+  }
 
   // ── 指纹注册表 ──
 
@@ -701,11 +705,11 @@ export function createHeartbeat({
 
       // ── Phase 1: 工作台巡检（始终执行，让 agent 结合记忆判断） ──
       {
-        // 读取巡检日志（截断）
+        // 仅将近期日志放入巡检上下文
         const patrolLogPath = wsPath
           ? path.join(resolveAgentWorkspaceOutputDirs(wsPath, agentName, locale).patrolDir, "patrol-log.md")
           : null;
-        const patrolLog = patrolLogPath ? readAndTruncatePatrolLog(patrolLogPath) : null;
+        const patrolLog = patrolLogPath ? readRecentPatrolLog(patrolLogPath) : null;
         const patrolLogTool = patrolLogPath ? createPatrolLogTool({ patrolLogPath, isZh }) : null;
         const prompt = buildHeartbeatContext({
           deskChanged,
@@ -719,19 +723,10 @@ export function createHeartbeat({
         });
         log.log(`Phase 1: 工作台巡检 (${prompt.length} chars, ${deskChanged ? "有变化" : "无变化"})`);
         devlog(`Phase 1: 工作台巡检执行中...${deskChanged ? "" : " (无文件变化)"}`);
-        {
-          let timer;
-          try {
-            await Promise.race([
-              onBeat(prompt, {
-                customTools: patrolLogTool ? [patrolLogTool] : [],
-              }),
-              new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(isZh ? "心跳执行超时 (5min)" : "Heartbeat timed out (5min)")), BEAT_TIMEOUT); }),
-            ]);
-          } finally {
-            clearTimeout(timer);
-          }
-        }
+        await runWithPatrolDeadline(
+          (signal) => onBeat(prompt, { signal, customTools: patrolLogTool ? [patrolLogTool] : [] }),
+          isZh ? "心跳执行超时 (5min)" : "Heartbeat timed out (5min)",
+        );
       }
 
       // ── Phase 2: 笺目录执行 ──
@@ -803,17 +798,10 @@ export function createHeartbeat({
       });
 
       try {
-        {
-          let timer;
-          try {
-            await Promise.race([
-              onJianBeat(prompt, dir.absPath, { customTools: [jianStatusTool] }),
-              new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(isZh ? `笺 [${label}] 执行超时 (5min)` : `Jian [${label}] timed out (5min)`)), BEAT_TIMEOUT); }),
-            ]);
-          } finally {
-            clearTimeout(timer);
-          }
-        }
+        await runWithPatrolDeadline(
+          (signal) => onJianBeat(prompt, dir.absPath, { signal, customTools: [jianStatusTool] }),
+          isZh ? `笺 [${label}] 执行超时 (5min)` : `Jian [${label}] timed out (5min)`,
+        );
 
         // 执行成功 → 重新扫描目录，用执行后的指纹存入 registry
         // 避免任务自身修改文件导致下次心跳重复触发（自激振荡）

@@ -768,7 +768,7 @@ export function createMcpToolDefinition({
         serverId: connectorId,
         toolName,
       }),
-    execute: async (toolCallId, params, runtimeCtx: any = {}) => {
+    execute: async (toolCallId, params, runtimeCtx: any = {}, signal?: AbortSignal) => {
       if (getGlobalEnabled() !== true) {
         return mcpToolError("MCP is disabled globally. Enable Connectors in Settings before calling this tool.", {
           connectorId,
@@ -798,7 +798,11 @@ export function createMcpToolDefinition({
         });
       }
       try {
-        const result = normalizeMcpToolResult(await callTool(connectorId, toolName, params || {}, runtimeCtx));
+        const args = params || {};
+        const value = signal
+          ? await callTool(connectorId, toolName, args, runtimeCtx, signal)
+          : await callTool(connectorId, toolName, args, runtimeCtx);
+        const result = normalizeMcpToolResult(value);
         return app?.resourceUri ? appendMcpAppCard(result, {
           ...app,
           invocationId: stringOrEmpty(toolCallId),
@@ -1757,7 +1761,8 @@ export class McpManager {
     return client.callTool(toolName, args || {});
   }
 
-  async callTool(connectorId, toolName, args, runtimeCtx: any = {}) {
+  async callTool(connectorId, toolName, args, runtimeCtx: any = {}, signal?: AbortSignal) {
+    signal?.throwIfAborted();
     const config = this.getConfig();
     if (!config.enabled) throw new Error("MCP connectors are disabled globally");
     const connector = config.connectors.find((entry) => entry.id === connectorId);
@@ -1782,6 +1787,7 @@ export class McpManager {
       toolName,
       args,
       runtimeCtx,
+      signal,
     });
   }
 
@@ -1817,10 +1823,12 @@ export class McpManager {
   // finishing. Each round gathers exactly what it asked for and replays the
   // original call with the answer; the server carries its own state across in
   // an opaque blob we echo back untouched.
-  async _callToolThroughInputRounds(client, { connectorId, connectorName, toolName, args, runtimeCtx }) {
+  async _callToolThroughInputRounds(client, { connectorId, connectorName, toolName, args, runtimeCtx, signal }) {
     let extra = null;
     for (let round = 0; round <= MAX_INPUT_REQUIRED_ROUNDS; round += 1) {
+      signal?.throwIfAborted();
       const result = await client.callTool(toolName, args, extra || undefined);
+      signal?.throwIfAborted();
       if (result?.resultType !== "input_required") return result;
       if (round === MAX_INPUT_REQUIRED_ROUNDS) {
         throw new Error(
@@ -1828,7 +1836,8 @@ export class McpManager {
           + `(${MAX_INPUT_REQUIRED_ROUNDS} rounds) without completing "${toolName}".`,
         );
       }
-      extra = await this._gatherInputResponses(result, { connectorId, connectorName, toolName, runtimeCtx });
+      extra = await this._gatherInputResponses(result, { connectorId, connectorName, toolName, runtimeCtx, signal });
+      signal?.throwIfAborted();
       // The user refused the form. The server is told so it can unwind its own
       // pending work, and then the call fails with the same outcome the user
       // chose — the decline round is a courtesy to the server, not a retry.
@@ -1849,7 +1858,7 @@ export class McpManager {
     throw new Error(`MCP connector "${connectorName}" did not complete "${toolName}".`);
   }
 
-  async _gatherInputResponses(result, { connectorId, connectorName, toolName, runtimeCtx }) {
+  async _gatherInputResponses(result, { connectorId, connectorName, toolName, runtimeCtx, signal }) {
     const requestState = typeof result?.requestState === "string" ? result.requestState : "";
     const inputRequests = result?.inputRequests;
     // State but no questions: replay straight away, echoing the state back.
@@ -1860,6 +1869,7 @@ export class McpManager {
     const inputResponses = {};
     let declined = false;
     for (const [key, request] of Object.entries(inputRequests)) {
+      signal?.throwIfAborted();
       const method = (request as any)?.method;
       const params = (request as any)?.params || {};
       // We only ever advertise form-mode elicitation, so anything else is a
@@ -2026,7 +2036,7 @@ export class McpManager {
           visibility: toolVisibility(tool),
           getGlobalEnabled: () => this.getConfig().enabled,
           getAgentConfig: (agentId) => this.getAgentConfig(agentId),
-          callTool: (connectorId, toolName, args, runtimeCtx) => this.callTool(connectorId, toolName, args, runtimeCtx),
+          callTool: (connectorId, toolName, args, runtimeCtx, signal) => this.callTool(connectorId, toolName, args, runtimeCtx, signal),
           probeLiveAvailability: (agentConfig) => this.probeToolLiveAvailability(
             connector.id,
             tool.name,
@@ -2111,9 +2121,8 @@ export class McpManager {
    * This reproduces what the plugin host used to do at registration time: it
    * namespaces the name, keeps the `_pluginId` annotation that tool
    * categorization and permission classification key off, and adapts the Pi SDK
-   * 5-argument execute convention down to the (toolCallId, params, ctx) shape
-   * the MCP definitions are written against — without that adaptation the third
-   * argument could be an AbortSignal rather than the runtime context.
+   * 5-argument execute convention to the (toolCallId, params, ctx, signal)
+   * shape the MCP definitions use.
    */
   _publishTool(definition) {
     const origExecute = definition.execute;
@@ -2123,7 +2132,8 @@ export class McpManager {
       parameters: definition.parameters || { type: "object", properties: {} },
       execute: async (toolCallId, params, signalOrRuntimeCtx, onUpdate, piCtx) => {
         const { ctx: runtimeCtx } = normalizeToolRuntimeContext(signalOrRuntimeCtx, piCtx);
-        return normalizeMcpToolResult(await origExecute(toolCallId, params, runtimeCtx));
+        const signal = signalOrRuntimeCtx instanceof AbortSignal ? signalOrRuntimeCtx : undefined;
+        return normalizeMcpToolResult(await origExecute(toolCallId, params, runtimeCtx, signal));
       },
       _pluginId: MCP_TOOL_NAMESPACE,
     };

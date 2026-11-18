@@ -7000,15 +7000,6 @@
     {
       "sourceFile": "packages/engine/lib/desk/heartbeat.ts",
       "kind": "atomic-write",
-      "excerpt": "atomicWriteSync(filePath, kept.join(\"\\n\") + \"\\n\")",
-      "reason": "Writes heartbeat/task files inside an explicitly mounted workspace, not a Hana-owned persistence root.",
-      "storeId": null,
-      "exemptionId": "external-heartbeat-workspace",
-      "ordinal": 0
-    },
-    {
-      "sourceFile": "packages/engine/lib/desk/heartbeat.ts",
-      "kind": "atomic-write",
       "excerpt": "atomicWriteSync(jianPath, composeJianContent(instructions, execLog))",
       "reason": "Writes heartbeat/task files inside an explicitly mounted workspace, not a Hana-owned persistence root.",
       "storeId": null,

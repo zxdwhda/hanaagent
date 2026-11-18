@@ -14,7 +14,62 @@ describe("heartbeat workspace output directories", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it("limits prompt history to the last 50 entries without rewriting the patrol log", async () => {
+    const logPath = path.join(tempRoot, "OH-Works", "Hana的巡检", "patrol-log.md");
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    const entries = Array.from({ length: 52 }, (_, i) => `- [2026-06-03] record ${i.toString().padStart(2, "0")}`);
+    const original = Buffer.from(["# 巡检日志", "", ...entries, ""].join("\r\n"));
+    fs.writeFileSync(logPath, original);
+    const onBeat = vi.fn(async (_prompt: string) => {});
+    const heartbeat = createHeartbeat({
+      getWorkspacePath: () => tempRoot, getAgentName: () => "Hana", locale: "zh-CN", onBeat,
+    } as any);
+
+    await heartbeat.beat();
+
+    expect(fs.readFileSync(logPath)).toEqual(original);
+    const prompt = onBeat.mock.calls[0][0];
+    expect(prompt).not.toContain(entries[1]);
+    expect(prompt).toContain(entries[2]);
+    expect(prompt).toContain(entries.at(-1));
+  });
+
+  it.each(["workspace", "jian"])("aborts an overrunning %s patrol and waits for cleanup", async (phase) => {
+    vi.useFakeTimers();
+    fs.writeFileSync(path.join(tempRoot, "jian.md"), "Inspect this directory.\n");
+    const registryPath = path.join(tempRoot, "jian-registry.json");
+    const cleanup = Promise.withResolvers<void>();
+    let patrolSignal: AbortSignal | undefined;
+    const runPatrol = vi.fn(async (opts: { signal?: AbortSignal }) => {
+      patrolSignal = opts.signal;
+      await cleanup.promise;
+    });
+    const onBeat = vi.fn(async (_prompt, opts) => {
+      if (phase === "workspace") await runPatrol(opts);
+    });
+    const onJianBeat = vi.fn((_prompt, _cwd, opts) => runPatrol(opts));
+    const emitDevLog = vi.fn();
+    const heartbeat = createHeartbeat({
+      getWorkspacePath: () => tempRoot, registryPath, locale: "en", onBeat, onJianBeat, emitDevLog,
+    } as any);
+
+    const beat = heartbeat.beat();
+    try {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(patrolSignal?.aborted).toBe(true);
+      await heartbeat.beat();
+      expect(onBeat).toHaveBeenCalledOnce();
+    } finally {
+      cleanup.resolve();
+      await beat;
+    }
+    expect(fs.existsSync(registryPath)).toBe(false);
+    expect(emitDevLog).toHaveBeenCalledWith(expect.stringContaining("timed out"), "error");
+    if (phase === "workspace") expect(onJianBeat).not.toHaveBeenCalled();
   });
 
   it("tells the agent to use visible OH-Works patrol and activity folders", async () => {

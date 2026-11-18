@@ -30,6 +30,7 @@ import path from "path";
 const log = createModuleLogger("channel-ticker");
 
 const DEFAULT_UNREAD_DELIVERY_WINDOW = 20;
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
 function normalizeBookmarkState(bookmark: any) {
   if (bookmark === undefined || bookmark === null || bookmark === "") {
@@ -662,8 +663,13 @@ export function createChannelTicker({
     const delayMs = Math.max(0, nextDueAt - Date.now());
     _timer = setTimeout(() => {
       _timer = null;
+      // Long waits wake up before the deadline to arm the next timer window.
+      if (Date.now() < nextDueAt) {
+        _scheduleNext();
+        return;
+      }
       triggerReminder(nextChannel).finally(() => _scheduleNext());
-    }, delayMs);
+    }, Math.min(delayMs, MAX_TIMER_DELAY_MS));
     if (_timer.unref) _timer.unref();
 
     log.log(`下次频道提醒：#${nextChannel}，${Math.round(delayMs / 1000)}秒后`);
