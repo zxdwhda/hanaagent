@@ -106250,6 +106250,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/user-fact-candidates.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/memory/compile.ts",
           "kind": "import-statement"
         },
@@ -106266,6 +106271,11 @@
         {
           "root": "server-bootstrap",
           "from": "packages/engine/lib/memory/dream/model-runner.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/memory-ticker.ts",
           "kind": "import-statement"
         },
         {
@@ -106579,7 +106589,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/llm/provider-client.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); packages/engine/core/model-manager.ts (import-statement); +71 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/llm/provider-client.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); packages/engine/core/model-manager.ts (import-statement); +73 more importer(s)."
     },
     {
       "path": "packages/engine/lib/identity-templates",
@@ -107343,6 +107353,11 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/user-fact-provenance.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/memory/session-summary.ts",
           "kind": "import-statement"
         },
@@ -107362,7 +107377,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/session-summary.ts (import-statement); packages/engine/lib/memory/compile.ts (import-statement); packages/engine/lib/memory/memory-reflection-runner.ts (import-statement); +1 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/user-fact-provenance.ts (import-statement); packages/engine/lib/memory/session-summary.ts (import-statement); packages/engine/lib/memory/compile.ts (import-statement); +2 more importer(s)."
     },
     {
       "path": "packages/engine/lib/memory/session-derived-state.ts",
@@ -107424,6 +107439,50 @@
         }
       ],
       "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/session-summary.ts (import-statement); packages/engine/lib/memory/compile.ts (import-statement); packages/engine/lib/memory/deep-memory.ts (import-statement); +1 more importer(s)."
+    },
+    {
+      "path": "packages/engine/lib/memory/user-fact-candidates.ts",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/compile.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/deep-memory.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/compile.ts (import-statement); packages/engine/lib/memory/deep-memory.ts (import-statement)."
+    },
+    {
+      "path": "packages/engine/lib/memory/user-fact-provenance.ts",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/session-summary.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/user-fact-candidates.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/memory-reflection-runner.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/memory-ticker.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/session-summary.ts (import-statement); packages/engine/lib/memory/user-fact-candidates.ts (import-statement); packages/engine/lib/memory/memory-reflection-runner.ts (import-statement); +1 more importer(s)."
     },
     {
       "path": "packages/engine/lib/net/outbound-proxy.ts",
@@ -107895,6 +107954,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/user-fact-provenance.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/memory/session-summary.ts",
           "kind": "import-statement"
         },
@@ -107914,7 +107978,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/fact-store.ts (import-statement); packages/engine/lib/memory/session-summary.ts (import-statement); packages/engine/lib/memory/memory-reflection-runner.ts (import-statement); +2 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/memory/fact-store.ts (import-statement); packages/engine/lib/memory/user-fact-provenance.ts (import-statement); packages/engine/lib/memory/session-summary.ts (import-statement); +3 more importer(s)."
     },
     {
       "path": "packages/engine/lib/plugin-format-guard.ts",
@@ -109515,6 +109579,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/memory/user-fact-candidates.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/memory/memory-ticker.ts",
           "kind": "import-statement"
         },
@@ -109554,7 +109623,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/session-files/session-file-registry.ts (import-statement); packages/engine/core/migrations.ts (import-statement); packages/engine/core/migrations.ts (import-statement); +10 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/session-files/session-file-registry.ts (import-statement); packages/engine/core/migrations.ts (import-statement); packages/engine/core/migrations.ts (import-statement); +11 more importer(s)."
     },
     {
       "path": "packages/engine/lib/shell/execution-cwd.ts",
@@ -113143,9 +113212,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 9655,
+    "totalFiles": 9657,
     "byInputType": {
-      "source-graph": 674,
+      "source-graph": 676,
       "nft-runtime-trace": 8970,
       "runtime-asset": 11
     }

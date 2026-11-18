@@ -3122,7 +3122,7 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Reject incomplete compiled output before existing memory writes while retaining file formats and watermarks without a schema or data epoch change.",
+    "compatibilityReason": "Optional user-fact provenance and retry-safe generated-line tracking preserve legacy records, editable text, and the existing SQLite schema and data epoch.",
     "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38"
   },
   "schemas": [

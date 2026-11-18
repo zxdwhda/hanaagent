@@ -20,6 +20,8 @@ import {
 } from "./time-context.ts";
 import { createModuleLogger } from "../debug-log.ts";
 import { sessionSummaryRevision } from "./session-summary.ts";
+import { attributedUserFact, verifiedUserFactCandidates } from "./user-fact-candidates.ts";
+import type { VerifiedUserFact } from "./user-fact-provenance.ts";
 
 const log = createModuleLogger("deep-memory");
 
@@ -115,7 +117,7 @@ function normalizeFactJsonOutput(raw) {
  * @param {{ model: string, api: string, api_key: string, base_url: string }} resolvedModel
  * @returns {Promise<{ processed: number, factsAdded: number }>}
  */
-export async function processDirtySessions(summaryManager, factStore, resolvedModel, opts: { since?: any; getSourceTimeRange?: any; getCurrentBranchProjection?: any; timeZone?: any; sessionIds?: string[] } = {}) {
+export async function processDirtySessions(summaryManager, factStore, resolvedModel, opts: { since?: any; getSourceTimeRange?: any; getCurrentBranchProjection?: any; timeZone?: any; sessionIds?: string[]; requireUserFactProvenance?: boolean } = {}) {
   const requestedSessionIds = Array.isArray(opts.sessionIds) && opts.sessionIds.length > 0
     ? new Set(opts.sessionIds)
     : null;
@@ -132,23 +134,46 @@ export async function processDirtySessions(summaryManager, factStore, resolvedMo
 
   const processOne = async (session) => {
     const expectedRevision = sessionSummaryRevision(session);
-    try {
+    const markProcessed = () => typeof summaryManager.markProcessedIfCurrent === "function"
+      ? summaryManager.markProcessedIfCurrent(session.session_id, expectedRevision)
+      : summaryManager.markProcessed(session.session_id);
+    const extract = async (summary, snapshot, preserveText = false) => {
       const sourceTimeRange = !session?.source_time_range && typeof opts.getSourceTimeRange === "function"
         ? await opts.getSourceTimeRange(session.session_id)
         : null;
-      const sessionForTime = sourceTimeRange
-        ? { ...session, source_time_range: sourceTimeRange }
-        : session;
+      const sessionForTime = sourceTimeRange ? { ...session, source_time_range: sourceTimeRange } : session;
       const timeContext = buildFactTimeContext(sessionForTime, { timeZone: opts.timeZone });
+      return extractFactsFromDiff(summary, snapshot, resolvedModel, timeContext, preserveText);
+    };
+    try {
       const replacement = session.factReplacementRequired === true;
-      const facts = replacement && !session.summary?.trim()
-        ? []
-        : await extractFactsFromDiff(
-          session.summary,
-          replacement ? "" : (session.snapshot || ""),
-          resolvedModel,
-          timeContext,
-        );
+      let facts;
+      if (opts.requireUserFactProvenance || session.userFactProvenance != null) {
+        const candidates = verifiedUserFactCandidates(session, opts.getCurrentBranchProjection);
+        if (!candidates) {
+          // An old additive summary stays readable. Missing proof cannot clear a replacement.
+          if (!replacement && session.userFactProvenance == null) markProcessed();
+          return;
+        }
+        const previous = replacement ? [] : (session.snapshotUserFactProvenance?.candidates || []);
+        const seen = new Set<string>(previous.map(factSourceKey));
+        const approvedFacts = candidates
+          .filter((candidate) => !seen.has(factSourceKey(candidate)))
+          .map(attributedUserFact);
+        const metadata = approvedFacts.length
+          ? await extract(approvedFacts.map((fact) => `- ${fact}`).join("\n"), "", true)
+          : [];
+        const metadataByFact = new Map(metadata.map((item) => [item.fact, item]));
+        facts = approvedFacts.map((fact) => ({
+          fact,
+          tags: metadataByFact.get(fact)?.tags || [],
+          time: metadataByFact.get(fact)?.time || null,
+        }));
+      } else if (replacement && !session.summary?.trim()) {
+        facts = [];
+      } else {
+        facts = await extract(session.summary, replacement ? "" : (session.snapshot || ""));
+      }
 
       const factEntries = facts.map((f) => ({
         fact: f.fact,
@@ -196,9 +221,7 @@ export async function processDirtySessions(summaryManager, factStore, resolvedMo
         );
       }
 
-      const marked = typeof summaryManager.markProcessedIfCurrent === "function"
-        ? summaryManager.markProcessedIfCurrent(session.session_id, expectedRevision)
-        : summaryManager.markProcessed(session.session_id);
+      const marked = markProcessed();
       if (marked === false) {
         throw summarySupersededError("session summary changed before fact extraction commit");
       }
@@ -245,6 +268,10 @@ export async function processDirtySessions(summaryManager, factStore, resolvedMo
   return { processed: dirty.length, factsAdded: totalFacts };
 }
 
+function factSourceKey(candidate: VerifiedUserFact) {
+  return `${candidate.source.entryId}:${candidate.source.sentenceHash}`;
+}
+
 /**
  * 从摘要 diff 中提取元事实
  *
@@ -253,7 +280,7 @@ export async function processDirtySessions(summaryManager, factStore, resolvedMo
  * @param {{ model: string, api: string, api_key: string, base_url: string }} resolvedModel
  * @returns {Promise<Array<{ fact: string, tags: string[], time: string }>>}
  */
-async function extractFactsFromDiff(currentSummary, previousSnapshot, resolvedModel, timeContext = null) {
+async function extractFactsFromDiff(currentSummary, previousSnapshot, resolvedModel, timeContext = null, preserveText = false) {
   const hasPrevious = !!previousSnapshot;
 
   const isZh = getLocale().startsWith("zh");
@@ -270,6 +297,12 @@ async function extractFactsFromDiff(currentSummary, previousSnapshot, resolvedMo
   }
 
   const promptSpec = buildFactExtractionPromptSpec({ locale: getLocale(), hasPrevious });
+  if (preserveText) {
+    const instruction = isZh
+      ? "这些行是已核实的用户原话。只为现有行补充标签和时间，fact 必须逐字复制对应行（不含列表标记）。"
+      : "These are verified user statements. Supply tags and time for the existing lines only. Copy the corresponding line verbatim into fact, without its list marker.";
+    userContent += `\n\n${instruction}`;
+  }
   const layout = buildUtilityPromptLayout({
     cacheGroup: promptSpec.cacheGroup,
     templateVersion: promptSpec.templateVersion,

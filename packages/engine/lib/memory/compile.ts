@@ -36,6 +36,7 @@ import {
   buildCompileTodayPrompt,
 } from "./prompts/compile.ts";
 import { withMemoryReasoningBuffer } from "./llm-budget.ts";
+import { attributedUserFact, verifiedUserFactCandidates } from "./user-fact-candidates.ts";
 import {
   FACT_SECTION_TITLES,
   TIMELINE_SECTION_TITLES,
@@ -937,6 +938,56 @@ function normalizeFactLineForDedup(line) {
   return String(line || "").trim().replace(/^[-*]\s+/, "").toLowerCase();
 }
 
+type AutomaticFactLine = { sessionId: string; line: string };
+type PendingAutomaticFacts = { bodySha256: string; facts: AutomaticFactLine[] };
+
+function automaticFactBlock(facts: AutomaticFactLine[]) {
+  return facts.map((entry) => entry.line).join("\n");
+}
+
+function containsAutomaticFactBlock(body: string, block: string) {
+  return !!block && (body === block || body.endsWith(`\n${block}`));
+}
+
+function factsBodyHash(body: string) {
+  return crypto.createHash("sha256").update(body).digest("hex");
+}
+
+function refreshVerifiedFacts(current: string, previous: AutomaticFactLine[], sessions, resolveSessionBranch) {
+  const previousBlock = automaticFactBlock(previous);
+  const currentEnd = current.trimEnd();
+  const ownsPreviousBlock = containsAutomaticFactBlock(currentEnd, previousBlock);
+  const editable = ownsPreviousBlock ? current.slice(0, currentEnd.length - previousBlock.length) : current;
+  const verifiedBySession = new Map<string, AutomaticFactLine[]>();
+  for (const session of sessions) {
+    const verified = verifiedUserFactCandidates(session, resolveSessionBranch);
+    if (verified === null) continue;
+    verifiedBySession.set(session.session_id, verified.map((fact) => ({
+      sessionId: session.session_id, line: `- ${attributedUserFact(fact)}`,
+    })));
+  }
+  const automaticFacts: AutomaticFactLine[] = [];
+  const seen = new Set(editable.split(/\r?\n/).map(normalizeFactLineForDedup));
+  const chinese = _isZh();
+  const limit = chinese ? 200 : 120;
+  const eligible = [...verifiedBySession.values()].flat();
+  if (ownsPreviousBlock) eligible.push(...previous.filter((fact) => !verifiedBySession.has(fact.sessionId)));
+  let used = 0;
+  for (const fact of eligible) {
+    const key = normalizeFactLineForDedup(fact.line);
+    const size = chinese ? Array.from(fact.line).length + 1 : fact.line.split(/\s+/u).length;
+    // Keep even one newer long statement intact rather than cutting its qualifiers.
+    if (!key || seen.has(key) || (used > 0 && used + size > limit)) continue;
+    seen.add(key);
+    used += size;
+    automaticFacts.push(fact);
+  }
+  const newBlock = automaticFactBlock(automaticFacts);
+  if (newBlock === previousBlock && ownsPreviousBlock) return { body: current, automaticFacts };
+  const separator = editable && !editable.endsWith("\n") && newBlock ? "\n" : "";
+  return { body: editable + separator + newBlock, automaticFacts };
+}
+
 function removeFileIfExists(filePath) {
   try {
     fs.unlinkSync(filePath);
@@ -964,6 +1015,29 @@ export async function compileEditableFacts(summaryManager, outputPath, resolvedM
     return updated && (!since || updated > since);
   });
   if (sessions.length === 0) return "skipped";
+
+  if (opts.requireUserFactProvenance || sessions.some((session) => session.userFactProvenance != null)) {
+    const current = safeReadFile(outputPath, "");
+    const recent = [...sessions].sort((a, b) => String(b.updated_at || b.created_at)
+      .localeCompare(String(a.updated_at || a.created_at)));
+    const previous = state.pendingAutomaticFacts
+      && state.pendingAutomaticFacts.bodySha256 === factsBodyHash(current)
+      ? state.pendingAutomaticFacts.facts
+      : state.automaticFacts;
+    const { body, automaticFacts } = refreshVerifiedFacts(current, previous, recent, opts.getCurrentBranchProjection);
+    const nextWatermark = latestSummaryUpdate(sessions);
+    if (body !== current) {
+      // Keep both possible generated suffixes while publishing the separate facts file.
+      // The old watermark remains retryable until the new suffix is committed.
+      writeEditableFactsState(statePath, state.lastCompiledSummaryUpdatedAt, previous, {
+        bodySha256: factsBodyHash(body),
+        facts: automaticFacts,
+      });
+      atomicWrite(outputPath, body);
+    }
+    if (nextWatermark) writeEditableFactsState(statePath, nextWatermark, automaticFacts);
+    return "compiled";
+  }
 
   const factParts = [];
   const skippedSessionIds = [];
@@ -1113,22 +1187,37 @@ function atomicWrite(filePath, content) {
 }
 
 function readEditableFactsState(statePath) {
+  const readFactLines = (value): AutomaticFactLine[] => Array.isArray(value)
+    ? value.filter((item) => typeof item?.sessionId === "string" && typeof item?.line === "string"
+      && /^- [^\r\n]+$/u.test(item.line))
+    : [];
   try {
     const raw = JSON.parse(fs.readFileSync(statePath, "utf-8"));
     const value = raw?.lastCompiledSummaryUpdatedAt;
     return {
       lastCompiledSummaryUpdatedAt: value && !Number.isNaN(Date.parse(value)) ? value : null,
+      automaticFacts: readFactLines(raw?.automaticFacts),
+      pendingAutomaticFacts: typeof raw?.pendingAutomaticFacts?.bodySha256 === "string"
+        ? { bodySha256: raw.pendingAutomaticFacts.bodySha256, facts: readFactLines(raw.pendingAutomaticFacts.facts) }
+        : null,
     };
   } catch {
-    return { lastCompiledSummaryUpdatedAt: null };
+    return { lastCompiledSummaryUpdatedAt: null, automaticFacts: [], pendingAutomaticFacts: null };
   }
 }
 
-function writeEditableFactsState(statePath, lastCompiledSummaryUpdatedAt) {
+function writeEditableFactsState(
+  statePath,
+  lastCompiledSummaryUpdatedAt,
+  automaticFacts?: AutomaticFactLine[],
+  pendingAutomaticFacts?: PendingAutomaticFacts,
+) {
   if (!lastCompiledSummaryUpdatedAt || Number.isNaN(Date.parse(lastCompiledSummaryUpdatedAt))) return;
   atomicWrite(statePath, JSON.stringify({
     lastCompiledSummaryUpdatedAt,
     updatedAt: new Date().toISOString(),
+    ...(automaticFacts?.length ? { automaticFacts } : {}),
+    ...(pendingAutomaticFacts ? { pendingAutomaticFacts } : {}),
   }, null, 2) + "\n");
 }
 

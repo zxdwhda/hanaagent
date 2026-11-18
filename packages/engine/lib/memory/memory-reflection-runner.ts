@@ -8,10 +8,17 @@ import {
   buildRollingSummaryRepairPrompt,
   validateRollingSummaryFormat,
 } from "./rolling-summary-format.ts";
+import {
+  applyUserFactProvenanceToSummary,
+  buildUserFactProvenanceInstructions,
+  buildUserFactSourceIndex,
+  resolveUserFactProvenance,
+} from "./user-fact-provenance.ts";
 
 // suffix 内容变更（补上输出格式契约 / 时间线时间要求）时 bump，便于在用量账本里区分模板代际
 export const MEMORY_REFLECTION_TEMPLATE_VERSION = "memory-reflection.v3";
 export const MEMORY_REFLECTION_REPAIR_TEMPLATE_VERSION = "memory-reflection-repair.v1";
+const MEMORY_REFLECTION_PROVENANCE_TEMPLATE_VERSION = "memory-reflection.v4";
 
 function buildTimelineTimestampInstruction(locale = "zh-CN") {
   if (String(locale || "").startsWith("zh")) {
@@ -20,7 +27,7 @@ function buildTimelineTimestampInstruction(locale = "zh-CN") {
   return "Every non-empty Timeline list item must include a YYYY-MM-DD HH:MM timestamp copied from the session message timestamps above; do not use date-less HH:MM only. Keep work content at the broad-theme level.";
 }
 
-export function buildMemoryReflectionSuffix({ previousSummary = "", timeZone = "UTC", locale = "zh-CN" } = {}) {
+export function buildMemoryReflectionSuffix({ previousSummary = "", timeZone = "UTC", locale = "zh-CN", userFactSourceIndex = "" } = {}) {
   return {
     role: "user",
     content: [{
@@ -34,6 +41,7 @@ export function buildMemoryReflectionSuffix({ previousSummary = "", timeZone = "
         previousSummary ? `<previous-summary>\n${previousSummary}\n</previous-summary>` : "<previous-summary>\n\n</previous-summary>",
         buildRollingSummaryFormatRequirements(locale),
         buildTimelineTimestampInstruction(locale),
+        ...(userFactSourceIndex ? [buildUserFactProvenanceInstructions(locale), `User fact sources by entry ID:\n${userFactSourceIndex}`] : []),
         "Return only the summary text.",
       ].join("\n\n"),
     }],
@@ -83,6 +91,7 @@ export async function runMemoryReflection({
   previousSummary = "",
   sessionId,
   messages = [],
+  verifyUserFacts = false,
   sourceTimeRange = null,
   timeZone,
   streamFn,
@@ -115,9 +124,12 @@ export async function runMemoryReflection({
     return cleaned.trim();
   };
 
+  const userFactSourceIndex = verifyUserFacts
+    ? JSON.stringify(Object.fromEntries(buildUserFactSourceIndex(messages)))
+    : "";
   let activeTask = await runSideTask(
-    buildMemoryReflectionSuffix({ previousSummary, timeZone, locale }),
-    MEMORY_REFLECTION_TEMPLATE_VERSION,
+    buildMemoryReflectionSuffix({ previousSummary, timeZone, locale, userFactSourceIndex }),
+    verifyUserFacts ? MEMORY_REFLECTION_PROVENANCE_TEMPLATE_VERSION : MEMORY_REFLECTION_TEMPLATE_VERSION,
     usageContext,
   );
   let summary = scrub(activeTask.text.trim());
@@ -149,6 +161,11 @@ export async function runMemoryReflection({
     throw err;
   }
 
+  const userFactProvenance = summary && verifyUserFacts
+    ? resolveUserFactProvenance(activeTask.text.trim(), messages)
+    : null;
+  if (userFactProvenance) summary = applyUserFactProvenanceToSummary(summary, userFactProvenance, locale);
+
   const now = new Date().toISOString();
   return {
     summary,
@@ -159,6 +176,7 @@ export async function runMemoryReflection({
         created_at: now,
         updated_at: now,
         summary,
+        ...(userFactProvenance ? { userFactProvenance } : {}),
         messageCount: Array.isArray(messages) ? messages.length : 0,
         source_time_range: sourceTimeRange,
         snapshot: "",

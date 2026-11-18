@@ -36,8 +36,18 @@ import {
   buildRollingSummaryRepairPrompt,
   getFactSectionTitle,
   getTimelineSectionTitle,
+  replaceFactSection,
   validateRollingSummaryFormat,
 } from "./rolling-summary-format.ts";
+import {
+  applyUserFactProvenanceToSummary,
+  buildUserFactProvenanceInstructions,
+  buildUserFactSourceIndex,
+  resolveUserFactProvenance,
+  revalidateUserFactProvenance,
+  type ProjectedMemoryMessage,
+  type UserFactProvenance,
+} from "./user-fact-provenance.ts";
 
 const log = createModuleLogger("session-summary");
 
@@ -49,6 +59,8 @@ export function sessionSummaryRevision(data) {
     snapshot: data.snapshot || "",
     cursor: data.cursor || null,
     snapshotCursor: data.snapshotCursor || null,
+    userFactProvenance: data.userFactProvenance ?? null,
+    snapshotUserFactProvenance: data.snapshotUserFactProvenance ?? null,
     factReplacementRequired: data.factReplacementRequired === true,
   });
 }
@@ -209,7 +221,11 @@ export class SessionSummaryManager {
     for (const data of this._cache.values()) {
       if (!data?.summary && data?.factReplacementRequired !== true) continue;
       if (since && !isAfter(data.updated_at || data.created_at, since)) continue;
-      if (data.factReplacementRequired === true || data.summary !== (data.snapshot || "")) {
+      if (
+        data.factReplacementRequired === true
+        || data.summary !== (data.snapshot || "")
+        || JSON.stringify(data.userFactProvenance ?? null) !== JSON.stringify(data.snapshotUserFactProvenance ?? null)
+      ) {
         dirty.push(data);
       }
     }
@@ -228,6 +244,7 @@ export class SessionSummaryManager {
       ...data,
       snapshot: data.summary,
       snapshotCursor: data.cursor || null,
+      snapshotUserFactProvenance: data.userFactProvenance,
       snapshot_at: new Date().toISOString(),
       factReplacementRequired: false,
     };
@@ -355,8 +372,11 @@ export class SessionSummaryManager {
       }
 
       const speaker = msg.role === "user" ? (isZh ? "用户" : "User") : (isZh ? "助手" : "Assistant");
+      const source = msg.role === "user" && opts.userFactSourceIds?.has(msg.entryId)
+        ? "[user:" + msg.entryId + "] "
+        : "";
       for (const segment of segments) {
-        parts.push(`${timePrefix}【${speaker}】${segment}`);
+        parts.push(`${timePrefix}【${speaker}】${source}${segment}`);
       }
     }
 
@@ -519,6 +539,15 @@ export class SessionSummaryManager {
       ? null
       : existingRaw;
     const projection = normalizeBranchProjection(opts.projection);
+    const projectedSources: ProjectedMemoryMessage[] | null = projection
+      && projection.legacySyntheticIds !== true && Array.isArray(projection.messages)
+      ? projection.messages
+      : null;
+    // A pending replacement can advance its cursor before it has verified
+    // provenance. Rebuild from the current branch even when there is no delta.
+    const needsReplacementProof = projectedSources !== null
+      && existing?.factReplacementRequired === true
+      && existing.userFactProvenance?.status !== "verified";
     let mode = "legacy";
     let prevSummary = existing?.summary || "";
     let newMessages = messages;
@@ -526,7 +555,7 @@ export class SessionSummaryManager {
       if (!existing) {
         mode = "initial";
         prevSummary = "";
-      } else if (isCursorAncestorOfProjection(existing.cursor, projection)) {
+      } else if (!needsReplacementProof && isCursorAncestorOfProjection(existing.cursor, projection)) {
         mode = "append";
         const coveredIndex = existing.cursor?.coveredLeafId == null
           ? -1
@@ -552,7 +581,21 @@ export class SessionSummaryManager {
 
     const timeZone = resolveMemoryTimeZone(opts.timeZone);
     const sourceTimeRange = buildSourceTimeRange(messages, { timeZone });
-    const convText = this._buildConversationText(newMessages, { timeZone });
+    const priorProvenance: UserFactProvenance | undefined = existing?.userFactProvenance;
+    const priorSources = mode === "append" && projectedSources && priorProvenance
+      && revalidateUserFactProvenance(priorProvenance, projectedSources)
+      ? priorProvenance.candidates
+      : [];
+    const priorIds = new Set(priorSources.map(({ source }) => source.entryId));
+    const deltaIds = new Set(newMessages.map((message) => message.entryId));
+    const visibleUserSources = projectedSources?.filter(
+      (message) => deltaIds.has(message.entryId) || priorIds.has(message.entryId),
+    );
+    const userSourceIndex = buildUserFactSourceIndex(visibleUserSources ?? []);
+    const convText = this._buildConversationText(newMessages, {
+      timeZone,
+      userFactSourceIds: userSourceIndex,
+    });
     if (!convText) {
       if (projection) {
         const now = new Date().toISOString();
@@ -561,6 +604,9 @@ export class SessionSummaryManager {
         const summary = replacement ? "" : prevSummary;
         const cursorChanged = !sameCursor(existing?.cursor, cursor);
         const shouldSave = replacement || mode === "initial" || cursorChanged;
+        const userFactProvenance = mode === "append"
+          ? priorProvenance
+          : { status: projectedSources?.length === 0 ? "verified" : "unresolved", candidates: [] };
         return {
           summary,
           changed: replacement,
@@ -572,9 +618,11 @@ export class SessionSummaryManager {
             summary,
             messageCount: messages.length,
             cursor,
+            ...(userFactProvenance ? { userFactProvenance } : {}),
             source_time_range: sourceTimeRange || (replacement ? null : existing?.source_time_range || null),
             snapshot: existing?.snapshot || "",
             snapshotCursor: existing?.snapshotCursor || null,
+            snapshotUserFactProvenance: existing?.snapshotUserFactProvenance,
             snapshot_at: existing?.snapshot_at || null,
             factReplacementRequired: replacement || existing?.factReplacementRequired === true,
           } : null,
@@ -594,7 +642,13 @@ export class SessionSummaryManager {
 
     // 按全量用户轮数计算摘要配额（预算反映对话整体体量，输入只传增量）
     const turnCount = messages.filter((m) => m.role === "user").length;
-    const llmResult = await this._callRollingLLM(convText, prevSummary, resolvedModel, turnCount, {
+    const locale = getLocale();
+    const previousFactsForPrompt = priorSources.map(({ source }) => (
+      "- [user:" + source.entryId + "] " + userSourceIndex.get(source.entryId)
+    )).join("\n") || (locale.startsWith("zh") ? "- 无" : "- None");
+    const previousForPrompt = projection ? replaceFactSection(prevSummary, previousFactsForPrompt) : prevSummary;
+    const llmResult = await this._callRollingLLM(convText, previousForPrompt, resolvedModel, turnCount, {
+      requireUserFactProvenance: Boolean(projection),
       memoryReflectionSnapshot: opts.memoryReflectionSnapshot,
       returnUsage: opts.returnUsage,
       usageTrigger: opts.usageTrigger,
@@ -662,11 +716,18 @@ export class SessionSummaryManager {
       };
     }
 
+    // Verify before redacting so the source must match the whole utterance.
+    const userFactProvenance = projection
+      ? resolveUserFactProvenance(newSummary, visibleUserSources)
+      : undefined;
     // PII 脱敏
     const { cleaned: scrubbedRolling, detected: rollingDetected } = scrubPII(newSummary);
     if (rollingDetected.length > 0) {
       log.warn(`PII detected in rolling summary (${rollingDetected.join(", ")}), redacted`);
       newSummary = scrubbedRolling;
+    }
+    if (userFactProvenance) {
+      newSummary = applyUserFactProvenanceToSummary(newSummary, userFactProvenance, locale);
     }
 
     // 脱敏是结构保持操作；这里再守一道，确保最终落盘文本仍满足提取假设
@@ -683,9 +744,11 @@ export class SessionSummaryManager {
       summary: newSummary.trim(),
       messageCount: messages.length, // 记录已覆盖的消息总数
       ...(projection ? { cursor: projectionCursor(projection) } : {}),
+      ...(userFactProvenance ? { userFactProvenance } : {}),
       source_time_range: sourceTimeRange || existing?.source_time_range || null,
       snapshot: existing?.snapshot || "",
       snapshotCursor: existing?.snapshotCursor || null,
+      snapshotUserFactProvenance: existing?.snapshotUserFactProvenance,
       snapshot_at: existing?.snapshot_at || null,
       ...(existingRaw?.fork_baseline ? { fork_baseline: existingRaw.fork_baseline } : {}),
       factReplacementRequired: mode === "replace" || existing?.factReplacementRequired === true,
@@ -932,8 +995,10 @@ Word limit: follow the per-run summary budget. If three sentences suffice, don't
     ].filter(Boolean).join("\n\n");
     const layout = buildUtilityPromptLayout({
       cacheGroup: "memory.rolling_summary",
-      templateVersion: "rolling-summary.v1",
-      systemPrompt,
+      templateVersion: opts.requireUserFactProvenance ? "rolling-summary.v2" : "rolling-summary.v1",
+      systemPrompt: opts.requireUserFactProvenance
+        ? systemPrompt + "\n\n" + buildUserFactProvenanceInstructions(locale)
+        : systemPrompt,
       userContent,
     });
     const usageContext = attachPromptLayoutMetadata({
