@@ -69,6 +69,46 @@ describe("stripInternalTags — 裸闭合 think 标签 (#1308)", () => {
 });
 
 describe("stripInternalTags — 成对内省标签不破坏 (现有行为)", () => {
+  it.each(["mood", "pulse", "reflect"])("剥离含行内代码的 %s 块，保留正文代码 (#2827)", (tag) => {
+    const input = `<${tag}>检查 \`field\` 后再回复</${tag}>正文 \`code\``;
+    expect(stripInternalTags(input)).toBe("正文 `code`");
+    expect(__test_cleanReplyForPlatform(input)).toBe("正文 `code`");
+    expect(__test_cleanStreamSnapshot(input).text).toBe("正文 `code`");
+  });
+
+  it("剥离跨多行及代码围栏的内省块 (#2827)", () => {
+    const input = "前文\n<mood>检查 `field`\n```ts\nconst x = 1;\n```\n结束</mood>\n正文 `code`";
+    expect(stripInternalTags(input)).toBe("前文\n正文 `code`");
+    expect(__test_cleanReplyForPlatform(input)).toBe("前文\n正文 `code`");
+  });
+
+  it.each(["İ<mood>私密 `field`</mood>", "<mood>İİİİİ `field`</mood>İ"])("Unicode 大小写长度变化不误删正文：%s", (prefix) => {
+    expect(stripInternalTags(`${prefix}正文`)).toBe("İ正文");
+  });
+
+  it("保留代码示例里的完整内省标签对 (#2827)", () => {
+    const input = "示例 `<mood>literal</mood>`\n```xml\n<pulse>literal</pulse>\n```\n<mood>私密 `field`</mood>正文";
+    expect(stripInternalTags(input)).toBe("示例 `<mood>literal</mood>`\n```xml\n<pulse>literal</pulse>\n```\n正文");
+  });
+
+  it("保留与成对内省块相邻的代码围栏及字面标签", () => {
+    const example = "\n```xml\n<mood>literal</mood>\n```";
+    const input = "示例<mood>检查 `field`</mood>" + example;
+    const expected = "示例" + example;
+    expect(stripInternalTags(input)).toBe(expected);
+    expect(__test_cleanReplyForPlatform(input)).toBe(expected);
+    expect(__test_cleanStreamSnapshot(input).text).toBe(expected);
+  });
+
+  it("代码里的闭标签不终结正文内省块", () => {
+    expect(stripInternalTags("<mood>私密 `</mood>` 仍是私密</mood>正文")).toBe("正文");
+  });
+
+  it("仅在代码里有闭标签时保留标签讲解正文", () => {
+    const input = "XML 开标签 <mood>，关闭示例是 `</mood>`，这些是正文。";
+    expect(stripInternalTags(input)).toBe(input);
+  });
+
   it("成对 <think>…</think> 连内容一起删", () => {
     expect(stripInternalTags("前<think>内心</think>后")).toBe("前后");
   });
