@@ -4,12 +4,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { ModelSelector } from '../../components/input/ModelSelector';
+import { useStore } from '../../stores';
 
 const addToast = vi.fn();
 
 const storeState = {
   currentSessionPath: null as string | null,
   pendingNewSession: true,
+  pendingDraftId: null as string | null,
+  selectedAgentId: null as string | null,
   chatSessions: {} as Record<string, unknown>,
   sessionModelsByPath: {} as Record<string, unknown>,
   setModelSwitching: vi.fn(),
@@ -48,6 +51,8 @@ describe('ModelSelector', () => {
     vi.clearAllMocks();
     storeState.currentSessionPath = null;
     storeState.pendingNewSession = true;
+    storeState.pendingDraftId = null;
+    storeState.selectedAgentId = null;
     storeState.chatSessions = {};
     storeState.sessionModelsByPath = {};
   });
@@ -60,6 +65,18 @@ describe('ModelSelector', () => {
     render(<ModelSelector models={models} />);
 
     expect(screen.getByRole('button', { name: /model.notSelected/ })).toBeTruthy();
+  });
+
+  it('stages a model only for the current draft and its selected agent', () => {
+    storeState.pendingDraftId = 'draft-one';
+    storeState.selectedAgentId = 'mio';
+    render(<ModelSelector models={models} sessionModel={models[0]} />);
+    fireEvent.click(screen.getByRole('button', { name: /DeepSeek V4 Flash/ }));
+    fireEvent.click(screen.getByRole('option', { name: /MiMo V2 Omni/ }));
+    expect(useStore.setState).toHaveBeenCalledWith(expect.objectContaining({
+      pendingDraftModel: { draftId: 'draft-one', agentId: 'mio', id: 'mimo-v2-omni', provider: 'mimo' },
+    }));
+    expect(hanaFetch).not.toHaveBeenCalled();
   });
 
   it('shows the selected model provider icon in the closed trigger', () => {

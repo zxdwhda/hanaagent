@@ -322,6 +322,70 @@ describe("SessionCoordinator runtime hibernation", () => {
     expect(session.prompt).toHaveBeenCalledWith("hello", undefined);
   });
 
+  it.each(["live", "hibernate", "reload"])("recovers a private plugin session when its exact provider model returns (%s)", async (mode) => {
+    const sessionPath = `/tmp/hana-runtime-hibernation/agents/hana/sessions/plugin-${mode}.jsonl`;
+    const staleModel = {
+      id: "shared-model",
+      provider: "plugin-provider",
+      api: "openai-completions",
+      baseUrl: "https://old.example",
+      contextWindow: 128000,
+    };
+    const models = {
+      currentModel: staleModel,
+      availableModels: [staleModel],
+      authStorage: {},
+      modelRegistry: {},
+      resolveThinkingLevel: (level) => level,
+    };
+    const session = makeSession(sessionPath, { model: staleModel });
+    const coordinator = makeCoordinator({ models });
+    coordinator._sessions.set(sessionPath, {
+      session,
+      agentId: "hana",
+      ownerPluginId: "example-plugin",
+      sessionVisibility: "plugin_private",
+      modelId: staleModel.id,
+      modelProvider: staleModel.provider,
+      lastTouchedAt: 0,
+    });
+
+    models.availableModels = [];
+    coordinator.refreshAllSessionsModels();
+    if (mode !== "live") {
+      const manager = {
+        getSessionFile: () => sessionPath,
+        getCwd: () => "/tmp/workspace",
+        buildSessionContext: () => ({ model: { provider: staleModel.provider, modelId: staleModel.id } }),
+      };
+      sessionManagerOpenMock.mockReturnValue(manager);
+      createAgentSessionMock.mockImplementationOnce(async ({ model }) => ({
+        session: makeSession(sessionPath, { model, sessionManager: manager }),
+      }));
+      if (mode === "hibernate") {
+        await expect(coordinator.hibernateSessionRuntime(sessionPath, "test")).resolves.toBe(true);
+      } else {
+        await coordinator.reloadSessionRuntime(sessionPath);
+      }
+    }
+    models.availableModels = [{ ...staleModel, provider: "other-provider" }];
+    await expect(coordinator.promptSession(sessionPath, "hello", undefined)).rejects.toMatchObject({
+      code: "MODEL_NOT_AVAILABLE",
+      modelRef: "plugin-provider/shared-model",
+    });
+    const privateSession = coordinator.getSessionByPath(sessionPath);
+    expect(privateSession.prompt).not.toHaveBeenCalled();
+
+    const freshModel = { ...staleModel, baseUrl: "https://new.example" };
+    models.availableModels.push(freshModel);
+    coordinator.refreshAllSessionsModels();
+
+    expect(privateSession.model).toBe(freshModel);
+    await expect(coordinator.promptSession(sessionPath, "hello", undefined)).resolves.toBeUndefined();
+    expect(privateSession.prompt).toHaveBeenCalledWith("hello", undefined);
+    expect(coordinator.getSessionByPath(sessionPath)).toBe(privateSession);
+  });
+
   it("hibernates only heavy idle runtimes under memory pressure", async () => {
     const sessionPath = "/tmp/hana-runtime-hibernation/agents/hana/sessions/heavy.jsonl";
     const session = makeSession(sessionPath, {

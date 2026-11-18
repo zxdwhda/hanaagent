@@ -35,11 +35,9 @@ export async function hanaFetch(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
-  // If caller provided a signal, forward its abort to our controller
-  if (callerSignal) {
-    if (callerSignal.aborted) { controller.abort(); }
-    else { callerSignal.addEventListener('abort', () => controller.abort(), { once: true }); }
-  }
+  const abortFromCaller = () => controller.abort();
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
 
   try {
     const res = await fetch(buildConnectionUrl(connection, path), {
@@ -56,6 +54,7 @@ export async function hanaFetch(
     return res;
   } finally {
     clearTimeout(timer);
+    callerSignal?.removeEventListener('abort', abortFromCaller);
   }
 }
 

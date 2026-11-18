@@ -2254,7 +2254,11 @@ export function createSessionsRoute(engine, hub = null) {
 
       const { requestId, ...body } = await safeJson(c);
       const response = await createDetachedOnce(requestContext, requestId, body, async (request?: DetachedCreateRequest) => {
-        const { memoryEnabled, agentId, permissionMode, thinkingLevel } = body;
+        const { memoryEnabled, agentId, permissionMode, thinkingLevel, draftModelRef } = body;
+        if (draftModelRef != null && (typeof draftModelRef.id !== "string" || !draftModelRef.id.trim()
+          || typeof draftModelRef.provider !== "string" || !draftModelRef.provider.trim())) {
+          throw Object.assign(new Error("Draft model requires an id and provider"), { status: 400 });
+        }
         const workspaceSelection = resolveSessionWorkspaceSelection(engine, requestContext, body);
         const cwd = workspaceSelection.cwd;
         const workspaceFolders = Array.isArray(body.workspaceFolders)
@@ -2277,6 +2281,7 @@ export function createSessionsRoute(engine, hub = null) {
           visibleInSessionList: boolean;
           permissionMode: any;
           thinkingLevel?: any;
+          draftModelRef?: { id: string; provider: string } | null;
           workspaceMountId?: string;
           workspaceLabel?: string | null;
         } = {
@@ -2289,6 +2294,11 @@ export function createSessionsRoute(engine, hub = null) {
         };
         if (thinkingLevel !== undefined && thinkingLevel !== null) {
           detachedOptions.thinkingLevel = thinkingLevel;
+        }
+        if (draftModelRef !== undefined) {
+          detachedOptions.draftModelRef = draftModelRef === null ? null : {
+            id: draftModelRef.id.trim(), provider: draftModelRef.provider.trim(),
+          };
         }
         if (workspaceSelection.mount?.mountId) {
           detachedOptions.workspaceMountId = workspaceSelection.mount.mountId;

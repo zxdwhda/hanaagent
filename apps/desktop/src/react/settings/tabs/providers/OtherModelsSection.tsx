@@ -191,6 +191,7 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             <ModelWidget
               providers={providers}
               value={utilityVal}
+              showMissingModel
               onSelect={(ref) => {
                 autoSaveGlobalModels({ models: { utility: ref } });
               }}
@@ -207,6 +208,7 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             <ModelWidget
               providers={providers}
               value={utilityLargeVal}
+              showMissingModel
               onSelect={(ref) => {
                 autoSaveGlobalModels({ models: { utility_large: ref } });
               }}
@@ -234,6 +236,7 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             <ModelWidget
               providers={providers}
               value={visionVal}
+              showMissingModel
               onSelect={(ref) => {
                 autoSaveGlobalModels({ models: { vision: ref } });
               }}

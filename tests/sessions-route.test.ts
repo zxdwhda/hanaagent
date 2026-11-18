@@ -737,13 +737,15 @@ describe("sessions route", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ requestId: "11111111111111111111111111111111", ...extra }),
     });
-    const first = post();
-    const same = post();
+    const draftModelRef = { id: "same-id", provider: "selected-provider" };
+    const first = post({ draftModelRef });
+    const same = post({ draftModelRef });
     await vi.waitFor(() => expect(engine.createDetachedSession).toHaveBeenCalledOnce());
-    expect((await post({ memoryEnabled: false })).status).toBe(409);
+    expect(engine.createDetachedSession).toHaveBeenCalledWith(expect.objectContaining({ draftModelRef }));
+    expect((await post({ draftModelRef: { ...draftModelRef, provider: "other-provider" } })).status).toBe(409);
     creation.resolve(receipt);
 
-    const replies = await Promise.all([first, same, post()]);
+    const replies = await Promise.all([first, same, post({ draftModelRef })]);
     const data = await Promise.all(replies.map((response) => response.json()));
     expect(replies.map((response) => response.status)).toEqual([200, 200, 200]);
     expect(data.map(({ sessionId }) => sessionId)).toEqual(["sess_one", "sess_one", "sess_one"]);

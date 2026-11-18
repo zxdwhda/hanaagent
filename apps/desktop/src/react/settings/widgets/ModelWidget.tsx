@@ -29,24 +29,25 @@ interface ModelWidgetProps {
   lookupModelMeta?: (id: string) => any;
   formatContext?: (n: number) => string;
   filterModel?: (model: ModelInfo) => boolean;
+  showMissingModel?: boolean;
 }
 
 export function ModelWidget({
   value, onSelect,
-  placeholder, formatContext, filterModel,
+  placeholder, formatContext, filterModel, showMissingModel = false,
 }: ModelWidgetProps) {
   const t = window.t || ((k: string) => k);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customInput, setCustomInput] = useState('');
-  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [models, setModels] = useState<ModelInfo[] | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // 从唯一信源获取模型列表
   const refreshModels = React.useCallback(() => {
     hanaFetch('/api/models').then(r => r.json()).then(data => {
-      setModels(data.models || []);
+      if (Array.isArray(data.models)) setModels(data.models);
     }).catch(() => {});
   }, []);
 
@@ -71,7 +72,7 @@ export function ModelWidget({
 
   const query = search.toLowerCase();
   const visibleModels = useMemo(
-    () => (filterModel ? models.filter(filterModel) : models),
+    () => (filterModel ? (models || []).filter(filterModel) : (models || [])),
     [models, filterModel],
   );
   const valueKey = value?.id && value?.provider ? `${value.provider}/${value.id}` : '';
@@ -80,6 +81,8 @@ export function ModelWidget({
     : null;
   const displayValue = selectedModel?.name
     || (value?.id ? (value.provider ? `${value.provider}/${value.id}` : value.id) : '');
+  const missing = showMissingModel && !!value?.id && models !== null
+    && !models.some(m => m.id === value.id && m.provider === value.provider);
 
   // 按 provider 分组
   const grouped = useMemo(() => {
@@ -120,6 +123,7 @@ export function ModelWidget({
         <span className={styles['mdw-value']}>{displayValue || `— ${placeholder || t('settings.api.selectModel')} —`}</span>
         <span className={styles['mdw-arrow']}>▾</span>
       </button>
+      {missing && <span className={styles['settings-form-hint']} role="status">{t('model.unavailable')}</span>}
       <div className={`${styles['mdw-popup']}${open ? ' ' + styles['open'] : ''}`}>
         <input
           ref={searchRef}

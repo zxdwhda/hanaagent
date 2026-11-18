@@ -53,7 +53,7 @@ function makeAgent(root) {
   };
 }
 
-function makeEngine(agent, cwd) {
+function makeEngine(agent, cwd, model: Record<string, any> = { id: "gpt-4o", provider: "openai", name: "GPT-4o" }) {
   const ensureSessionRefForPath = vi.fn((sessionPath, defaults = {}) => ({
     sessionId: `sess_${path.basename(sessionPath, path.extname(sessionPath))}`,
     sessionPath,
@@ -71,7 +71,7 @@ function makeEngine(agent, cwd) {
         tools: [],
         customTools: [...customTools, ...(opts.extraCustomTools || [])],
       }),
-      resolveModel: () => ({ id: "gpt-4o", provider: "openai", name: "GPT-4o" }),
+      resolveModel: () => model,
       authStorage: {},
       modelRegistry: {},
     }),
@@ -96,7 +96,10 @@ describe("runAgentSession teardown", () => {
     const cwd = path.join(rootDir, "cwd");
     fs.mkdirSync(cwd, { recursive: true });
     const agent = makeAgent(rootDir);
-    const engine = makeEngine(agent, cwd);
+    const engine = makeEngine(agent, cwd, {
+      id: "restricted-reasoning", provider: "test",
+      thinkingLevels: ["off", "high"], defaultThinkingLevel: "high",
+    });
     const sessionFile = path.join(agent.agentDir, "sessions", "temp", "s1.jsonl");
     fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
     fs.writeFileSync(sessionFile, "", "utf-8");
@@ -117,6 +120,7 @@ describe("runAgentSession teardown", () => {
 
     await runAgentSession("agent-a", [{ text: "hello", capture: true }], { engine });
 
+    expect(createAgentSessionMock).toHaveBeenCalledWith(expect.objectContaining({ thinkingLevel: "high" }));
     expect(engine.ensureSessionRefForPath).toHaveBeenCalledWith(
       sessionFile,
       expect.objectContaining({

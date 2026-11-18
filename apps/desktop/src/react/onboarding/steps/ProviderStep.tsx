@@ -2,13 +2,14 @@
  * ProviderStep.tsx — Step 2: Provider configuration + connection test
  */
 
-import { useState, useCallback } from 'react';
-import { PROVIDER_PRESETS } from '../constants';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { CODEX_ONBOARDING_PROVIDER, CODEX_RUNTIME_PROVIDER_ID, PROVIDER_PRESETS } from '../constants';
 import type { ProviderPreset } from '../constants';
 import { getProviderPresetLabel } from '../../utils/provider-presets';
 import { describeOnboardingError, testConnection, saveProvider as saveProviderAction } from '../onboarding-actions';
 import type { HanaFetch, OnboardingVerificationPlan } from '../onboarding-actions';
 import { StepContainer, Multiline } from '../onboarding-ui';
+import { OAuthLogin } from '../../settings/tabs/providers/OAuthCredentials';
 import { SelectWidget } from '@/ui';
 
 // ── SVG Icons (local to this step) ──
@@ -52,6 +53,8 @@ export function ProviderStep({
   const [showKey, setShowKey] = useState(false);
   const [providerMenuOpen, setProviderMenuOpen] = useState(false);
   const [providerSearch, setProviderSearch] = useState('');
+  const [codexStatus, setCodexStatus] = useState<{ loggedIn: boolean; modelCount: number } | null>(null);
+  const codexStatusRequest = useRef<AbortController | null>(null);
 
   // ── Custom provider fields ──
   const [customName, setCustomName] = useState('');
@@ -77,6 +80,7 @@ export function ProviderStep({
     setProviderMenuOpen(false);
     setProviderSearch('');
     setConnectionTested(false);
+    if (preset.value !== selectedPreset) setCodexStatus(null);
     setTestStatus({ type: '', text: '' });
 
     if (preset.custom) {
@@ -91,7 +95,7 @@ export function ProviderStep({
       setIsLocalProvider(!!preset.local);
       if (preset.local) setApiKey('');
     }
-  }, [customName, customUrl, customApi]);
+  }, [customName, customUrl, customApi, selectedPreset]);
 
   // ── Custom input sync ──
   const onCustomInput = useCallback((name: string, url: string, api: string) => {
@@ -107,6 +111,47 @@ export function ProviderStep({
     }
   }, [selectedPreset]);
 
+  const isCodex = selectedPreset === CODEX_ONBOARDING_PROVIDER.value;
+  const requestOAuth: HanaFetch = useCallback(async (path, options = {}) => {
+    const controller = new AbortController();
+    const abort = () => controller.abort(options.signal?.reason);
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(() => controller.abort(new Error(t('settings.mcp.oauthTimeout'))), 30_000);
+    try {
+      return await hanaFetch(path, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abort);
+    }
+  }, [hanaFetch]);
+  const refreshCodexStatus = useCallback(async () => {
+    const signal = codexStatusRequest.current?.signal;
+    if (!signal || signal.aborted) return;
+    try {
+      const res = await requestOAuth('/api/auth/oauth/status', { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const status = (await res.json())[CODEX_RUNTIME_PROVIDER_ID];
+      if (signal.aborted) return;
+      setCodexStatus({
+        loggedIn: status?.loggedIn === true,
+        modelCount: Number(status?.modelCount) || 0,
+      });
+    } catch (err) {
+      if (signal.aborted) return;
+      setCodexStatus({ loggedIn: false, modelCount: 0 });
+      showError(describeOnboardingError(err, t('onboarding.provider.testFailed')));
+    }
+  }, [requestOAuth, showError]);
+
+  useEffect(() => {
+    if (!isCodex || preview) return;
+    const request = new AbortController();
+    codexStatusRequest.current = request;
+    void refreshCodexStatus();
+    return () => request.abort();
+  }, [isCodex, preview, refreshCodexStatus]);
+
   // ── API key input ──
   const onApiKeyInput = useCallback((val: string) => {
     const cleaned = val.replace(/[^\x20-\x7E]/g, '').trim();
@@ -120,7 +165,8 @@ export function ProviderStep({
   const hasProvider = !!providerName;
   const hasUrl = !!providerUrl;
   const testBtnDisabled = preview ? false : !(hasProvider && hasUrl && hasKey);
-  const nextDisabled = preview ? false : !(hasProvider && hasUrl && hasKey && connectionTested);
+  const codexReady = codexStatus?.loggedIn === true && codexStatus.modelCount > 0;
+  const nextDisabled = preview ? false : isCodex ? !codexReady : !(hasProvider && hasUrl && hasKey && connectionTested);
 
   // ── Test connection ──
   const onTest = useCallback(async () => {
@@ -149,6 +195,12 @@ export function ProviderStep({
   // ── Next ──
   const onNext = useCallback(async () => {
     if (preview) { goToStep(3); return; }
+    if (isCodex) {
+      if (!codexReady) return;
+      onProviderReady(CODEX_ONBOARDING_PROVIDER.value, '', CODEX_ONBOARDING_PROVIDER.api, '');
+      goToStep(3);
+      return;
+    }
     if (!connectionTested) return;
     try {
       await saveProviderAction({ hanaFetch, agentId, providerName, providerUrl, apiKey, providerApi, verificationPlan });
@@ -158,7 +210,7 @@ export function ProviderStep({
       console.error('[onboarding] save provider failed:', err);
       showError(describeOnboardingError(err, t('onboarding.provider.testFailed')));
     }
-  }, [preview, connectionTested, hanaFetch, agentId, providerName, providerUrl, apiKey, providerApi, verificationPlan, goToStep, showError, onProviderReady]);
+  }, [preview, isCodex, codexReady, connectionTested, hanaFetch, agentId, providerName, providerUrl, apiKey, providerApi, verificationPlan, goToStep, showError, onProviderReady]);
 
   return (
     <StepContainer>
@@ -244,7 +296,7 @@ export function ProviderStep({
       )}
 
       {/* API Key */}
-      {!isLocalProvider && (
+      {!isLocalProvider && !isCodex && (
         <>
           <span className="ob-field-label">{t('onboarding.provider.keyLabel')}</span>
           <div className="ob-key-row">
@@ -264,7 +316,19 @@ export function ProviderStep({
       )}
 
       {/* Test connection */}
-      <div className="ob-test-row">
+      {isCodex && !preview && codexStatus && (
+        <>
+          <OAuthLogin
+            providerId={CODEX_ONBOARDING_PROVIDER.value}
+            loggedIn={codexStatus.loggedIn}
+            onRefresh={refreshCodexStatus}
+            request={requestOAuth}
+            notify={(message, type) => { if (type === 'error') showError(message); }}
+          />
+          {codexStatus.loggedIn && !codexReady && <p className="ob-status error">{t('onboarding.model.empty')}</p>}
+        </>
+      )}
+      {!isCodex && <div className="ob-test-row">
         <button
           className="ob-test-btn"
           disabled={testBtnDisabled}
@@ -275,7 +339,7 @@ export function ProviderStep({
         {testStatus.text && (
           <span className={`ob-status ${testStatus.type}`}>{testStatus.text}</span>
         )}
-      </div>
+      </div>}
 
       <div className="onboarding-actions">
         <button className="ob-btn ob-btn-secondary" onClick={() => goToStep(1)}>

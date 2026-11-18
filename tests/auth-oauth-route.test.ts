@@ -71,6 +71,7 @@ describe("auth oauth route", () => {
     });
 
     expect(await second.json()).toEqual(await first.clone().json());
+    expect(await first.json()).toMatchObject({ polling: true, manualCodeSupported: true });
     expect(engine.authStorage.login).toHaveBeenCalledTimes(1);
     expect(engine.authStorage.login).toHaveBeenCalledWith("openai-codex", expect.any(Object));
     expect(capturedCallbacks.onManualCodeInput).toEqual(expect.any(Function));
@@ -180,6 +181,68 @@ describe("auth oauth route", () => {
     await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 
     expect(capturedSignal?.aborted).toBe(false);
+  });
+
+  it("refreshes the model registry on browser completion and lets clients retry reading the result", async () => {
+    let finishLogin: () => void;
+    const login = new Promise<void>((resolve) => { finishLogin = resolve; });
+    const engine = makeEngine(async (_authKey, callbacks) => {
+      callbacks.onAuth({ url: "https://auth.example/start" });
+      await login;
+    });
+    const app = new Hono();
+    app.route("/api", createAuthRoute(engine));
+
+    const start = await app.request("/api/auth/oauth/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "openai-codex-oauth", loginMethod: "browser" }),
+    });
+    const { sessionId } = await start.json();
+    const poll = () => app.request(`/api/auth/oauth/poll/${sessionId}`);
+    expect(await (await poll()).json()).toEqual({ status: "pending" });
+
+    finishLogin!();
+    await vi.waitFor(() => expect(engine.onProviderChanged).toHaveBeenCalledTimes(1));
+
+    const results = await Promise.all([poll(), poll(), poll()]);
+    for (const result of results) {
+      expect(result.status).toBe(200);
+      expect(await result.json()).toEqual({ status: "done" });
+    }
+    expect(engine.onProviderChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares model refresh across manual completion and a concurrent poll", async () => {
+    const engine = makeEngine(async (_authKey, callbacks) => {
+      callbacks.onAuth({ url: "https://auth.example/start" });
+      expect(await callbacks.onManualCodeInput!()).toBe("fixture-code");
+    });
+    let finishSync: () => void;
+    engine.onProviderChanged.mockImplementation(() => new Promise<void>((resolve) => {
+      finishSync = resolve;
+    }));
+    const app = new Hono();
+    app.route("/api", createAuthRoute(engine));
+    const headers = { "Content-Type": "application/json" };
+    const { sessionId } = await (await app.request("/api/auth/oauth/start", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ provider: "openai-codex-oauth" }),
+    })).json();
+
+    const callback = app.request("/api/auth/oauth/callback", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ sessionId, code: "fixture-code" }),
+    });
+    await vi.waitFor(() => expect(engine.onProviderChanged).toHaveBeenCalledTimes(1));
+    const poll = app.request(`/api/auth/oauth/poll/${sessionId}`);
+    finishSync!();
+
+    expect(await (await callback).json()).toEqual({ ok: true });
+    expect(await (await poll).json()).toEqual({ status: "done" });
+    expect(engine.onProviderChanged).toHaveBeenCalledTimes(1);
   });
 
   it("aborts a stale OAuth flow that never exposes an authorization URL", async () => {

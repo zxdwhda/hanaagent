@@ -102404,6 +102404,18 @@
       "reason": "Reached via esbuild source module graph, imported by packages/engine/core/provider-compat.ts (import-statement)."
     },
     {
+      "path": "packages/engine/core/provider-compat/gemini-openai.ts",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/core/provider-compat.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/provider-compat.ts (import-statement)."
+    },
+    {
       "path": "packages/engine/core/provider-compat/input-audio.ts",
       "inputType": "source-graph",
       "provenance": [
@@ -103633,9 +103645,14 @@
           "root": "server-bootstrap",
           "from": "packages/engine/lib/extensions/compaction-guard-ext.ts",
           "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/hub/agent-executor.ts",
+          "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/migrations.ts (import-statement); packages/engine/core/session-cache-snapshot.ts (import-statement); packages/engine/core/provider-compat/anthropic.ts (import-statement); +12 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/migrations.ts (import-statement); packages/engine/core/session-cache-snapshot.ts (import-statement); packages/engine/core/provider-compat/anthropic.ts (import-statement); +13 more importer(s)."
     },
     {
       "path": "packages/engine/core/session-turn-actions.ts",
@@ -112071,6 +112088,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/execution-router.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/model-manager.ts",
           "kind": "import-statement"
         },
@@ -112130,7 +112152,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/desk/cron-store.ts (import-statement); packages/engine/core/model-manager.ts (import-statement); packages/engine/core/bridge-session-manager.ts (import-statement); +10 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/desk/cron-store.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); packages/engine/core/model-manager.ts (import-statement); +11 more importer(s)."
     },
     {
       "path": "packages/shared/net-utils.ts",
@@ -113249,9 +113271,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 9658,
+    "totalFiles": 9659,
     "byInputType": {
-      "source-graph": 677,
+      "source-graph": 678,
       "nft-runtime-trace": 8970,
       "runtime-asset": 11
     }

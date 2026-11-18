@@ -6,6 +6,7 @@ import YAML from "js-yaml";
 import { AgentManager } from "../packages/engine/core/agent-manager.ts";
 
 vi.mock("../packages/engine/lib/debug-log.js", () => ({
+  debugLog: () => null,
   createModuleLogger: () => ({
     log: vi.fn(),
     warn: vi.fn(),
@@ -78,6 +79,83 @@ describe("AgentManager.listAgents 缓存", () => {
       getSessionCoordinator: () => ({}),
     });
   }
+
+  it("coalesces duplicate description refreshes and retries after a Utility failure", async () => {
+    createTestAgent("alice", "Alice");
+    const existing = path.join(agentsDir, "alice", "description.md");
+    fs.writeFileSync(existing, "Previous description");
+    const mgr = makeMgr();
+    mgr._agents.set("alice", {
+      descriptionSource: "Alice helps with schedules.",
+      resolveLocale: () => "en",
+    });
+    const now = vi.spyOn(Date, "now").mockReturnValue(1000);
+    const resolveUtility = vi.fn()
+      .mockRejectedValueOnce(new Error("missing Utility model"))
+      .mockResolvedValue({
+        utility: { id: "test-chat", provider: "test" },
+        api: "openai-completions",
+        base_url: "https://example.test/v1",
+      });
+    mgr._d.resolveUtilityConfigFresh = resolveUtility;
+    const fetch = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: "Alice helps people organize and keep track of their schedules." }, finish_reason: "stop" }],
+    }), { headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await Promise.all(Array.from({ length: 8 }, () => mgr._refreshDescription("alice")));
+      await mgr._refreshDescription("alice");
+      expect(resolveUtility).toHaveBeenCalledTimes(1);
+      expect(fetch).not.toHaveBeenCalled();
+      expect(fs.readFileSync(existing, "utf-8")).toBe("Previous description");
+
+      now.mockReturnValue(31_001);
+      await mgr._refreshDescription("alice");
+      await mgr._refreshDescription("alice");
+      expect(resolveUtility).toHaveBeenCalledTimes(2);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fs.readFileSync(existing, "utf-8")).toContain("Alice helps people organize");
+    } finally {
+      now.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("generates a description for edits made during an older generation", async () => {
+    createTestAgent("alice", "Alice");
+    const descriptionPath = path.join(agentsDir, "alice", "description.md");
+    fs.writeFileSync(descriptionPath, "An earlier saved description");
+    const mgr = makeMgr();
+    const agent = { descriptionSource: "Old persona", resolveLocale: () => "en" };
+    mgr._agents.set("alice", agent);
+    mgr._d.resolveUtilityConfigFresh = vi.fn(async () => ({
+      utility: { id: "test-chat", provider: "test" },
+      api: "openai-completions",
+      base_url: "https://example.test/v1",
+    }));
+    const oldReply = Promise.withResolvers<Response>();
+    const reply = (text: string) => new Response(JSON.stringify({
+      choices: [{ message: { content: text }, finish_reason: "stop" }],
+    }));
+    const fetch = vi.fn()
+      .mockReturnValueOnce(oldReply.promise)
+      .mockResolvedValueOnce(reply("Description generated from the updated persona."));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      const first = mgr._refreshDescription("alice");
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      agent.descriptionSource = "Updated persona";
+      await mgr._refreshDescription("alice");
+      oldReply.resolve(reply("Old generation result."));
+      await first;
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(fetch.mock.calls[1][1].body).messages.at(-1).content).toBe("Updated persona");
+      expect(fs.readFileSync(descriptionPath, "utf-8")).toContain("Description generated from the updated persona.");
+    } finally {
+      oldReply.resolve(reply("Old generation result."));
+      vi.unstubAllGlobals();
+    }
+  });
 
   it("listAgents 在 TTL 内使用缓存", () => {
     createTestAgent("alice", "Alice");

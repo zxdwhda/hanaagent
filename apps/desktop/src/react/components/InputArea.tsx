@@ -437,6 +437,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   const pendingSessionSwitchPath = useStore(s => s.pendingSessionSwitchPath);
   const currentSessionPath = useStore(s => s.currentSessionPath);
   const pendingDraftId = useStore(s => s.pendingDraftId);
+  const pendingDraftModel = useStore(s => s.pendingDraftModel);
   const currentAgentId = useStore(s => s.currentAgentId);
   const agents = useStore(s => s.agents);
   const sessions = useStore(s => s.sessions);
@@ -469,6 +470,16 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
 
   const globalModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
   const sessionModel = useStore(s => s.currentSessionPath ? sessionScopedValue(s, s.sessionModelsByPath, s.currentSessionPath) : undefined);
+  const draftAgentId = selectedAgentId || currentAgentId || null;
+  const explicitDraftModel = pendingDraftModel?.draftId === pendingDraftId && pendingDraftModel?.agentId === draftAgentId
+    ? pendingDraftModel : null;
+  const draftRef = explicitDraftModel || agents.find(agent => agent.id === draftAgentId)?.chatModel;
+  const draftModelInfo: SessionModel | undefined = pendingNewSession && pendingDraftId
+    ? (draftRef?.id && draftRef.provider
+      ? models.find(model => model.id === draftRef.id && model.provider === draftRef.provider)
+        || { id: draftRef.id, name: draftRef.id, provider: draftRef.provider }
+      : models.find(model => model.isDefault))
+    : undefined;
   const sessionModelInfo = useMemo(() => {
     if (!sessionModel) return undefined;
     const full = models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider);
@@ -483,7 +494,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   const compactingStatusLabel = capabilityRefreshing
     ? t('input.refreshAndCompactBusy')
     : t(compactionMode === 'lossy_local' ? 'chat.instantSimpleCompaction' : 'chat.compacting');
-  const currentModelInfo = sessionModelInfo || globalModelInfo;
+  const currentModelInfo = draftModelInfo || sessionModelInfo || globalModelInfo;
   const availableThinkingLevels = useMemo(
     () => getModelThinkingLevels(currentModelInfo),
     [currentModelInfo],
@@ -1578,10 +1589,13 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
 
   // ── Load thinking level once server port is ready + listen for plan mode sync ──
   const activeServerConnection = useStore(s => s.activeServerConnection);
+  const draftDefaultThinking = draftModelInfo?.defaultThinkingLevel;
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    if (activeServerConnection && surface !== 'mobile') {
+    if (draftDefaultThinking) {
+      if (!useStore.getState().pendingNewSessionThinkingLevel) setThinkingLevel(draftDefaultThinking);
+    } else if (activeServerConnection && surface !== 'mobile') {
       const draftId = useStore.getState().pendingDraftId;
       const query = pendingNewSession
         ? '?pendingNewSession=1'
@@ -1611,7 +1625,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
       controller.abort();
       window.removeEventListener('hana-plan-mode', handler);
     };
-  }, [activeServerConnection, currentSessionPath, pendingNewSession, setPermissionMode, setThinkingLevel, surface]);
+  }, [activeServerConnection, currentSessionPath, pendingNewSession, draftDefaultThinking, draftAgentId, setPermissionMode, setThinkingLevel, surface]);
 
   // ── Handle slash selection (builtin vs skill) ──
   const handleSlashSelect = useCallback((item: SlashItem) => {
@@ -2310,7 +2324,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
             onThinkingChange={setThinkingLevel}
             availableThinkingLevels={availableThinkingLevels}
             models={models}
-            sessionModel={sessionModel}
+            sessionModel={draftModelInfo || sessionModel}
             isStreaming={isStreaming}
             hasInput={hasContent}
             canSend={canSend}

@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -31,6 +31,7 @@ describe('ProviderStep', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -88,5 +89,96 @@ describe('ProviderStep', () => {
     });
     expect(onProviderReady).toHaveBeenCalledWith('kimi-coding', 'https://api.kimi.com/coding/', 'anthropic-messages', 'sk-test');
     expect(goToStep).toHaveBeenCalledWith(3);
+  });
+
+  it('advances with an existing Codex OAuth login and no API key', async () => {
+    const hanaFetch = vi.fn(async () => Response.json({
+      'openai-codex': { loggedIn: true, modelCount: 1 },
+    }));
+    const goToStep = vi.fn();
+    const onProviderReady = vi.fn();
+    render(
+      <ProviderStep
+        preview={false}
+        hanaFetch={hanaFetch}
+        agentId="hana-primary"
+        verificationPlan={{ agentConfig: {}, preferenceModels: {}, requiredAgentSecretPaths: [] }}
+        goToStep={goToStep}
+        showError={vi.fn()}
+        onProviderReady={onProviderReady}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.provider.selectPlaceholder' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OpenAI Codex (OAuth)' }));
+    expect(screen.queryByPlaceholderText('onboarding.provider.keyPlaceholder')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'onboarding.provider.next' })).toBeEnabled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.provider.next' }));
+    expect(onProviderReady).toHaveBeenCalledWith('openai-codex-oauth', '', 'openai-codex-responses', '');
+    expect(goToStep).toHaveBeenCalledWith(3);
+    expect(mocks.testConnection).not.toHaveBeenCalled();
+    expect(mocks.saveProvider).not.toHaveBeenCalled();
+  });
+
+  it('lets a fresh setup complete browser OAuth before moving to model selection', async () => {
+    vi.useFakeTimers();
+    const hanaFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ 'openai-codex': { loggedIn: false, modelCount: 0 } }))
+      .mockResolvedValueOnce(Response.json({
+        sessionId: 'codex-flow', url: 'https://auth.example/start', polling: true, manualCodeSupported: true,
+      }))
+      .mockResolvedValueOnce(Response.json({ status: 'done' }))
+      .mockResolvedValueOnce(Response.json({ 'openai-codex': { loggedIn: true, modelCount: 1 } }));
+    const goToStep = vi.fn();
+    render(
+      <ProviderStep
+        preview={false}
+        hanaFetch={hanaFetch}
+        agentId="hana-primary"
+        verificationPlan={{ agentConfig: {}, preferenceModels: {}, requiredAgentSecretPaths: [] }}
+        goToStep={goToStep}
+        showError={vi.fn()}
+        onProviderReady={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.provider.selectPlaceholder' }));
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'OpenAI Codex (OAuth)' })));
+    expect(screen.getByRole('button', { name: 'onboarding.provider.next' })).toBeDisabled();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'settings.oauth.login' })));
+    expect(screen.getByText('settings.oauth.waiting')).toBeInTheDocument();
+    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    expect(hanaFetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/auth/oauth/status', '/api/auth/oauth/start', '/api/auth/oauth/poll/codex-flow', '/api/auth/oauth/status',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.provider.next' }));
+    expect(goToStep).toHaveBeenCalledWith(3);
+  });
+
+  it('shows Codex login after the initial status request times out', async () => {
+    vi.useFakeTimers();
+    const hanaFetch = vi.fn((_path: string, options?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      options?.signal?.addEventListener('abort', () => reject(options.signal?.reason), { once: true });
+    }));
+    const showError = vi.fn();
+    render(
+      <ProviderStep
+        preview={false}
+        hanaFetch={hanaFetch}
+        agentId="hana-primary"
+        verificationPlan={{ agentConfig: {}, preferenceModels: {}, requiredAgentSecretPaths: [] }}
+        goToStep={vi.fn()}
+        showError={showError}
+        onProviderReady={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.provider.selectPlaceholder' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OpenAI Codex (OAuth)' }));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(hanaFetch.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(showError).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'settings.oauth.login' })).toBeEnabled();
   });
 });

@@ -8,9 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../stores';
-import { hanaFetch } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
-import { loadModels } from '../utils/ui-helpers';
 import {
   activateWorkspaceDesk,
   addWorkspaceFolder,
@@ -163,9 +161,11 @@ function AgentChips({ agents, selectedId }: {
 }) {
   const handleClick = useCallback((agentId: string) => {
     const agent = agents.find(a => a.id === agentId) as Agent | undefined;
-    useStore.setState({ selectedAgentId: agentId });
-    const targetWorkspace = resolveAgentWorkspace(agent);
     const state = useStore.getState();
+    if ((state.selectedAgentId || state.currentAgentId) !== agentId) {
+      useStore.setState({ selectedAgentId: agentId, pendingDraftModel: null, pendingNewSessionThinkingLevel: null });
+    }
+    const targetWorkspace = resolveAgentWorkspace(agent);
     const workspaceUnchanged = !state.selectedWorkspaceMountId
       && isSameWorkspacePath(state.selectedFolder || state.deskBasePath, targetWorkspace);
     if (targetWorkspace && !workspaceUnchanged) {
@@ -177,8 +177,6 @@ function AgentChips({ agents, selectedId }: {
       });
       void activateWorkspaceDesk(targetWorkspace, { mountId: null });
     }
-    // 切换到该 agent 的 chat model
-    refreshModelsAfterAgentModelSwitch(agent);
   }, [agents]);
 
   return (
@@ -222,19 +220,6 @@ function AgentChip({ agent, isSelected, onClick }: {
       <span>{agent.name}</span>
     </button>
   );
-}
-
-function refreshModelsAfterAgentModelSwitch(agent: Agent | undefined): void {
-  if (agent?.chatModel?.id && agent.chatModel.provider) {
-    hanaFetch('/api/models/set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelId: agent.chatModel.id, provider: agent.chatModel.provider }),
-    }).then(() => {
-      loadModels();
-    }).catch(() => {});
-    return;
-  }
 }
 
 // ── Folder Picker ──
@@ -324,13 +309,15 @@ function FolderPicker({
       const homeFolder = normalizeWorkspacePath(agent.homeFolder) || folder;
       useStore.setState({
         selectedAgentId: agent.id === currentAgentId ? null : agent.id,
+        ...((useStore.getState().selectedAgentId || currentAgentId) !== agent.id
+          ? { pendingDraftModel: null, pendingNewSessionThinkingLevel: null }
+          : {}),
         selectedFolder: homeFolder,
         selectedWorkspaceMountId: null,
         selectedWorkspaceLabel: null,
         workspaceFolders: [],
       });
       void activateWorkspaceDesk(homeFolder, { mountId: null });
-      refreshModelsAfterAgentModelSwitch(agent);
       return;
     }
     void applyFolder(folder);

@@ -27,6 +27,26 @@ describe("isAnthropicModel", () => {
   });
 });
 
+describe("Gemini OpenAI compatibility", () => {
+  it.each(["chat", "utility"])("uses a bare model id in %s requests while preserving the catalog id", (mode) => {
+    const id = "models/gemini-3.1-pro-preview";
+    const model = {
+      id,
+      provider: "custom-gemini",
+      api: "openai-completions",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    };
+    const payload = { model: id, messages: [{ role: "user", content: "test" }] };
+
+    expect(normalizeProviderPayload(payload, model, { mode }).model).toBe("gemini-3.1-pro-preview");
+    expect(normalizeProviderPayload(payload, { ...model, provider: "openai", audio: true }, { mode }).model).toBe("gemini-3.1-pro-preview");
+    expect(normalizeProviderPayload(payload, { ...model, api: "google-generative-ai" }, { mode }).model).toBe(id);
+    expect(normalizeProviderPayload(payload, { ...model, baseUrl: "https://generativelanguage.googleapis.com.example.test/v1beta/openai/" }, { mode }).model).toBe(id);
+    expect(payload.model).toBe(id);
+    expect(model.id).toBe(id);
+  });
+});
+
 describe("Anthropic Max effort normalization", () => {
   it("maps Hana's unified Max level to Anthropic max effort", () => {
     const result = normalizeProviderPayload({

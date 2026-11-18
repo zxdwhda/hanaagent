@@ -37,6 +37,7 @@ import {
 const log = createModuleLogger("agent-mgr");
 const DELETED_AGENT_TOMBSTONE = ".deleted-agent.json";
 const AGENT_AVATAR_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif"];
+const DESCRIPTION_RETRY_DELAY_MS = 30_000;
 
 function readAgentAvatarState(avatarDir) {
   for (const ext of AGENT_AVATAR_EXTENSIONS) {
@@ -135,6 +136,13 @@ export class AgentManager {
   declare _agents: any;
   declare _d: any;
   declare _descRefreshPending: any;
+  private readonly _descriptionRefreshStates = new WeakMap<object, {
+    hash: string;
+    locale: string;
+    running: boolean;
+    retryAt: number;
+    refreshRequested: boolean;
+  }>();
   declare _memoryMaintenanceConcurrency: any;
   declare _memoryMaintenanceQueue: any;
   declare _memoryMaintenanceQueued: any;
@@ -454,7 +462,11 @@ export class AgentManager {
 
     // lazy refresh：在返回列表后，异步刷新缺少 description 的 agent（每次最多 1 个）
     if (!this._descRefreshPending) {
-      const needsRefresh = agents.find(a => !this._hasDescription(a.id));
+      const needsRefresh = agents.find((agent) => {
+        const runtime = this._agents.get(agent.id);
+        const state = runtime && this._descriptionRefreshStates.get(runtime);
+        return runtime && !state?.running && (state?.retryAt ?? 0) <= Date.now() && !this._hasDescription(agent.id);
+      });
       if (needsRefresh) {
         this._descRefreshPending = true;
         this._refreshDescription(needsRefresh.id)
@@ -580,14 +592,22 @@ export class AgentManager {
    * 通过 hash 比对 descriptionSource + yuan 类型，变化时调用 LLM 重新生成。
    */
   async _refreshDescription(agentId) {
+    const ag = this._agents.get(agentId);
+    if (!ag) return;
+    const source = ag.descriptionSource || ag.personality;
+    const yuan = ag.config?.agent?.yuan || "hanako";
+    const hash = createHash("sha256").update(source + "\n" + yuan).digest("hex");
+    const locale = ag.resolveLocale();
+    const current = this._descriptionRefreshStates.get(ag);
+    const sameSource = current?.hash === hash && current?.locale === locale;
+    if (current?.running) {
+      if (!sameSource) current.refreshRequested = true;
+      return;
+    }
+    if (sameSource && current.retryAt > Date.now()) return;
+    const state = { hash, locale, running: true, retryAt: 0, refreshRequested: false };
+    this._descriptionRefreshStates.set(ag, state);
     try {
-      const ag = this._agents.get(agentId);
-      if (!ag) return;
-
-      const source = ag.descriptionSource || ag.personality;
-      const yuan = ag.config?.agent?.yuan || "hanako";
-      const hash = createHash("sha256").update(source + "\n" + yuan).digest("hex");
-
       const descPath = path.join(this._d.agentsDir, agentId, "description.md");
 
       // 读取已有 hash
@@ -598,17 +618,30 @@ export class AgentManager {
       } catch {} // 文件不存在，继续生成
 
       const utilConfig = await this._d.resolveUtilityConfigFresh({ agentId });
-      const locale = ag.resolveLocale();
       const desc = await generateDescription(utilConfig, source, locale);
       if (!desc) {
-        log.log(`[description] ${agentId}: 生成跳过（LLM 不可用或返回空）`);
+        state.retryAt = Date.now() + DESCRIPTION_RETRY_DELAY_MS;
+        return;
+      }
+      if (this._agents.get(agentId) !== ag) return;
+      if ((ag.descriptionSource || ag.personality) !== source
+        || (ag.config?.agent?.yuan || "hanako") !== yuan
+        || ag.resolveLocale() !== locale) {
+        state.refreshRequested = true;
         return;
       }
 
       fs.writeFileSync(descPath, `<!-- sourceHash: ${hash} -->\n${desc}`, "utf-8");
       log.log(`[description] ${agentId}: 已更新`);
     } catch (err) {
+      state.retryAt = Date.now() + DESCRIPTION_RETRY_DELAY_MS;
       log.warn(`_refreshDescription(${agentId}) failed: ${err.message}`);
+    } finally {
+      state.running = false;
+      if (!state.retryAt) this._descriptionRefreshStates.delete(ag);
+      if (state.refreshRequested && this._agents.get(agentId) === ag) {
+        await this._refreshDescription(agentId);
+      }
     }
   }
 
@@ -818,8 +851,8 @@ export class AgentManager {
    * 仅切换 agent 指针（不创建 session）。排队执行，不会并发。
    * SessionCoordinator.switchSession 跨 agent 时调用此方法。
    */
-  async switchAgentOnly(agentId) {
-    return this._enqueueSwitch(() => this._doSwitchAgentOnly(agentId));
+  async switchAgentOnly(agentId, options?: { existingSession?: boolean }) {
+    return this._enqueueSwitch(() => this._doSwitchAgentOnly(agentId, options));
   }
 
   /**
@@ -840,7 +873,7 @@ export class AgentManager {
   // 纯切指针：不动 heartbeat / cron / channel。heartbeat 是 per-agent 闭包，
   // 与 _activeAgentId 解耦，跨 agent 跳转期间应持续运行。pause/resume 是
   // _doSwitchAgent 重建焦点 session 窗口期的保护措施，不属于这条路径。
-  async _doSwitchAgentOnly(agentId) {
+  async _doSwitchAgentOnly(agentId, { existingSession = false }: { existingSession?: boolean } = {}) {
     if (!this._agents.has(agentId)) {
       throw new Error(t("error.agentNotFound", { id: agentId }));
     }
@@ -862,7 +895,7 @@ export class AgentManager {
       const models = this._d.getModels();
       if (ref) {
         const model = findModel(models.availableModels, ref.id, ref.provider);
-        if (!model) {
+        if (!model && !existingSession) {
           // 带上码和状态，切换失败才能在路由边界保住语义：模型没了是用户改配置能解决的
           // 冲突（409），不是服务端故障（500）。少了这两个字段，上层只能压平成未知错误。
           const error: any = new Error(
@@ -872,7 +905,7 @@ export class AgentManager {
           error.status = 409;
           throw error;
         }
-        models.defaultModel = model;
+        if (model) models.defaultModel = model;
       } else if (chatRef) {
         log.warn(`switchAgent(${agentId}): models.chat 缺 provider (${JSON.stringify(chatRef)})，跳过默认模型设置`);
       }

@@ -2783,6 +2783,7 @@ function publicConnector({
   toolAnnotations = null,
   collisions = [],
 }: any) {
+  const authStatus = connectorAuthStatus(connector, status);
   return {
     ...connector,
     // Live annotations ride along the runtime view only, so surfaces can badge
@@ -2811,19 +2812,21 @@ function publicConnector({
     authorizationToken: connector.authorizationToken ? "********" : "",
     oauthClientSecret: connector.oauthClientSecret ? "********" : "",
     oauth: {
-      connected: !!connector.oauth?.accessToken,
+      connected: authStatus === "connected",
       scope: connector.oauth?.scope || "",
       expiresAt: connector.oauth?.expiresAt || 0,
     },
     proxy: resolveMcpHttpProxyDiagnostics(connector),
-    authStatus: connectorAuthStatus(connector),
+    authStatus,
   };
 }
 
-function connectorAuthStatus(connector) {
+function connectorAuthStatus(connector, status) {
   if (connector.authType === "none") return "none";
   if (connector.authType === "bearer") return connector.authorizationToken ? "token" : "missing";
-  if (connector.authType === "oauth") return connector.oauth?.accessToken ? "connected" : "disconnected";
+  if (connector.authType === "oauth") {
+    return status !== STATUS_NEEDS_AUTH && connector.oauth?.accessToken ? "connected" : "disconnected";
+  }
   return "none";
 }
 

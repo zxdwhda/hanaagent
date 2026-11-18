@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createOnboardingVerificationPlan,
+  loadModels,
   resolveOnboardingAgentId,
   saveLocale,
   saveModel,
@@ -66,6 +67,36 @@ describe('onboarding agent resolution', () => {
 });
 
 describe('onboarding saveModel', () => {
+  it('loads only authenticated Codex models and preserves their catalog when saving choices', async () => {
+    const hanaFetch = vi.fn<HanaFetch>(async path => (
+      path === '/api/models'
+        ? jsonResponse({
+          models: [
+            { id: 'gpt-5.6-sol', provider: 'openai-codex' },
+            { id: 'gpt-5.6-sol', provider: 'another-provider' },
+          ],
+        })
+        : jsonResponse({ ok: true })
+    ));
+    const providerName = 'openai-codex-oauth';
+    const verificationPlan = createOnboardingVerificationPlan();
+    const result = await loadModels({
+      hanaFetch, providerName, providerUrl: '', apiKey: '', providerApi: 'openai-codex-responses',
+    });
+    expect(result.models).toEqual([{ id: 'gpt-5.6-sol', provider: 'openai-codex' }]);
+
+    await saveModel({
+      hanaFetch, providerName, agentId: 'hana-primary',
+      selectedModel: 'gpt-5.6-sol', addedModels: ['gpt-5.6-sol'],
+      selectedUtility: 'gpt-5.6-sol', selectedUtilityLarge: 'gpt-5.6-sol', verificationPlan,
+    });
+    expect(hanaFetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/models', '/api/agents/hana-primary/config', '/api/preferences/models',
+    ]);
+    const ref = { id: 'gpt-5.6-sol', provider: 'openai-codex' };
+    expect(verificationPlan.agentConfig).toEqual({ models: { chat: ref } });
+    expect(verificationPlan.preferenceModels).toEqual({ models: { utility: ref, utility_large: ref } });
+  });
   it('persists only models the user explicitly added to the provider', async () => {
     const hanaFetch = vi.fn<HanaFetch>(async () => jsonResponse({ ok: true }));
 

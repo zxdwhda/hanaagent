@@ -31,4 +31,10 @@ describe('ModelWidget', () => {
     const trigger = screen.getByRole('button', { name: /zhipu-coding\/glm-5.2/ });
     expect(trigger.querySelector('svg')).toBeTruthy();
   });
+
+  it('keeps the missing reference visible and marks it after receiving the catalog', async () => {
+    render(<ModelWidget value={{ id: 'old-id', provider: 'gateway' }} onSelect={vi.fn()} showMissingModel />);
+    expect(screen.getByRole('button', { name: /gateway\/old-id/ })).toBeTruthy();
+    expect((await screen.findByRole('status')).textContent).toBe('model.unavailable');
+  });
 });

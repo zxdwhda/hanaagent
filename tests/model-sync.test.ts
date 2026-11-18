@@ -336,6 +336,23 @@ function readProviderCatalogProviders() {
 }
 
 describe("syncModels", () => {
+  it.each(["custom-gateway", "openai"])("projects a temperature restriction for %s", async (provider) => {
+    const syncModels = await loadSync();
+    syncModels({
+      [provider]: {
+        api: "openai-completions",
+        auth_type: "none",
+        base_url: "https://example.test/v1",
+        models: [{ id: "strict-gateway-model", compat: { supportsTemperature: false } }],
+      },
+    }, { modelsJsonPath });
+    const catalog = JSON.parse(fs.readFileSync(modelsJsonPath, "utf-8"));
+    expect(catalog.providers[provider].models[0].compat).toMatchObject({ supportsTemperature: false });
+    const { AuthStorage, createModelRegistry } = await import("../packages/engine/lib/pi-sdk/index.ts");
+    const sdk = createModelRegistry(AuthStorage.inMemory(), modelsJsonPath);
+    expect(sdk.find(provider, "strict-gateway-model")?.compat).toMatchObject({ supportsTemperature: false });
+  });
+
   it("writes providers with credentials and models to models.json", async () => {
     const syncModels = await loadSync();
 

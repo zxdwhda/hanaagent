@@ -32,6 +32,7 @@ import * as openaiVideoUrl from "./provider-compat/openai-video-url.ts";
 import * as openrouter from "./provider-compat/openrouter.ts";
 import * as anthropic from "./provider-compat/anthropic.ts";
 import * as codexResponses from "./provider-compat/codex-responses.ts";
+import { normalizeGeminiOpenAIModelId } from "./provider-compat/gemini-openai.ts";
 import { normalizeImplicitOutputBudget } from "./provider-compat/output-budget.ts";
 import { stripOrphanToolResults } from "./provider-compat/tool-pairing.ts";
 import { normalizeOpenAIInputAudioPayload } from "./provider-compat/input-audio.ts";
@@ -375,11 +376,16 @@ export function normalizeProviderPayload(payload, model, options = {}) {
     }
   }
 
+  if (model?.compat?.supportsTemperature === false && Object.hasOwn(result, "temperature")) {
+    result = { ...result };
+    delete result.temperature;
+  }
+
   // 3. reasoning replay 是协议级契约，不归任何单个 provider 模块所有。
   // 子模块决定本轮 thinking 开关后，中心层再校验最终请求状态。
   result = normalizeReasoningReplayPayload(result, model, normalizedOptions);
 
-  return result;
+  return normalizeGeminiOpenAIModelId(result, model, normalizedOptions);
 }
 
 /**

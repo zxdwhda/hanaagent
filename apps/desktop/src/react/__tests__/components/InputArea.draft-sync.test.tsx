@@ -132,10 +132,11 @@ vi.mock('../../components/input/InputContextRow', () => ({
 }));
 
 vi.mock('../../components/input/InputControlBar', () => ({
-  InputControlBar: (props: { canSend: boolean; hasInput: boolean }) => React.createElement('div', {
+  InputControlBar: (props: { canSend: boolean; hasInput: boolean; sessionModel?: { provider: string } }) => React.createElement('div', {
     'data-testid': 'input-control-bar',
     'data-can-send': String(props.canSend),
     'data-has-input': String(props.hasInput),
+    'data-provider': props.sessionModel?.provider,
   }),
 }));
 
@@ -315,6 +316,23 @@ describe('InputArea draft sync', () => {
       expect(bar.getAttribute('data-has-input')).toBe('true');
       expect(bar.getAttribute('data-can-send')).toBe('true');
     });
+  });
+
+  it('previews the selected assistant model instead of the globally current one', () => {
+    seedPendingComposer('hello');
+    useStore.setState({
+      pendingDraftId: 'draft-mio',
+      currentAgentId: 'hana',
+      selectedAgentId: 'mio',
+      pendingDraftModel: { draftId: 'draft-mio', agentId: 'hana', id: 'same-id', provider: 'first-provider' },
+      agents: [{ id: 'mio', name: 'Mio', chatModel: { id: 'same-id', provider: 'second-provider' } }],
+      models: [
+        { id: 'same-id', name: 'Hana model', provider: 'first-provider', isCurrent: true },
+        { id: 'same-id', name: 'Mio model', provider: 'second-provider' },
+      ],
+    } as never);
+    render(React.createElement(InputArea));
+    expect(screen.getByTestId('input-control-bar').getAttribute('data-provider')).toBe('second-provider');
   });
 
   it('keeps history editable but disables sending until an unavailable session model is replaced', async () => {

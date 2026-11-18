@@ -190,6 +190,11 @@ function sessionModelRef(provider: any, modelId: any) {
   return provider && modelId ? `${provider}/${modelId}` : "unknown";
 }
 
+function isRecoverableModelOutage(availability: SessionModelAvailability | null | undefined) {
+  return availability?.reason === "temporarily_unavailable"
+    || availability?.reason === "provider_not_configured";
+}
+
 const MODEL_CONTEXT_TOO_LARGE_CODE = "MODEL_CONTEXT_TOO_LARGE";
 
 function createModelContextTooLargeError(currentTokens: number, effectiveWindow: number) {
@@ -415,6 +420,11 @@ function normalizePluginSessionMeta({ ownerPluginId, sessionKind, sessionVisibil
     kind,
     visibility: visibility || "public",
   };
+}
+
+function isPrivatePluginSession(entry: any) {
+  return Boolean(entry.ownerPluginId)
+    && (entry.sessionVisibility === "plugin_private" || entry.sessionVisibility === "private");
 }
 
 function sessionMatchesListOptions(sessionLike, options: any = {}) {
@@ -1123,10 +1133,12 @@ export class SessionCoordinator {
     return this._getDefaultThinkingLevelForModel();
   }
 
-  async setDefaultThinkingLevel(level: any) {
+  async setDefaultThinkingLevel(level: any, modelRef?: { id: string; provider: string }) {
     const models = this._d.getModels();
     const fallback = normalizeSessionThinkingLevel(this._d.getPrefs().getThinkingLevel());
-    const targetModel = this._pendingModel || models?.currentModel || null;
+    const targetModel = modelRef
+      ? modelRef.id && modelRef.provider && findModel(models.availableModels, modelRef.id, modelRef.provider)
+      : (this._pendingModel || models?.currentModel || null);
     if (!targetModel?.id || !targetModel.provider) {
       return { ok: false, error: "model not found", thinkingLevel: fallback };
     }
@@ -1739,6 +1751,7 @@ export class SessionCoordinator {
     authorizedFolders = [],
     visibleInSessionList = false,
     thinkingLevel = null,
+    draftModelRef = undefined,
     workspaceMountId = null,
     workspaceLabel = null,
     ownerPluginId = null,
@@ -1773,8 +1786,19 @@ export class SessionCoordinator {
     const models = this._d.getModels();
     // restore 模式通常由 PI SDK 从 JSONL 恢复模型。唯一例外是历史模型当前不可用：
     // 下方会传入同 provider/id 的不可执行占位对象，阻止 SDK 静默 fallback。
-    const effectiveModel = restore ? null : (model || this._pendingModel || models.currentModel);
-    if (focus) this._pendingModel = null;
+    let effectiveModel = restore ? null : (model || this._pendingModel || models.currentModel);
+    if (!restore && draftModelRef !== undefined) {
+      const ref = draftModelRef || agent.config?.models?.chat;
+      effectiveModel = ref?.id && ref.provider
+        ? findModel(models.availableModels, ref.id, ref.provider)
+        : models.currentModel;
+      if (!effectiveModel && ref?.id && ref.provider) {
+        throw Object.assign(new Error(t("error.modelNotFound", { id: `${ref.provider}/${ref.id}` })), {
+          code: "MODEL_NOT_FOUND", status: 404,
+        });
+      }
+    }
+    if (focus && draftModelRef === undefined) this._pendingModel = null;
     log.log(`createSession cwd=${effectiveCwd} restore=${restore} (传入: ${cwd || "未指定"})`);
 
     const workspaceSkillContext = await this._d.onBeforeSessionCreate?.(effectiveCwd, {
@@ -2442,6 +2466,9 @@ export class SessionCoordinator {
         : [],
     };
 
+    const previousModelRef = reminderState?.recoverableModelRef || (restore && sessionPathForMeta
+      ? this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPathForMeta)?.recoverableModelRef
+      : null);
     Object.assign(sessionEntry, {
       session,
       agentId: creatingAgentId,
@@ -2457,6 +2484,10 @@ export class SessionCoordinator {
           resolvedModel?.id || effectiveModel?.id,
         ),
       },
+      recoverableModelRef: isRecoverableModelOutage(restoredSessionModelAvailability)
+        && restoredSessionModelAvailability?.modelRef === previousModelRef
+        ? previousModelRef
+        : null,
       cwd: effectiveCwd,
       workspaceFolders: workspaceScope.workspaceFolders,
       workspaceMountId: workspaceMount?.mountId || null,
@@ -2670,6 +2701,7 @@ export class SessionCoordinator {
     visibleInSessionList = true,
     permissionMode = null,
     thinkingLevel = null,
+    draftModelRef = undefined,
     workspaceMountId = null,
     workspaceLabel = null,
     ownerPluginId = null,
@@ -2694,6 +2726,7 @@ export class SessionCoordinator {
         authorizedFolders,
         visibleInSessionList,
         thinkingLevel,
+        draftModelRef,
         workspaceMountId,
         workspaceLabel,
         ownerPluginId,
@@ -4674,7 +4707,7 @@ export class SessionCoordinator {
     const targetAgentId = this.resolveSessionOwnership(sessionPath).agentId;
     if (targetAgentId && targetAgentId !== this._d.getActiveAgentId()) {
       // Phase 1: 跨 agent 切换只切指针，不清旧 session
-      await this._d.switchAgentOnly(targetAgentId);
+      await this._d.switchAgentOnly(targetAgentId, { existingSession: true });
     }
 
     // 切到已有 session 时清空 pendingModel（用户的临时选择不应跟到别的 session）
@@ -4821,21 +4854,29 @@ export class SessionCoordinator {
     const models = this._d.getModels?.();
     const sessionPath = session?.sessionManager?.getSessionFile?.() || null;
     const entry = sessionPath ? this._getSessionEntryByPath(sessionPath) : null;
-    if (entry?.modelAvailability?.available === false) {
+    const modelRef = sessionModelRef(provider, modelId);
+    if (entry?.modelAvailability?.available === false && entry.recoverableModelRef !== modelRef) {
       throw this._sessionModelUnavailableError(entry.modelAvailability);
     }
     const allowedModel = modelId && provider && Array.isArray(models?.availableModels)
       ? findModel(models.availableModels, modelId, provider)
       : null;
-    const modelRef = sessionModelRef(provider, modelId);
-
     if (!allowedModel) {
       const availability = modelId && provider
         ? classifySessionModelAvailability(models, provider, modelId)
         : { available: false, reason: "temporarily_unavailable", modelRef } as SessionModelAvailability;
       if (entry) {
+        const previous = entry.modelAvailability;
+        const wasAvailable = previous?.available !== false;
+        if (wasAvailable && isPrivatePluginSession(entry) && isRecoverableModelOutage(availability)) {
+          // Only retry the live binding that lost access. Historical restore failures still need a model selection.
+          entry.recoverableModelRef = modelRef;
+        }
+        if (!isRecoverableModelOutage(availability)) delete entry.recoverableModelRef;
         entry.modelAvailability = availability;
-        this._emitSessionMetadataUpdated(sessionPath, { modelAvailability: { ...availability } });
+        if (previous?.reason !== availability.reason || previous?.modelRef !== availability.modelRef) {
+          this._emitSessionMetadataUpdated(sessionPath, { modelAvailability: { ...availability } });
+        }
       }
       throw this._sessionModelUnavailableError(availability);
     }
@@ -4850,7 +4891,12 @@ export class SessionCoordinator {
       }
     }
     if (entry && entry.modelAvailability?.available !== true) {
+      const recovered = entry.recoverableModelRef === modelRef;
       entry.modelAvailability = { available: true, reason: null, modelRef };
+      if (recovered) {
+        delete entry.recoverableModelRef;
+        this._emitSessionMetadataUpdated(sessionPath, { modelAvailability: { ...entry.modelAvailability } });
+      }
     }
     return allowedModel;
   }
@@ -5255,6 +5301,7 @@ export class SessionCoordinator {
       await session.setModel(newModel);
       entry.modelId = newModel.id;
       entry.modelProvider = newModel.provider;
+      delete entry.recoverableModelRef;
       entry.modelAvailability = {
         available: true,
         reason: null,
@@ -5736,6 +5783,9 @@ export class SessionCoordinator {
       modelId: entry.modelId,
       modelProvider: entry.modelProvider,
       modelAvailability: entry.modelAvailability ? { ...entry.modelAvailability } : null,
+      recoverableModelRef: isPrivatePluginSession(entry)
+        ? entry.recoverableModelRef || (entry.modelAvailability?.available === true ? entry.modelAvailability.modelRef : null)
+        : null,
       cwd: entry.cwd || entry.session?.sessionManager?.getCwd?.() || null,
       workspaceFolders: Array.isArray(entry.workspaceFolders) ? [...entry.workspaceFolders] : [],
       authorizedFolders: Array.isArray(entry.authorizedFolders) ? [...entry.authorizedFolders] : [],

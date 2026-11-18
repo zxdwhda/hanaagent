@@ -19,7 +19,7 @@ import {
 import { forceRefreshOAuthApiKey } from "./oauth-force-refresh.ts";
 import { t } from "../lib/i18n.ts";
 import { ProviderRegistry } from "./provider-registry.ts";
-import { ExecutionRouter } from "./execution-router.ts";
+import { ExecutionRouter, unavailableModelReference } from "./execution-router.ts";
 import { composeResolvedModelExecution } from "./model-execution-config.ts";
 import { findModel, parseModelRef } from "../../shared/model-ref.ts";
 import { isLocalBaseUrl } from "../../shared/net-utils.ts";
@@ -464,10 +464,7 @@ export class ModelManager {
       : null;
     if (model) return model;
 
-    const id = parsed?.id
-      ? (parsed.provider ? `${parsed.provider}/${parsed.id}` : parsed.id)
-      : String(modelRef);
-    throw new Error(t("error.modelNotFound", { id }));
+    throw unavailableModelReference(modelRef);
   }
 
   /**
@@ -608,7 +605,7 @@ export class ModelManager {
     const credentialHeaders = creds?.headers && typeof creds.headers === "object" ? creds.headers : {};
     const hasCredentialHeaders = Object.keys(credentialHeaders).length > 0;
     if (!execution.baseUrl || (!execution.apiKey && !hasCredentialHeaders && !allowsMissingApiKey)) {
-      throw new Error(t("error.providerMissingCreds", { provider }));
+      throw Object.assign(new Error(t("error.providerMissingCreds", { provider })), { code: "MODEL_CREDENTIALS_MISSING" });
     }
     return {
       model: execution.model,

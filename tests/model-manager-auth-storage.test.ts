@@ -114,10 +114,34 @@ describe("ModelManager AuthStorage ownership", () => {
     });
     expect(execution.headers).toEqual({
       "x-xai-token-auth": "xai-grok-cli",
-      "x-grok-client-version": "0.2.95",
+      "x-grok-client-version": "1.0.89",
       "x-grok-client-identifier": "hana",
       "x-grok-model-override": "grok-4.5",
     });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, options) => {
+      const headers = new Headers(options?.headers);
+      expect(String(url)).toBe("https://cli-chat-proxy.grok.com/v1/responses");
+      if (headers.get("x-grok-client-version") === "0.2.95") {
+        return Response.json({ error: "Your Grok CLI version is outdated" }, { status: 426 });
+      }
+      expect(headers.get("x-grok-client-version")).toBe("1.0.89");
+      return Response.json({
+        output: [{ type: "message", content: [{ type: "output_text", text: "OK" }] }],
+      });
+    });
+    const request = {
+      api: execution.api,
+      apiKey: execution.api_key,
+      baseUrl: execution.base_url,
+      model: execution.model,
+      messages: [{ role: "user", content: "Reply OK." }],
+    };
+    await expect(callText({
+      ...request,
+      headers: { ...execution.headers, "x-grok-client-version": "0.2.95" },
+    })).rejects.toThrow(/Grok CLI version is outdated/);
+    await expect(callText({ ...request, headers: execution.headers })).resolves.toBe("OK");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     manager.authStorage.logout("xai-oauth");
     await manager.reloadAndSync();

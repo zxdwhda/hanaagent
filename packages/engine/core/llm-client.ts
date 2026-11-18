@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AppError } from '../../shared/errors.ts';
 import { errorBus } from '../../shared/error-bus.ts';
 import { normalizeProviderPayload } from './provider-compat.ts';
@@ -576,6 +577,13 @@ export async function callText({
 
   headers = mergeProviderHeaders(headers, modelObj?.headers, requestHeaders);
   headers = withDefaultProviderHeaders(headers);
+  const requestUrl = api === "openai-completions" ? URL.parse(endpoint) : null;
+  if (requestUrl?.origin === "https://opencode.ai"
+    && requestUrl.pathname === "/zen/go/v1/chat/completions"
+    && !Object.keys(headers).some(name => name.toLowerCase() === "x-opencode-session")) {
+    // Buffered Utility calls are independent of Pi's desktop session affinity.
+    headers["x-opencode-session"] = randomUUID();
+  }
 
   // Provider 兼容化（与 chat 路径共享 provider-compat）。
   // 把 callText opts 传入的 quirks 合入 model 对象，让 qwen.js 等子模块的
@@ -591,12 +599,10 @@ export async function callText({
         ? { id: modelId, provider, api, baseUrl, quirks }
         : null
     );
-  body = normalizeProviderPayload(body, modelForCompat, buildProviderCompatOptions({
-    mode: "utility",
-    callPurpose,
-    explicitMaxTokens,
-    outputBudgetSource,
-  }));
+  body = normalizeProviderPayload(body, modelForCompat, {
+    ...buildProviderCompatOptions({ mode: "utility", callPurpose, explicitMaxTokens, outputBudgetSource }),
+    requestEndpoint: { api, baseUrl: base },
+  });
 
   // ── 4. 发送请求 ──
   const usageRequest = usageLedger?.start?.({

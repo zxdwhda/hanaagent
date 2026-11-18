@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:afa1ad2a59117ba7702c2315681d18a68fd3ca60fd15f8943007f1218da3fdf6",
+  "payloadFingerprint": "sha256:22a10570397a9f3bbbeccf4e373d24b5bb6bf843d46c3560306e65d9b5bad2fc",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Session projection and locator lookup preserve existing records and schemas. Session runtime lifecycle and file history watcher changes preserve the existing persisted formats.",
-    "payloadFingerprint": "sha256:afa1ad2a59117ba7702c2315681d18a68fd3ca60fd15f8943007f1218da3fdf6"
+    "compatibilityReason": "Utility refresh, connector auth state, and provider model refresh update guarded runtime code. The store inventory, SQLite schemas, serialized file shapes, and DATA_EPOCH are unchanged. Existing model references continue to load.",
+    "payloadFingerprint": "sha256:22a10570397a9f3bbbeccf4e373d24b5bb6bf843d46c3560306e65d9b5bad2fc"
   },
   "schemas": [
     {
@@ -3205,7 +3205,7 @@
       "contract": "agent config and authored Markdown/image profile protocol",
       "kind": "directory-contract",
       "module": "packages/engine/core/agent-manager.ts",
-      "sourceHash": "sha256:66ba8bb6b8a70ff9d9604e47664d13c5b341cfba69734966d79d7195ac944d65",
+      "sourceHash": "sha256:fd0df3f49a0b8bb43d1759348ef366890f3b2da6c0422d33f85392605d6d540e",
       "storeId": "agent-profile"
     },
     {
@@ -3425,7 +3425,7 @@
       "contract": "normalizeMcpConfig read-time normalization (servers/connectors alias, auth and OAuth field defaults, per-connector permission policy defaults, deferred-loading defaults)",
       "kind": "runtime-contract",
       "module": "packages/engine/core/mcp/manager.ts",
-      "sourceHash": "sha256:f7f5ddd3936446cc04a72f3a35da375e30925bef991adb77b46d74cff3323bee",
+      "sourceHash": "sha256:feccc0eda7be65f390847e4b67ff337fdf7559e4c92788fe1796a7c0f1165332",
       "storeId": "mcp-config"
     },
     {
@@ -3522,7 +3522,7 @@
       "contract": "server-info writer and desktop bootstrap reader",
       "kind": "runtime-contract",
       "module": "apps/server/index.ts",
-      "sourceHash": "sha256:67b7baacf70474bc6f212119b088cf37ac6e50fb287d6658cb60a7049412f3fb",
+      "sourceHash": "sha256:61ee606e915cb81c72baab6f050634e2ca1879bc7768b6f93443a4c1160699b9",
       "storeId": "server-runtime-info"
     },
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:880b1c92bac35a237250b54fb1d223b10d3cc8522dcb94cc36a2158c76407a7c"
+          "sourceHash": "sha256:d239de11b0d0882b66298ce2d256adecb0399dae2ad0ae3372222cbe1437c322"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",

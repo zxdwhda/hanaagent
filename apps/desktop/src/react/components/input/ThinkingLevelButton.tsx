@@ -2,7 +2,9 @@ import { useCallback, useMemo } from 'react';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { useI18n } from '../../hooks/use-i18n';
 import { useStore } from '../../stores';
+import { errorWithCode, localizedReasonOrRaw } from '../../errors/error-presenter';
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel, normalizeThinkingLevels, type ThinkingLevel } from '../../stores/model-slice';
+import { normalizeSessionRouteError } from '../../../../../../packages/shared/error-user-messages.ts';
 import { SelectWidget, type SelectOption } from '@/ui';
 import styles from './InputArea.module.css';
 
@@ -16,10 +18,11 @@ const THINKING_LEVEL_COPY: Record<ThinkingLevel, { label: string; description: s
   max: { label: 'Max', description: 'Maximum reasoning' },
 };
 
-export function ThinkingLevelButton({ level, onChange, availableLevels }: {
+export function ThinkingLevelButton({ level, onChange, availableLevels, draftModel }: {
   level: ThinkingLevel;
   onChange: (level: ThinkingLevel) => void;
   availableLevels?: readonly ThinkingLevel[];
+  draftModel?: { id: string; provider: string };
 }) {
   const { t } = useI18n();
   const currentSessionPath = useStore(s => s.currentSessionPath);
@@ -32,37 +35,40 @@ export function ThinkingLevelButton({ level, onChange, availableLevels }: {
   );
 
   const selectLevel = useCallback(async (next: ThinkingLevel) => {
+    const before = useStore.getState();
     try {
-      const useSessionThinking = !!currentSessionPath && !pendingNewSession;
-      if (!useSessionThinking) {
-        const res = await hanaFetch('/api/session-thinking-level', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ level: next }),
-        });
-        const data = await res.json();
-        if (!res.ok || data?.ok === false) {
-          throw new Error(data?.error || 'failed to save thinking level');
-        }
-        const normalized = normalizeThinkingLevel((data?.thinkingLevel || next) as ThinkingLevel);
-        useStore.getState().setPendingNewSessionThinkingLevel(normalized);
-        onChange(normalized);
-        return;
-      }
+      const sessionPath = pendingNewSession ? null : currentSessionPath;
       const res = await hanaFetch('/api/session-thinking-level', {
         method: 'POST',
+        throwOnHttpError: false,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionPath: currentSessionPath, level: next }),
+        body: JSON.stringify(sessionPath ? { sessionPath, level: next } : {
+          level: next,
+          ...(before.pendingDraftId && draftModel?.id && draftModel.provider
+            ? { modelRef: { id: draftModel.id, provider: draftModel.provider } } : {}),
+        }),
       });
-      const data = await res.json();
-      if (!res.ok || data?.ok === false) {
-        throw new Error(data?.error || 'failed to save thinking level');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.ok === false) {
+        const { message, code } = normalizeSessionRouteError(data);
+        throw errorWithCode(message || t('settings.saveFailed'), code);
       }
-      onChange(normalizeThinkingLevel((data?.thinkingLevel || next) as ThinkingLevel));
+      const normalized = normalizeThinkingLevel((data.thinkingLevel || next) as ThinkingLevel);
+      if (!sessionPath) {
+        const latest = useStore.getState();
+        if (before.pendingDraftId && (latest.pendingDraftId !== before.pendingDraftId
+          || latest.pendingDraftModel !== before.pendingDraftModel
+          || latest.selectedAgentId !== before.selectedAgentId)) return;
+        latest.setPendingNewSessionThinkingLevel(normalized);
+      }
+      onChange(normalized);
     } catch (err) {
       console.error('[thinking-level] save failed:', err);
+      const label = t('settings.saveFailed');
+      const reason = localizedReasonOrRaw(err, t);
+      useStore.getState().addToast(reason === label ? label : `${label}: ${reason}`, 'error');
     }
-  }, [currentSessionPath, onChange, pendingNewSession]);
+  }, [currentSessionPath, onChange, pendingNewSession, draftModel, t]);
 
   const tLevel = (key: string, fallback: string) => {
     const v = t(key);

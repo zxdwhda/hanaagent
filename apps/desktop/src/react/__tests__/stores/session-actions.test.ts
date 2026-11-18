@@ -61,6 +61,7 @@ const initialStateFactory = (): MockState => ({
   channelCreateOverlayVisible: false,
   computerOverlayBySession: {} as Record<string, unknown>,
   agents: [] as unknown[],
+  models: [] as unknown[],
   currentAgentId: null,
   agentName: '',
   agentYuan: 'hanako',
@@ -743,7 +744,7 @@ function mockPermissionDefault(mode = 'ask') {
         signal: expect.any(AbortSignal),
       });
       expect(mockState.thinkingLevel).toBe('medium');
-      expect(mockState.pendingNewSessionThinkingLevel).toBe('medium');
+      expect(mockState.pendingNewSessionThinkingLevel).toBeNull();
     });
 
     it('keeps the new draft usable when workspace loading and preference bodies stall', async () => {
@@ -810,10 +811,15 @@ function mockPermissionDefault(mode = 'ask') {
       });
     });
 
-    it('sends extra workspace folders when creating a pending session', async () => {
+    it.each([
+      ['draft-workspace-a', 'hana', { id: 'override', provider: 'gateway' }],
+      ['older-draft', 'hana', null],
+      ['draft-workspace-a', 'mio', null],
+    ])('sends extra workspace folders and scopes the model selection to %s / %s', async (draftId, agentId, expectedModel) => {
       Object.assign(mockState, {
         pendingNewSession: true,
         pendingDraftId: 'draft-workspace-a',
+        pendingDraftModel: { draftId, agentId, id: 'override', provider: 'gateway' },
         currentAgentId: 'hana',
         memoryEnabled: true,
         selectedFolder: '/workspace-a',
@@ -841,6 +847,8 @@ function mockPermissionDefault(mode = 'ask') {
       expect(JSON.parse(String(create?.[1]?.body))).toEqual({
       memoryEnabled: true,
       recordWorkspaceHistory: true,
+      agentId: 'hana',
+      draftModelRef: expectedModel,
       cwd: '/workspace-a',
       workspaceFolders: ['/reference-a'],
       currentSessionPath: null,
@@ -959,6 +967,8 @@ function mockPermissionDefault(mode = 'ask') {
       expect(createBodies).toEqual([{
         memoryEnabled: true,
         recordWorkspaceHistory: true,
+        agentId: 'hana',
+        draftModelRef: null,
         cwd: '/workspace-b',
         currentSessionPath: null,
         requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
@@ -1104,6 +1114,8 @@ function mockPermissionDefault(mode = 'ask') {
       expect(JSON.parse(String(create?.[1]?.body))).toEqual({
       memoryEnabled: true,
       recordWorkspaceHistory: true,
+      agentId: 'hana',
+      draftModelRef: null,
       workspaceMountId: 'mount_docs',
       currentSessionPath: null,
       requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
@@ -1148,6 +1160,8 @@ function mockPermissionDefault(mode = 'ask') {
       expect(JSON.parse(String(create?.[1]?.body))).toEqual({
       memoryEnabled: true,
       recordWorkspaceHistory: true,
+      agentId: 'hana',
+      draftModelRef: null,
       cwd: '/workspace-a',
       thinkingLevel: 'high',
       currentSessionPath: null,
@@ -1190,6 +1204,8 @@ function mockPermissionDefault(mode = 'ask') {
       expect(JSON.parse(String(create?.[1]?.body))).toEqual({
       memoryEnabled: true,
       recordWorkspaceHistory: true,
+      agentId: 'hana',
+      draftModelRef: null,
       cwd: '/workspace-a',
       permissionMode: 'auto',
       currentSessionPath: null,
@@ -1247,12 +1263,27 @@ function mockPermissionDefault(mode = 'ask') {
             projectId: 'project-hana',
             permissionMode: 'ask',
             agentId: 'hana',
+            draftModelRef: null,
             currentSessionPath: null,
             requestId: JSON.parse(String(mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached')?.[1]?.body)).requestId,
           }),
         }),
       );
       expect(mockState.pendingProjectId).toBeNull();
+    });
+
+    it('keeps the draft when activation of its detached session fails', async () => {
+      Object.assign(mockState, {
+        pendingNewSession: true, pendingDraftId: 'draft-activation', currentAgentId: 'hana',
+      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        ok: true, path: '/session/new.jsonl', sessionId: 'sess_inactive', agentId: 'hana',
+      }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'Session activation failed' }, false));
+
+      await expect(ensureSession()).resolves.toBeNull();
+      expect(mockState.pendingDraftId).toBe('draft-activation');
+      expect(mockState.currentSessionPath).toBeNull();
     });
 
     it('surfaces the server error when pending session creation fails', async () => {
