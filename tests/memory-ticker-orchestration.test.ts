@@ -352,6 +352,65 @@ describe("_doDaily step orchestration", () => {
     },
   );
 
+  it.each(["persisted", "in-memory"])("recovers a %s pending branch on the periodic check without a new turn", async (source) => {
+    vi.useFakeTimers();
+    try {
+      const sessionPath = path.join(tmpDir, "sessions", "pending.jsonl");
+      writeSession(sessionPath);
+      const old = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      fs.utimesSync(sessionPath, old, old);
+      let pending = source === "persisted";
+      const summary = () => ({ session_id: "pending", factReplacementRequired: pending });
+      const rollingSummary = vi.fn()
+        .mockRejectedValueOnce(new Error("model temporarily unavailable"))
+        .mockImplementationOnce(async () => {
+          pending = false;
+          return { mode: "replace", data: summary() };
+        });
+      ticker = makeTicker(tmpDir, {
+        rollingSummary,
+        getSummary: summary,
+        getDirtySessions: () => pending ? [summary()] : [],
+      });
+      ticker.start();
+
+      if (source === "persisted") await ticker.tick();
+      else await ticker.notifyTurn(sessionPath, { forceSummary: true });
+      expect(rollingSummary).toHaveBeenCalledOnce();
+      expect(compileDaily).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      expect(rollingSummary).toHaveBeenCalledTimes(2);
+      expect(compileDaily).toHaveBeenCalledOnce();
+      expect(readDailyState(tmpDir).dailyCompletedAt).toEqual(expect.any(String));
+    } finally {
+      await ticker.stop();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not start another recovery summary after the ticker is stopped", async () => {
+    const sessionDir = path.join(tmpDir, "sessions");
+    writeSession(path.join(sessionDir, "first.jsonl"));
+    writeSession(path.join(sessionDir, "second.jsonl"));
+    const wait = Promise.withResolvers<string>();
+    const rollingSummary = vi.fn(() => wait.promise);
+    ticker = makeTicker(tmpDir, {
+      rollingSummary,
+      getSummary: () => null,
+    });
+    const inFlight = ticker.tick();
+    try {
+      await vi.waitFor(() => expect(rollingSummary).toHaveBeenCalledOnce());
+    } finally {
+      const stopped = ticker.stop();
+      wait.resolve("summary");
+      await Promise.all([inFlight, stopped]);
+    }
+    expect(rollingSummary).toHaveBeenCalledOnce();
+    expect(compileDaily).not.toHaveBeenCalled();
+  });
+
   it("compileFacts failure does not block other steps", async () => {
     (compileEditableFacts as any).mockRejectedValueOnce(new Error("facts error"));
 

@@ -463,6 +463,7 @@ export class Agent {
         getSessionIdForPath: (sessionPath) => (
           this._cb?.getEngine?.()?.getSessionIdForPath?.(sessionPath)
         ),
+        getSessionManifest: (sessionId) => this._cb?.getEngine?.()?.getSessionManifest?.(sessionId),
         getSessionBranchHeadForPath: (sessionPath) => (
           this._cb?.getEngine?.()?.getSessionBranchHeadForPath?.(sessionPath)
         ),
