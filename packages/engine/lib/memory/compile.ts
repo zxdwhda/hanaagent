@@ -100,20 +100,35 @@ function readTodayState(statePath) {
     return {
       logicalDate,
       lastCompiledSummaryUpdatedAt: watermark && !Number.isNaN(Date.parse(watermark)) ? watermark : null,
+      draftSha256: typeof raw.draftSha256 === "string" ? raw.draftSha256 : null,
     };
   } catch {
     return null;
   }
 }
 
-function writeTodayState(statePath, logicalDate, lastCompiledSummaryUpdatedAt) {
+function writeTodayState(statePath, logicalDate, lastCompiledSummaryUpdatedAt, draft: string) {
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
   atomicWrite(statePath, JSON.stringify({
     schemaVersion: TODAY_STATE_SCHEMA_VERSION,
     logicalDate,
     lastCompiledSummaryUpdatedAt: lastCompiledSummaryUpdatedAt || null,
+    draftSha256: todayDraftHash(draft),
     updatedAt: new Date().toISOString(),
   }, null, 2) + "\n");
+}
+
+function todayDraftHash(draft: string) {
+  return compiledBodyHash(normalizeCompiledSectionBody(draft));
+}
+
+// Restrict a legacy date-only state to its present draft before a historical restore.
+export function captureTodayDraftProof(memoryDir: string) {
+  const statePath = todayStatePath(memoryDir);
+  const state = readTodayState(statePath);
+  if (!state || state.draftSha256) return;
+  const draft = safeReadFile(path.join(memoryDir, "today.md"), "");
+  writeTodayState(statePath, state.logicalDate, state.lastCompiledSummaryUpdatedAt, draft);
 }
 
 function getCandidateSummariesForCompile(summaryManager, since = null) {
@@ -324,8 +339,10 @@ export async function compileToday(summaryManager, outputPath, resolvedModel, op
     state = null;
   }
 
+  const savedDraft = dayChanged ? "" : safeReadFile(outputPath, "");
+  const draftMismatch = Boolean(state?.draftSha256 && state.draftSha256 !== todayDraftHash(savedDraft));
   const resetSince = opts.since || null;
-  const watermark = latestIso(state?.lastCompiledSummaryUpdatedAt, resetSince);
+  const watermark = latestIso(draftMismatch ? null : state?.lastCompiledSummaryUpdatedAt, resetSince);
   const sessions = getCandidateSummariesForCompile(summaryManager, watermark);
 
   if (sessions.length === 0) {
@@ -336,8 +353,7 @@ export async function compileToday(summaryManager, outputPath, resolvedModel, op
     //    成功编译过）：无法证明 today.md 当前内容对应"今天"的真实摘要，沿用
     //    fingerprint 时代的兜底——清空陈旧内容，避免摘要恢复前一直显示错误旧稿。
     if (!state) {
-      const cur = safeReadFile(outputPath, "");
-      if (cur.length > 0) atomicWrite(outputPath, "");
+      if (savedDraft) atomicWrite(outputPath, "");
     }
     return "compiled";
   }
@@ -345,15 +361,14 @@ export async function compileToday(summaryManager, outputPath, resolvedModel, op
   const nextWatermark = latestSummaryUpdate(sessions);
   const events = timelineEventsForLogicalDate(sessions, logicalDate);
   if (events.length === 0) {
-    if (!state) {
-      const cur = safeReadFile(outputPath, "");
-      if (cur.length > 0) atomicWrite(outputPath, "");
+    if (!state && savedDraft) atomicWrite(outputPath, "");
+    if (nextWatermark && !draftMismatch) {
+      writeTodayState(statePath, logicalDate, nextWatermark, state ? savedDraft : "");
     }
-    if (nextWatermark) writeTodayState(statePath, logicalDate, nextWatermark);
     return "compiled";
   }
 
-  const previousDraft = normalizeCompiledSectionBody(safeReadFile(outputPath, ""));
+  const previousDraft = draftMismatch ? "" : normalizeCompiledSectionBody(savedDraft);
   const isZh = _isZh();
   const delta = formatTimelineEventsForCompile(events, {
     since: watermark,
@@ -375,9 +390,18 @@ export async function compileToday(summaryManager, outputPath, resolvedModel, op
     "compile_today",
   );
 
-  atomicWrite(outputPath, validateEditableMemoryCompileResult(result, "compileToday"));
-  if (nextWatermark) writeTodayState(statePath, logicalDate, nextWatermark);
+  const draft = validateEditableMemoryCompileResult(result, "compileToday");
+  atomicWrite(outputPath, draft);
+  if (nextWatermark) writeTodayState(statePath, logicalDate, nextWatermark, draft);
   return "compiled";
+}
+
+export function readTodayDraftForDate(todayDraftPath: string, todayDraftStatePath: string, logicalDate: string) {
+  const state = readTodayState(todayDraftStatePath);
+  if (!state || state.logicalDate !== logicalDate) return "";
+  const body = safeReadFile(todayDraftPath, "");
+  if (state.draftSha256 && state.draftSha256 !== todayDraftHash(body)) return "";
+  return normalizeCompiledSectionBody(body);
 }
 
 /**
@@ -401,16 +425,23 @@ export async function compileToday(summaryManager, outputPath, resolvedModel, op
  * @param {string} dailyDir - memory/daily 目录
  * @param {string} logicalDate - YYYY-MM-DD，要编译的那个逻辑日
  * @param {object} resolvedModel
- * @param {{ since?: any, todayDraftPath?: string }} [opts] - todayDraftPath 缺省时视为草稿不可用，直接走摘要回落
+ * @param {{ since?: any, todayDraftPath?: string, todayDraftStatePath?: string, todayDraftText?: string, canCommit?: () => boolean }} [opts]
  * @returns {Promise<"compiled"|"skipped">}
  */
-export async function compileDaily(summaryManager, dailyDir, logicalDate, resolvedModel, opts: { since?: any; todayDraftPath?: string } = {}) {
+export async function compileDaily(summaryManager, dailyDir, logicalDate, resolvedModel, opts: {
+  since?: any; todayDraftPath?: string; todayDraftStatePath?: string; todayDraftText?: string; canCommit?: () => boolean;
+} = {}) {
   fs.mkdirSync(dailyDir, { recursive: true });
 
   const outputPath = path.join(dailyDir, `${logicalDate}.md`);
   const fpPath = outputPath + ".fingerprint";
 
-  const draftText = opts.todayDraftPath ? normalizeCompiledSectionBody(safeReadFile(opts.todayDraftPath, "")) : "";
+  const readDraft = () => {
+    if (!opts.todayDraftPath) return "";
+    if (opts.todayDraftStatePath) return readTodayDraftForDate(opts.todayDraftPath, opts.todayDraftStatePath, logicalDate);
+    return safeReadFile(opts.todayDraftPath, "");
+  };
+  const draftText = normalizeCompiledSectionBody(opts.todayDraftText ?? readDraft());
   const candidateSummaries = getCandidateSummariesForCompile(summaryManager, opts.since || null);
   const timelineEvents = timelineEventsForLogicalDate(candidateSummaries, logicalDate, { includeFallback: false });
   const fallbackEvents = timelineEvents.length === 0
@@ -457,6 +488,7 @@ export async function compileDaily(summaryManager, dailyDir, logicalDate, resolv
   );
 
   const body = normalizeCompiledLLMResult(result, "compileDaily");
+  if (opts.canCommit?.() === false) throw new Error("Daily memory source changed during compilation");
   atomicWrite(outputPath, body ? `## ${logicalDate}\n\n${body}\n` : "");
   fs.writeFileSync(fpPath, fp);
   return "compiled";
@@ -488,6 +520,11 @@ function _listDailyEntries(dailyDir) {
 export function listDailyEntries(dailyDir, opts: { maxDays?: number } = {}) {
   const maxDays = opts.maxDays || DAILY_WINDOW_RETENTION_DAYS;
   return _listDailyEntries(dailyDir).slice(-maxDays);
+}
+
+function listCompletedDailyEntries(dailyDir, referenceDate: string, maxDays = DAILY_WINDOW_RETENTION_DAYS) {
+  const start = shiftLogicalDate(referenceDate, -maxDays);
+  return _listDailyEntries(dailyDir).filter(({ date }) => date >= start && date < referenceDate);
 }
 
 /**
@@ -569,17 +606,25 @@ export function writeDailyEntryBody(dailyDir, date, body) {
  *
  * @param {string} dailyDir
  * @param {string} weekPath
- * @param {{ maxDays?: number, maxChars?: number }} [opts]
+ * @param {{ referenceDate?: string, maxDays?: number, maxChars?: number }} [opts]
  */
-export function assembleWeekFromDaily(dailyDir, weekPath, opts: { maxDays?: number; maxChars?: number } = {}) {
+export function assembleWeekFromDaily(dailyDir, weekPath, opts: { referenceDate?: string; maxDays?: number; maxChars?: number } = {}) {
   const maxDays = opts.maxDays || DAILY_WINDOW_RETENTION_DAYS;
   const maxChars = opts.maxChars || WEEK_ASSEMBLY_MAX_CHARS;
+  const referenceDate = opts.referenceDate || getLogicalDay().logicalDate;
 
-  const entries = _listDailyEntries(dailyDir).slice(-maxDays);
+  const entries = listCompletedDailyEntries(dailyDir, referenceDate, maxDays);
+  const { content, truncated } = formatWeekEntries(entries, maxChars);
+  if (truncated) log.warn(`assembleWeekFromDaily: 总长超过上限（${maxChars} 字），已从最老条目开始截断`);
+  atomicWrite(weekPath, content ? `${content}\n` : "");
+}
+
+function formatWeekEntries(entries: { filePath: string }[], maxChars: number) {
   const blocks = entries.map(({ filePath }) => safeReadFile(filePath, "").trim()).filter(Boolean);
 
   let content = blocks.join("\n\n");
-  if (content.length > maxChars) {
+  const truncated = content.length > maxChars;
+  if (truncated) {
     // 从最老的条目（数组开头）开始丢，直到总长回到上限内。
     const kept = [...blocks];
     while (kept.length > 1 && kept.join("\n\n").length > maxChars) {
@@ -588,10 +633,8 @@ export function assembleWeekFromDaily(dailyDir, weekPath, opts: { maxDays?: numb
     content = kept.join("\n\n");
     // 仅剩一条也超限：保留头部（含日期抬头），从尾部截断，而不是丢掉日期标识。
     if (content.length > maxChars) content = content.slice(0, maxChars);
-    log.warn(`assembleWeekFromDaily: 总长超过上限（${maxChars} 字），已从最老条目开始截断`);
   }
-
-  atomicWrite(weekPath, content ? `${content}\n` : "");
+  return { content, truncated };
 }
 
 /**
@@ -703,14 +746,21 @@ export async function compileLongterm(content, longtermPath, resolvedModel) {
  */
 export async function migrateLegacyWeekToLongterm(memoryDir, longtermPath, resolvedModel) {
   const weekPath = path.join(memoryDir, "week.md");
-  if (!fs.existsSync(weekPath)) return { migrated: false };
+  const backupPath = `${weekPath}.migrated.bak`;
+  if (fs.existsSync(backupPath) || !fs.existsSync(weekPath)) return { migrated: false };
 
   const weekContent = safeReadFile(weekPath, "").trim();
   if (weekContent) {
+    const dates = new Set(Array.from(weekContent.matchAll(/^## (\d{4}-\d{2}-\d{2})[ \t]*$/gm), (match) => match[1]));
+    if (dates.size > 0) {
+      const entries = _listDailyEntries(path.join(memoryDir, "daily")).filter(({ date }) => dates.has(date));
+      // Some older installations already wrote a calendar projection during a
+      // partial daily run, before any checkpoint could certify its origin.
+      if (formatWeekEntries(entries, WEEK_ASSEMBLY_MAX_CHARS).content.trim() === weekContent) return { migrated: false };
+    }
     await compileLongterm(weekContent, longtermPath, resolvedModel);
   }
 
-  const backupPath = `${weekPath}.migrated.bak`;
   atomicWrite(backupPath, weekContent);
   removeFileIfExists(weekPath);
   return { migrated: true };
@@ -773,7 +823,10 @@ function _assembleMemoryMd(memoryDir, opts: Record<string, any> = {}) {
 export function writeTodaySection(memoryDir, today, opts: Record<string, any> = {}) {
   const targetPath = path.join(memoryDir, "today.md");
   const normalized = normalizeCompiledSectionBody(String(today ?? ""));
+  const statePath = todayStatePath(memoryDir);
+  const state = readTodayState(statePath);
   atomicWrite(targetPath, normalized ? `${normalized}\n` : "");
+  writeTodayState(statePath, state?.logicalDate || getLogicalDay().logicalDate, state?.lastCompiledSummaryUpdatedAt, normalized);
   _assembleMemoryMd(memoryDir, opts);
   return normalized;
 }
@@ -803,9 +856,12 @@ export function writeLongtermSection(memoryDir, longterm, opts: Record<string, a
  * @param {string} memoryDir
  * @returns {{ date: string, body: string }[]}
  */
-export function listWeekDayEntries(memoryDir) {
+export function listWeekDayEntries(memoryDir, opts: { referenceDate?: string } = {}) {
   const dailyDir = path.join(memoryDir, "daily");
-  return listDailyEntries(dailyDir).map(({ date }) => ({
+  const entries = opts.referenceDate
+    ? listCompletedDailyEntries(dailyDir, opts.referenceDate)
+    : listDailyEntries(dailyDir);
+  return entries.map(({ date }) => ({
     date,
     body: readDailyEntryBody(dailyDir, date),
   }));
@@ -828,7 +884,7 @@ export function listWeekDayEntries(memoryDir) {
 export function writeWeekDayEntry(memoryDir, date, body, opts: Record<string, any> = {}) {
   const dailyDir = path.join(memoryDir, "daily");
   const normalized = writeDailyEntryBody(dailyDir, date, body);
-  assembleWeekFromDaily(dailyDir, path.join(memoryDir, "week.md"));
+  assembleWeekFromDaily(dailyDir, path.join(memoryDir, "week.md"), { referenceDate: opts.referenceDate });
   _assembleMemoryMd(memoryDir, opts);
   return normalized;
 }
@@ -949,7 +1005,7 @@ function containsAutomaticFactBlock(body: string, block: string) {
   return !!block && (body === block || body.endsWith(`\n${block}`));
 }
 
-function factsBodyHash(body: string) {
+function compiledBodyHash(body: string) {
   return crypto.createHash("sha256").update(body).digest("hex");
 }
 
@@ -1021,7 +1077,7 @@ export async function compileEditableFacts(summaryManager, outputPath, resolvedM
     const recent = [...sessions].sort((a, b) => String(b.updated_at || b.created_at)
       .localeCompare(String(a.updated_at || a.created_at)));
     const previous = state.pendingAutomaticFacts
-      && state.pendingAutomaticFacts.bodySha256 === factsBodyHash(current)
+      && state.pendingAutomaticFacts.bodySha256 === compiledBodyHash(current)
       ? state.pendingAutomaticFacts.facts
       : state.automaticFacts;
     const { body, automaticFacts } = refreshVerifiedFacts(current, previous, recent, opts.getCurrentBranchProjection);
@@ -1030,7 +1086,7 @@ export async function compileEditableFacts(summaryManager, outputPath, resolvedM
       // Keep both possible generated suffixes while publishing the separate facts file.
       // The old watermark remains retryable until the new suffix is committed.
       writeEditableFactsState(statePath, state.lastCompiledSummaryUpdatedAt, previous, {
-        bodySha256: factsBodyHash(body),
+        bodySha256: compiledBodyHash(body),
         facts: automaticFacts,
       });
       atomicWrite(outputPath, body);

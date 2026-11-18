@@ -20,7 +20,8 @@ vi.mock("../packages/engine/lib/memory/dream/runner.ts", () => ({
   }),
 }));
 
-vi.mock("../packages/engine/lib/memory/compile.ts", () => ({
+vi.mock("../packages/engine/lib/memory/compile.ts", async (importOriginal) => ({
+  ...await importOriginal<object>(),
   compileToday: vi.fn().mockResolvedValue("compiled"),
   compileDaily: vi.fn().mockResolvedValue("compiled"),
   assembleWeekFromDaily: vi.fn(),

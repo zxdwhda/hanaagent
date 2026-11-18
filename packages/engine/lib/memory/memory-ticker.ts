@@ -34,6 +34,8 @@ import { debugLog, createModuleLogger } from "../debug-log.ts";
 import {
   compileToday,
   compileDaily,
+  readTodayDraftForDate,
+  todayStatePath,
   assembleWeekFromDaily,
   rollDailyWindow,
   compileEditableFacts,
@@ -44,7 +46,7 @@ import {
 } from "./compile.ts";
 import { processDirtySessions } from "./deep-memory.ts";
 import { getLocale } from "../i18n.ts";
-import { getLogicalDay, shiftLogicalDate } from "../time-utils.ts";
+import { getLogicalDay, getLogicalDayForDate, shiftLogicalDate } from "../time-utils.ts";
 import { readCompiledResetAt } from "./compiled-memory-state.ts";
 import { isSessionJsonlFilename, listSessionFiles, readCurrentSessionBranch, SessionBranchError, sessionIdFromFilename } from "../session-jsonl.ts";
 import { isAgentPhoneSessionPath } from "../conversations/agent-phone-session.ts";
@@ -340,6 +342,10 @@ export function createMemoryTicker(opts) {
   let _lastDailyJobDate = null;
   let _dailyStepsDate = null;               // 当天已完成步骤所属日期
   let _dailyStepsContextKey = null;          // 日期 + resetAt，防止同日 reset 变更误跳过
+  let _dailyArchiveScheduled = false;
+  let _dailyArchiveResetAt: string | null = null;
+  let _legacyWeekSettled = false;
+  const _pendingDailyArchives = new Map<string, string>();
   let _dailyCompletedAt = null;
   const _dailyStepsCompleted = new Set();    // 当天已完成的步骤名（断点续跑）
   const _dailyStepCompletedAt = new Map();   // stepName → ISO timestamp
@@ -448,6 +454,11 @@ export function createMemoryTicker(opts) {
         logicalDate: typeof raw.logicalDate === "string" ? raw.logicalDate : "",
         resetAt: _normalizeResetAt(raw.resetAt),
         completedSteps,
+        dailyArchiveScheduled: typeof raw.dailyArchiveScheduled === "boolean" ? raw.dailyArchiveScheduled : null,
+        legacyWeekSettled: raw.legacyWeekSettled === true
+          || (_isValidIso(raw.dailyCompletedAt) && DAILY_STEP_KEYS.every((step) => _isValidIso(completedSteps[step]))),
+        pendingDailyArchives: raw.pendingDailyArchives && typeof raw.pendingDailyArchives === "object" && !Array.isArray(raw.pendingDailyArchives)
+          ? Object.entries(raw.pendingDailyArchives) : [],
         dailyCompletedAt: _isValidIso(raw.dailyCompletedAt) ? new Date(raw.dailyCompletedAt).toISOString() : null,
       };
     } catch (err) {
@@ -472,6 +483,7 @@ export function createMemoryTicker(opts) {
     _dailyStepsCompleted.clear();
     _dailyStepCompletedAt.clear();
     _dailyCompletedAt = null;
+    _dailyArchiveScheduled = false;
     _dailyStepsDate = context.logicalDate;
     _dailyStepsContextKey = _dailyContextKey(context);
     if (_lastDailyJobDate === context.logicalDate) _lastDailyJobDate = null;
@@ -484,6 +496,27 @@ export function createMemoryTicker(opts) {
     }
 
     const state = _readDailyState();
+    _legacyWeekSettled ||= state?.legacyWeekSettled === true;
+    if (_dailyArchiveResetAt !== context.resetAt) {
+      _pendingDailyArchives.clear();
+      _dailyArchiveResetAt = context.resetAt;
+    }
+    if (state && state.resetAt === context.resetAt) {
+      for (const [date, draft] of state.pendingDailyArchives) {
+        if (typeof draft === "string" && date < context.logicalDate && getLogicalDayForDate(date).logicalDate === date) {
+          _pendingDailyArchives.set(date, draft);
+        }
+      }
+      // v4 originally remembered a single attempted logical date. Carry only
+      // that proven unfinished target when upgrading an older checkpoint.
+      if (
+        state.dailyArchiveScheduled === null && !_isValidIso(state.completedSteps.compileDaily)
+        && state.logicalDate < context.logicalDate && getLogicalDayForDate(state.logicalDate).logicalDate === state.logicalDate
+      ) {
+        const date = shiftLogicalDate(state.logicalDate, -1);
+        if (!_pendingDailyArchives.has(date)) _pendingDailyArchives.set(date, "");
+      }
+    }
     if (!_stateMatchesContext(state, context)) {
       return context;
     }
@@ -495,6 +528,7 @@ export function createMemoryTicker(opts) {
       _dailyStepCompletedAt.set(stepKey, new Date(completedAt).toISOString());
     }
     _dailyCompletedAt = state.dailyCompletedAt;
+    _dailyArchiveScheduled = state.dailyArchiveScheduled === true;
     _dailyStepsDate = context.logicalDate;
     _dailyStepsContextKey = contextKey;
     if (_dailyCompletedAt && _allDailyStepsCompleted()) {
@@ -514,11 +548,65 @@ export function createMemoryTicker(opts) {
       logicalDate: context.logicalDate,
       resetAt: context.resetAt,
       completedSteps,
+      dailyArchiveScheduled: _dailyArchiveScheduled,
+      legacyWeekSettled: _legacyWeekSettled,
+      pendingDailyArchives: Object.fromEntries(_pendingDailyArchives),
       dailyCompletedAt: _dailyCompletedAt,
       updatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(memoryDir, { recursive: true });
     atomicWriteSync(_dailyStatePath(), JSON.stringify(state, null, 2) + "\n");
+  }
+
+  function _prepareDailyArchives(context) {
+    if (_dailyArchiveScheduled || _dailyStepsCompleted.has("compileDaily")) return;
+    const yesterday = shiftLogicalDate(context.logicalDate, -1);
+    const before = new Map(_pendingDailyArchives);
+    if (!_pendingDailyArchives.has(yesterday)) _pendingDailyArchives.set(yesterday, "");
+    const draftStatePath = todayStatePath(path.dirname(todayMdPath));
+    for (const [date, draft] of _pendingDailyArchives) {
+      if (!draft) _pendingDailyArchives.set(date, readTodayDraftForDate(todayMdPath, draftStatePath, date));
+    }
+    try {
+      _dailyArchiveScheduled = true;
+      _writeDailyState(context);
+    } catch (err) {
+      _dailyArchiveScheduled = false;
+      _pendingDailyArchives.clear();
+      for (const [date, draft] of before) _pendingDailyArchives.set(date, draft);
+      throw err;
+    }
+  }
+
+  async function _compilePendingDailyArchives(context) {
+    const resolvedModel = await getResolvedMemoryModel();
+    const yesterday = shiftLogicalDate(context.logicalDate, -1);
+    const canCommit = () => _normalizeResetAt(_getCompiledResetAt()) === context.resetAt;
+    let firstError: unknown;
+    for (const date of [..._pendingDailyArchives.keys()].filter((date) => date < context.logicalDate).sort().reverse()) {
+      if (!canCommit()) throw new Error("compiled memory was reset during daily archive recovery");
+      const draft = _pendingDailyArchives.get(date);
+      try {
+        await compileDaily(summaryManager, _dailyDir(), date, resolvedModel, {
+          since: context.resetAt,
+          canCommit,
+          ...(date === yesterday ? { todayDraftPath: todayMdPath, todayDraftStatePath: todayStatePath(path.dirname(todayMdPath)) } : {}),
+          ...(draft ? { todayDraftText: draft } : {}),
+        });
+        if (!canCommit()) throw new Error("compiled memory was reset during daily archive recovery");
+        _pendingDailyArchives.delete(date);
+        try {
+          // Commit the receipt before folding can delete the daily source.
+          _writeDailyState(context);
+        } catch (err) {
+          _pendingDailyArchives.set(date, draft || "");
+          throw err;
+        }
+      } catch (err) {
+        firstError ??= err;
+      }
+    }
+    if (firstError) throw firstError;
   }
 
   function _markDailyStepCompleted(stepKey, context) {
@@ -917,8 +1005,17 @@ export function createMemoryTicker(opts) {
     if (_dreamRunner.isRunning()) return;
     _aggregateCompileInFlight += 1;
     try {
-      const resetAt = _getCompiledResetAt();
-      await compileToday(summaryManager, todayMdPath, await getResolvedMemoryModel(), { since: resetAt });
+      const resolvedModel = await getResolvedMemoryModel();
+      const context = _dailyContext();
+      if (_dailyRunning) {
+        // The running job has checkpointed this date's draft. A new date
+        // needs its own checkpoint before any Today rollover may run.
+        if (_dailyStepsContextKey !== _dailyContextKey(context)) return;
+      } else {
+        _restoreDailyProgress(context);
+        _prepareDailyArchives(context);
+      }
+      await compileToday(summaryManager, todayMdPath, resolvedModel, { since: context.resetAt });
       assemble(_factsSourcePath(), todayMdPath, weekMdPath, longtermMdPath, memoryMdPath);
       onCompiled?.();
       debugLog()?.log("memory", "today compiled + assembled");
@@ -941,18 +1038,22 @@ export function createMemoryTicker(opts) {
       const todayStr = getLogicalDay().logicalDate;
       const context = _restoreDailyProgress(_dailyContext(todayStr));
       const resetAt = context.resetAt;
+      _prepareDailyArchives(context);
 
       log.log(`每日任务开始 (${todayStr})`);
       let hasFailed = false;
 
-      // Step -1（不计入断点续跑）：一次性迁移旧 week.md 到 longterm。幂等——
-      // week.md 迁移后被更名为 .migrated.bak，之后每次调用都会因文件不存在而 no-op，
-      // 不需要独立 checkpoint。必须早于本函数末尾的 assemble（读 weekMdPath）之前跑完。
-      try {
-        await migrateLegacyWeekToLongterm(memoryDir, longtermMdPath, await getResolvedMemoryModel());
-      } catch (err) {
-        hasFailed = true;
-        log.error(`week.md 迁移失败: ${err.message}`);
+      // Archive the legacy blob before generating the first calendar week.
+      if (!_legacyWeekSettled) {
+        try {
+          await migrateLegacyWeekToLongterm(memoryDir, longtermMdPath, await getResolvedMemoryModel());
+          _legacyWeekSettled = true;
+          _writeDailyState(context);
+        } catch (err) {
+          _legacyWeekSettled = false;
+          hasFailed = true;
+          log.error(`week.md 迁移失败: ${err.message}`);
+        }
       }
 
       // Step 0: compileDaily——把已经翻篇的昨天蒸馏成 memory/daily/{date}.md。
@@ -961,11 +1062,7 @@ export function createMemoryTicker(opts) {
       // 把 today.md 重置为新一天的空白草稿，昨天的草稿就再也读不到了。
       if (!_dailyStepsCompleted.has("compileDaily")) {
         try {
-          const yesterday = shiftLogicalDate(todayStr, -1);
-          await compileDaily(summaryManager, _dailyDir(), yesterday, await getResolvedMemoryModel(), {
-            since: resetAt,
-            todayDraftPath: todayMdPath,
-          });
+          await _compilePendingDailyArchives(context);
           _markDailyStepCompleted("compileDaily", context);
           _markSuccess("compileDaily");
           _markStepRecovered("compileDaily");
@@ -975,6 +1072,9 @@ export function createMemoryTicker(opts) {
           _logStepError("compileDaily", err);
         }
       }
+
+      // A subsequent job owns the new logical day and reset generation.
+      if (_dailyContextKey(_dailyContext()) !== _dailyContextKey(context)) return;
 
       // Step 1: compileToday（日期切换后刷新 today.md，新一天无 session 时会清空）
       if (!_dailyStepsCompleted.has("compileToday")) {
@@ -993,7 +1093,7 @@ export function createMemoryTicker(opts) {
       // Step 2: rollDailyWindow——把滚出 6 日窗口的 daily 条目 fold 进 longterm 并删除源文件。
       // 依赖 compileDaily 已经把昨天落盘，否则窗口判断会漏看最新一天（虽然滚动窗口本身
       // 判断的是"更早"的条目，但保持与 compileWeek→compileLongterm 相同的顺序约束更安全）。
-      if (!_dailyStepsCompleted.has("rollDailyWindow") && _dailyStepsCompleted.has("compileDaily")) {
+      if (_legacyWeekSettled && !_dailyStepsCompleted.has("rollDailyWindow") && _dailyStepsCompleted.has("compileDaily")) {
         try {
           const { failed } = await rollDailyWindow(_dailyDir(), longtermMdPath, await getResolvedMemoryModel(), {
             referenceDate: todayStr,
@@ -1033,7 +1133,7 @@ export function createMemoryTicker(opts) {
 
       // Step 4: assemble（纯文件操作，先从 daily/ 目录装配 week.md 再拼 memory.md，总是执行）
       try {
-        assembleWeekFromDaily(_dailyDir(), weekMdPath);
+        if (_legacyWeekSettled) assembleWeekFromDaily(_dailyDir(), weekMdPath, { referenceDate: todayStr });
         assemble(_factsSourcePath(), todayMdPath, weekMdPath, longtermMdPath, memoryMdPath);
         onCompiled?.();
       } catch (err) {
@@ -1107,7 +1207,7 @@ export function createMemoryTicker(opts) {
   }
 
   function _checkDailyJob() {
-    if (_stopped) return;
+    if (_stopped || _dailyRunning) return;
     if (!_isMemoryMasterOn()) return;
     if (_branchReplacementPending.size > 0) return;
     if (_dreamRunner.isRunning()) return;
@@ -1334,7 +1434,7 @@ export function createMemoryTicker(opts) {
   async function _tickCore() {
     if (!_isMemoryMasterOn()) return;
     const recovered = await _recoverUnsummarized(); // 补偿崩溃/重启前未收尾的 session
-    if (_stopped || _branchReplacementPending.size > 0) return;
+    if (_stopped || _dailyRunning || _branchReplacementPending.size > 0) return;
     let context = _restoreDailyProgress();
     if (recovered > 0) {
       _clearPersistedDailyProgress(context, "summary recovery");

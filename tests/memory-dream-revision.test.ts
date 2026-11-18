@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readTodayDraftForDate } from "../packages/engine/lib/memory/compile.ts";
 import {
   applyDreamSections,
   createDreamRevision,
@@ -95,6 +96,25 @@ describe("Memory Dream revisions", () => {
     restoreDreamRevision(memoryDir, revision.revisionId);
 
     expect(listDreamRevisions(memoryDir)).toHaveLength(1);
+  });
+
+  it("keeps the original date proof when an explicit revision restores a different draft", () => {
+    const current = snapshotDreamSections(memoryDir);
+    const today = path.join(memoryDir, "today.md");
+    const state = path.join(memoryDir, "today-state.json");
+    fs.writeFileSync(state, JSON.stringify({ schemaVersion: 1, logicalDate: "2026-08-07" }));
+    const revision = createDreamRevision(memoryDir, {
+      runId: "historical-today", trigger: "manual",
+      before: { ...current, today: "historical revision draft" },
+    });
+    restoreDreamRevision(memoryDir, revision.revisionId);
+    expect(fs.readFileSync(today, "utf8")).toBe("historical revision draft\n");
+    expect(readTodayDraftForDate(today, state, "2026-08-07")).toBe("");
+
+    const safety = listDreamRevisions(memoryDir).find(entry => entry.kind === "pre_restore");
+    expect(safety).toBeDefined();
+    restoreDreamRevision(memoryDir, safety!.revisionId);
+    expect(readTodayDraftForDate(today, state, "2026-08-07")).toBe(current.today);
   });
 
   it("lists revision summaries and reads legacy v1 revisions without new metadata", () => {

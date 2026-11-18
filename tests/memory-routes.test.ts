@@ -323,17 +323,27 @@ describe("memory routes", () => {
   });
 
   describe("week day entries", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(2026, 6, 3, 8));
+    });
+
+    afterEach(() => vi.useRealTimers());
+
     function writeDailyFile(memoryDir, date, body) {
       const dailyDir = path.join(memoryDir, "daily");
       fs.mkdirSync(dailyDir, { recursive: true });
       fs.writeFileSync(path.join(dailyDir, `${date}.md`), `## ${date}\n\n${body}\n`, "utf-8");
     }
 
-    it("lists existing daily entries with heading-stripped bodies", async () => {
+    it("lists only completed calendar days in the week editor, preserving archived files", async () => {
       const agent = makeAgent(tmpDir);
       const memoryDir = path.dirname(agent.memoryMdPath);
       writeDailyFile(memoryDir, "2026-07-01", "第一天的记录。");
       writeDailyFile(memoryDir, "2026-07-02", "第二天的记录。");
+      writeDailyFile(memoryDir, "2026-06-26", "窗口外的旧记录。");
+      writeDailyFile(memoryDir, "2026-07-03", "当前逻辑日。");
+      writeDailyFile(memoryDir, "2026-07-04", "未来文件。");
       const engine = makeEngine(agent, tmpDir);
       const app = mountConfigRoute(engine);
 
@@ -345,6 +355,7 @@ describe("memory routes", () => {
         { date: "2026-07-01", body: "第一天的记录。" },
         { date: "2026-07-02", body: "第二天的记录。" },
       ]);
+      expect(fs.existsSync(path.join(memoryDir, "daily", "2026-06-26.md"))).toBe(true);
     });
 
     it("saves an edited day, reassembles week.md from daily/, and rebuilds memory.md", async () => {
