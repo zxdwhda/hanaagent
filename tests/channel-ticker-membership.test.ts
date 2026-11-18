@@ -35,9 +35,44 @@ describe("channel-ticker membership source", () => {
   let tmpDir;
 
   afterEach(() => {
+    vi.useRealTimers();
     if (tmpDir) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
       tmpDir = null;
+    }
+  });
+
+  it("waits for the actual reminder deadline across multiple Node timer windows", async () => {
+    tmpDir = mktemp();
+    const channelsDir = path.join(tmpDir, "channels");
+    const agentsDir = path.join(tmpDir, "agents");
+    fs.mkdirSync(path.join(agentsDir, "hana"), { recursive: true });
+    const { id: channelId } = await createChannel(channelsDir, {
+      id: "ch_long_reminder", name: "Long reminder", members: ["hana", "yui"],
+    } as any);
+    const channelFile = path.join(channelsDir, `${channelId}.md`);
+    await updateChannelMeta(channelFile, { agentPhoneReminderIntervalMinutes: 99_999 });
+    await appendMessage(channelFile, "user", "Keep this until the reminder is due.");
+
+    const executeCheck = vi.fn(async () => ({ replied: false }));
+    const ticker = createChannelTicker({
+      channelsDir, agentsDir, getAgentOrder: () => ["hana"], executeCheck,
+    } as any);
+    vi.useFakeTimers();
+    const start = Date.now();
+    const interval = 99_999 * 60_000;
+    ticker.start();
+    try {
+      await vi.advanceTimersByTimeAsync(1);
+      expect(executeCheck).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(interval - 2);
+      expect(executeCheck).not.toHaveBeenCalled();
+      expect(ticker.snapshot(channelId).nextReminder?.dueAtMs).toBe(start + interval);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(executeCheck).toHaveBeenCalledOnce();
+      expect(ticker.snapshot(channelId).nextReminder?.dueAtMs).toBe(start + 2 * interval);
+    } finally {
+      await ticker.stop();
     }
   });
 

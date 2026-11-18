@@ -82,7 +82,7 @@ describe("Scheduler heartbeat defaults", () => {
     expect(heartbeatInstances[1].start).not.toHaveBeenCalled();
   });
 
-  it("passes Jian-scoped custom tools into heartbeat isolated execution", () => {
+  it("passes the Jian signal and scoped tools through and returns the execution promise", () => {
     const root = "/tmp/hana-heartbeat-jian-tools";
     const agent = {
       id: "agent-a",
@@ -97,13 +97,16 @@ describe("Scheduler heartbeat defaults", () => {
       emitDevLog: vi.fn(),
     };
     const scheduler = new Scheduler({ hub: { engine } });
-    scheduler._executeActivityForAgent = vi.fn();
+    const execution = Promise.resolve();
+    scheduler._executeActivityForAgent = vi.fn(() => execution);
     scheduler.startHeartbeat();
 
     const scopedTool = { name: "jian_update_status", execute: vi.fn() };
     const cwd = path.join(root, "desk", "task-a");
-    heartbeatOptions[0].onJianBeat("jian prompt", cwd, { customTools: [scopedTool] });
+    const { signal } = new AbortController();
+    const result = heartbeatOptions[0].onJianBeat("jian prompt", cwd, { signal, customTools: [scopedTool] });
 
+    expect(result).toBe(execution);
     expect(scheduler._executeActivityForAgent).toHaveBeenCalledWith(
       "agent-a",
       "jian prompt",
@@ -111,8 +114,48 @@ describe("Scheduler heartbeat defaults", () => {
       expect.any(String),
       {
         cwd,
+        signal,
         extraCustomTools: [scopedTool],
       },
     );
+    expect(heartbeatOptions[0].onBeat("workspace prompt", { signal })).toBe(execution);
+    expect(scheduler._executeActivityForAgent).toHaveBeenLastCalledWith(
+      "agent-a", "workspace prompt", "heartbeat", null, { signal, extraCustomTools: [] },
+    );
+  });
+
+  it("cancels a patrol summary and records a timeout instead of successful completion", async () => {
+    const controller = new AbortController();
+    const summaryStarted = Promise.withResolvers<void>();
+    const sessionPath = "/tmp/hana-patrol-summary.jsonl";
+    const executeIsolated = vi.fn().mockResolvedValue({ sessionPath, error: null });
+    const summarizeActivity = vi.fn(async () => {
+      summaryStarted.resolve();
+      await new Promise<void>((resolve) => {
+        controller.signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      return "summary";
+    });
+    const addActivity = vi.fn();
+    const engine = {
+      agentsDir: "/tmp",
+      getAgent: () => ({ agentName: "Hana" }),
+      executeIsolated,
+      summarizeActivity,
+      getActivityStore: () => ({ add: addActivity }),
+      emitDevLog: vi.fn(),
+    };
+    const scheduler = new Scheduler({ hub: { engine, eventBus: { emit: vi.fn() } } });
+    const patrol = scheduler._executeActivityForAgent(
+      "agent-a", "patrol", "heartbeat", null, { signal: controller.signal },
+    );
+
+    const rejected = expect(patrol).rejects.toThrow("patrol timed out");
+    await summaryStarted.promise;
+    controller.abort(new Error("patrol timed out"));
+    await rejected;
+    expect(executeIsolated).toHaveBeenCalledWith("patrol", expect.objectContaining({ signal: controller.signal }));
+    expect(summarizeActivity).toHaveBeenCalledWith(sessionPath, undefined, { agentId: "agent-a", signal: controller.signal });
+    expect(addActivity).toHaveBeenCalledWith(expect.objectContaining({ status: "error", error: "patrol timed out" }));
   });
 });

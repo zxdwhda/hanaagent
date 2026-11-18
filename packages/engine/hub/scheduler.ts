@@ -160,12 +160,14 @@ export class Scheduler {
       // 而该 cache 始终按 master 开关构建，与 per-session 开关解耦。
       // 用户关 master 时自动不带记忆；只关某个 session 的开关不影响这里。
       onBeat: (prompt, runTools: any = {}) => this._executeActivityForAgent(agentId, prompt, "heartbeat", null, {
+        signal: runTools.signal,
         extraCustomTools: Array.isArray(runTools.customTools) ? runTools.customTools : [],
       }),
       onJianBeat: (prompt, cwd, runTools: any = {}) => {
         const isZh = getLocale().startsWith("zh");
-        this._executeActivityForAgent(agentId, prompt, "heartbeat", `${isZh ? "笺" : "jian"}:${path.basename(cwd)}`, {
+        return this._executeActivityForAgent(agentId, prompt, "heartbeat", `${isZh ? "笺" : "jian"}:${path.basename(cwd)}`, {
           cwd,
+          signal: runTools.signal,
           extraCustomTools: Array.isArray(runTools.customTools) ? runTools.customTools : [],
         });
       },
@@ -430,6 +432,7 @@ export class Scheduler {
    */
   async _executeActivityForAgent(agentId, prompt, type, label, opts: any = {}) {
     const engine = this._engine;
+    const { signal, ...restOpts } = opts;
     await engine.ensureAgentRuntime?.(agentId, {
       priority: "background",
       reason: type,
@@ -440,7 +443,6 @@ export class Scheduler {
     const id = `${type === "heartbeat" ? "hb" : "cron"}_${startedAt}`;
 
     // 所有 agent 统一走 executeIsolated（支持 agentId + signal 参数）
-    const { signal, ...restOpts } = opts;
     let result;
     try {
       result = await engine.executeIsolated(prompt, {
@@ -466,22 +468,26 @@ export class Scheduler {
       });
       throw error;
     }
-    const { sessionPath, error } = result;
-
+    const { sessionPath } = result;
     const finishedAt = Date.now();
-    const failed = !!error;
 
     // 取 agentName（从长驻实例获取，fallback agentId）
     const ag = engine.getAgent(agentId);
     const agentName = ag?.agentName || agentId;
 
     // 生成摘要
+    const patrolSignal = type === "heartbeat" ? signal : undefined;
     let summary = null;
-    if (typeof sessionPath === "string" && sessionPath) {
+    if (!patrolSignal?.aborted && typeof sessionPath === "string" && sessionPath) {
       try {
-        summary = await engine.summarizeActivity(sessionPath, undefined, { agentId });
+        summary = await engine.summarizeActivity(sessionPath, undefined, {
+          agentId,
+          ...(patrolSignal ? { signal: patrolSignal } : {}),
+        });
       } catch {}
     }
+    const error = patrolSignal?.aborted ? (patrolSignal.reason?.message || "aborted") : result.error;
+    const failed = !!error;
 
     const entry = {
       id,

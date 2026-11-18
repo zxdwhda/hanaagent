@@ -8130,6 +8130,8 @@ export class SessionCoordinator {
       const abortHandler = () => {
         abortRequested = true;
         deliverSessionAbort();
+        // A tool can be blocked on its confirmation while the SDK waits for idle.
+        this._d.getConfirmStore?.()?.abortBySession(childSessionPath);
       };
       opts.signal?.addEventListener("abort", abortHandler, { once: true });
 

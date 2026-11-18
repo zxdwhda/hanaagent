@@ -726,6 +726,43 @@ describe("MCP runtime policy", () => {
       return { runtime, calls };
     }
 
+    it("discards an input request that arrives after the model tool is cancelled", async () => {
+      const confirmStore = fakeConfirmStore();
+      const response = Promise.withResolvers<unknown>();
+      const { runtime, calls } = buildRuntime({
+        confirmStore,
+        emitEvent: vi.fn(),
+        results: [response.promise],
+      });
+      await runtime.startConnector("remote");
+      runtime.registerCachedTools();
+      vi.spyOn(runtime, "getAgentConfig").mockResolvedValue({
+        mcp: { connectors: { remote: { enabled: true, tools: { deploy: true } } } },
+      });
+      const tool = runtime.getAllTools().find((candidate) => candidate.name === "mcp_remote_deploy");
+      const controller = new AbortController();
+      const pending = tool.execute("call-1", {}, controller.signal, undefined, {
+        agentId: "hana",
+        sessionPath: "/tmp/fixture-session.jsonl",
+      });
+      await vi.waitFor(() => expect(calls).toHaveLength(1));
+      controller.abort(new Error("patrol timed out"));
+      response.resolve({ resultType: "input_required", inputRequests: ELICIT_REQUEST });
+
+      const outcome = await Promise.race([
+        pending,
+        new Promise((resolve) => setImmediate(() => resolve(null))),
+      ]);
+      try {
+        expect(outcome).toMatchObject({ isError: true });
+        expect(confirmStore.create).not.toHaveBeenCalled();
+        expect(calls).toHaveLength(1);
+      } finally {
+        if (confirmStore.created.length) confirmStore.settle({ action: "aborted" });
+        await pending;
+      }
+    });
+
     it("asks the user for the requested input and replays the call with the answer", async () => {
       const confirmStore = fakeConfirmStore();
       const emitEvent = vi.fn();

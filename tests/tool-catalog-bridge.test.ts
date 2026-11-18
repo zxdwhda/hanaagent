@@ -190,18 +190,19 @@ describe("mcp_call argument validation", () => {
     expect(mcpCall).not.toHaveBeenCalled();
   });
 
-  it("forwards a valid call with the server side tool name", async () => {
+  it("forwards a valid call with the server side tool name and cancellation signal", async () => {
     const { byName, mcpCall } = makeBridge();
-    await run(byName.mcp_call, {
+    const { signal } = new AbortController();
+    const ctx = {};
+    await byName.mcp_call.execute("call-1", {
       server: "github",
       tool: "github_create_issue",
       arguments: { owner: "acme", repo: "widgets", title: "Bug" },
-    });
+    }, signal, undefined, ctx);
     expect(mcpCall).toHaveBeenCalledTimes(1);
-    const [serverId, toolName, args] = (mcpCall as any).mock.calls[0];
-    expect(serverId).toBe("github");
-    expect(toolName).toBe("create_issue");
-    expect(args).toEqual({ owner: "acme", repo: "widgets", title: "Bug" });
+    expect(mcpCall).toHaveBeenCalledWith(
+      "github", "create_issue", { owner: "acme", repo: "widgets", title: "Bug" }, ctx, signal,
+    );
   });
 
   it("accepts the server side tool name as well as the catalog name", async () => {

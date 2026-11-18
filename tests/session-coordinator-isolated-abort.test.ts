@@ -43,6 +43,7 @@ vi.mock("../packages/engine/lib/debug-log.js", () => ({
 
 import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
+import { ConfirmStore } from "../packages/engine/lib/confirm-store.ts";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -52,7 +53,7 @@ const MAX_TURNS = 40;
  * 假 session：模拟"pre-run 准备 → 多轮 turn"的执行循环。
  * abortBeforeRunIsNoop 复刻 SDK 语义；abortRejects 用来验证不产生未处理 rejection。
  */
-function makeFakeSession({ sessionManager, model, abortRejects = false, onPreRun = null }) {
+function makeFakeSession({ sessionManager, model, abortRejects = false, onPreRun = null, onRun = null }) {
   const listeners = new Set<(event: any) => void>();
   const stats = { turnsRun: 0, abortCalls: 0, finished: false };
   let running = false;
@@ -92,6 +93,7 @@ function makeFakeSession({ sessionManager, model, abortRejects = false, onPreRun
       await tick();
       running = true;
       try {
+        if (onRun) await onRun();
         for (let turn = 1; turn <= MAX_TURNS; turn++) {
           await tick();
           if (abortedInFlight) {
@@ -118,7 +120,7 @@ describe("executeIsolated 运行中途 abort", () => {
   let store: any;
   let agent: any;
   let fake: ReturnType<typeof makeFakeSession>;
-  let fakeOptions: { abortRejects?: boolean; onPreRun?: (() => void) | null };
+  let fakeOptions: { abortRejects?: boolean; onPreRun?: (() => void) | null; onRun?: () => Promise<unknown> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -170,7 +172,7 @@ describe("executeIsolated 运行中途 abort", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  function createCoordinator() {
+  function createCoordinator(confirmStore?: ConfirmStore) {
     return new SessionCoordinator({
       agentsDir: path.join(tempDir, "agents"),
       getAgent: () => agent,
@@ -208,6 +210,7 @@ describe("executeIsolated 运行中途 abort", () => {
       getAgents: () => new Map([["hana", agent]]),
       listAgents: () => [agent],
       getActivityStore: () => null,
+      getConfirmStore: () => confirmStore,
       sessionManifestStore: store,
     });
   }
@@ -237,6 +240,32 @@ describe("executeIsolated 运行中途 abort", () => {
     expect(result.error).toBe("aborted");
     expect(fake.stats.finished).toBe(false);
     expect(fake.stats.turnsRun).toBeLessThanOrEqual(2);
+  });
+
+  it("unblocks child-session confirmations when an isolated patrol is cancelled", async () => {
+    const confirmations = new ConfirmStore();
+    const controller = new AbortController();
+    const started = Promise.withResolvers<ReturnType<ConfirmStore["create"]>>();
+    const other = confirmations.create("mcp_elicitation", {}, path.join(sessionDir, "other.jsonl"));
+    fakeOptions.onRun = () => {
+      const pending = confirmations.create("mcp_elicitation", {}, isolatedSessionPath);
+      started.resolve(pending);
+      return pending.promise;
+    };
+    const coordinator = createCoordinator(confirmations);
+    const run = coordinator.executeIsolated("patrol", { activityType: "heartbeat", signal: controller.signal });
+    const pending = await started.promise;
+    try {
+      controller.abort();
+      expect(confirmations.get(pending.confirmId)).toBeNull();
+      expect(confirmations.get(other.confirmId)).not.toBeNull();
+      await expect(pending.promise).resolves.toEqual({ action: "aborted" });
+      await expect(run).resolves.toMatchObject({ error: "aborted" });
+    } finally {
+      confirmations.resolve(pending.confirmId, "rejected", undefined);
+      confirmations.resolve(other.confirmId, "rejected", undefined);
+      await run;
+    }
   });
 
   it("session.abort() 失败不产生未处理 rejection / uncaught exception", async () => {

@@ -313,7 +313,7 @@ export async function translateSkillNames(utilConfig, names, lang) {
  * @param {string} sessionPath
  * @param {(text: string, level?: string) => void} [emitDevLog]
  */
-export async function summarizeActivity(utilConfig, sessionPath, emitDevLog, preloaded) {
+export async function summarizeActivity(utilConfig, sessionPath, emitDevLog, preloaded, signal?: AbortSignal) {
   const log = emitDevLog || (() => {});
   const isZh = getLocale().startsWith("zh");
   try {
@@ -366,7 +366,7 @@ Rules:
       callText,
       request: {
         ...execution,
-        signal: undefined,
+        signal,
         messages: [
           { role: "system", content: systemContent },
           {
@@ -391,6 +391,7 @@ Rules:
 
     return text;
   } catch (err) {
+    if (signal?.aborted) return null;
     log(`[summarize] error: ${formatError(err)}`);
     log.error(`summarizeActivity failed: ${formatError(err)}`);
     return null;
