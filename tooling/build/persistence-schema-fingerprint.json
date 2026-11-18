@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:9e73ed3fd7d4cad2571ec7acab83860dcae4e5bf78af5026cbdf9d2923892413",
+  "payloadFingerprint": "sha256:05baf1775bc8b8e9fd40d5c256bfcd6bc9b0d80c690b0da127fb68ce72702fb6",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Session JSONL appends and rewrites use a guarded publication path. The JSONL format, store identifiers, locators, branch IDs and startup order remain compatible.",
-    "payloadFingerprint": "sha256:9e73ed3fd7d4cad2571ec7acab83860dcae4e5bf78af5026cbdf9d2923892413"
+    "compatibilityReason": "Bounded session index recovery and atomic publication preserve readability of the existing index, opaque sidecar references and JSONL without a schema or data epoch change.",
+    "payloadFingerprint": "sha256:05baf1775bc8b8e9fd40d5c256bfcd6bc9b0d80c690b0da127fb68ce72702fb6"
   },
   "schemas": [
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:0ab33944c9f8cdf453c9f809e4322e19c61c0dfef8ca8aa209641f3542669d53"
+          "sourceHash": "sha256:591d5ceb1f872d0f2876f5efb9f8f6f424fa87ce263a5280749087daeef46b04"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",
@@ -6765,7 +6765,7 @@
     },
     {
       "exemptionId": null,
-      "kind": "rename",
+      "kind": "remove-path",
       "ordinal": 0,
       "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
       "sourceFile": "packages/engine/core/session-coordinator.ts",
@@ -6789,7 +6789,7 @@
     },
     {
       "exemptionId": null,
-      "kind": "write-file",
+      "kind": "rename",
       "ordinal": 0,
       "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
       "sourceFile": "packages/engine/core/session-coordinator.ts",
@@ -6797,15 +6797,7 @@
     },
     {
       "exemptionId": null,
-      "kind": "write-file",
-      "ordinal": 0,
-      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
-      "sourceFile": "packages/engine/core/session-coordinator.ts",
-      "storeId": "session-jsonl"
-    },
-    {
-      "exemptionId": null,
-      "kind": "write-file",
+      "kind": "rename",
       "ordinal": 0,
       "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
       "sourceFile": "packages/engine/core/session-coordinator.ts",

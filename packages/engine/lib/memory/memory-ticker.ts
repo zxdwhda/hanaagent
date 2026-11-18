@@ -45,7 +45,7 @@ import {
 import { processDirtySessions } from "./deep-memory.ts";
 import { getLogicalDay, shiftLogicalDate } from "../time-utils.ts";
 import { readCompiledResetAt } from "./compiled-memory-state.ts";
-import { listSessionFiles, readCurrentSessionBranch, sessionIdFromFilename } from "../session-jsonl.ts";
+import { listSessionFiles, readCurrentSessionBranch, SessionBranchError, sessionIdFromFilename } from "../session-jsonl.ts";
 import { isAgentPhoneSessionPath } from "../conversations/agent-phone-session.ts";
 import { buildSourceTimeRange } from "./time-context.ts";
 import { writeCacheSnapshotObservation } from "./cache-snapshot-observation.ts";
@@ -1190,8 +1190,15 @@ export function createMemoryTicker(opts) {
       const branchHeadMayBeNewer = Number.isFinite(branchHeadAt) && branchHeadAt >= existingSummaryAt;
       let branchCursorMismatch = false;
       if (replacementPending || branchHeadMayBeNewer) {
-        const projection = _readSessionBranch(filePath);
-        branchCursorMismatch = !_summaryCursorBelongsToProjection(existing, projection);
+        try {
+          const projection = _readSessionBranch(filePath);
+          branchCursorMismatch = !_summaryCursorBelongsToProjection(existing, projection);
+        } catch (err) {
+          if (!(err instanceof SessionBranchError)) throw err;
+          _markFailure("rollingSummary", err);
+          _logStepError(`启动记忆恢复 (${path.basename(filePath)})`, err);
+          continue;
+        }
       }
       if (!pendingForkBaseline && !replacementPending && !branchCursorMismatch && mtime.getTime() < cutoff) continue;
       if (!pendingForkBaseline && !replacementPending && !branchCursorMismatch && resetMs && mtime.getTime() <= resetMs) continue;

@@ -5866,6 +5866,15 @@
     {
       "sourceFile": "packages/engine/core/session-coordinator.ts",
       "kind": "remove-path",
+      "excerpt": "fsp.rm(file, { force: true })",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
+      "exemptionId": null,
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/core/session-coordinator.ts",
+      "kind": "remove-path",
       "excerpt": "fsp.rm(journalPath, { force: true })",
       "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
       "storeId": "session-jsonl",
@@ -5893,7 +5902,7 @@
     {
       "sourceFile": "packages/engine/core/session-coordinator.ts",
       "kind": "remove-path",
-      "excerpt": "fsp.rm(this._sessionMetaPayloadAbsolutePath(metaPath, ref.path), { force: true })",
+      "excerpt": "fsp.rm(tmpPath, { force: true })",
       "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
       "storeId": "session-jsonl",
       "exemptionId": null,
@@ -5937,35 +5946,8 @@
     },
     {
       "sourceFile": "packages/engine/core/session-coordinator.ts",
-      "kind": "write-file",
-      "excerpt": "fsp.writeFile(absPath, encoded, \"utf-8\")",
-      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
-      "storeId": "session-jsonl",
-      "exemptionId": null,
-      "ordinal": 0
-    },
-    {
-      "sourceFile": "packages/engine/core/session-coordinator.ts",
-      "kind": "write-file",
-      "excerpt": "fsp.writeFile(metaPath, JSON.stringify(budgeted, null, 2))",
-      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
-      "storeId": "session-jsonl",
-      "exemptionId": null,
-      "ordinal": 0
-    },
-    {
-      "sourceFile": "packages/engine/core/session-coordinator.ts",
-      "kind": "write-file",
-      "excerpt": "fsp.writeFile(metaPath, JSON.stringify(compactedMeta, null, 2))",
-      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
-      "storeId": "session-jsonl",
-      "exemptionId": null,
-      "ordinal": 0
-    },
-    {
-      "sourceFile": "packages/engine/core/session-coordinator.ts",
-      "kind": "write-file",
-      "excerpt": "fsp.writeFile(metaPath, JSON.stringify(meta, null, 2))",
+      "kind": "rename",
+      "excerpt": "fsp.rename(tmpPath, filePath)",
       "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
       "storeId": "session-jsonl",
       "exemptionId": null,
@@ -5988,6 +5970,15 @@
       "storeId": "session-jsonl",
       "exemptionId": null,
       "ordinal": 1
+    },
+    {
+      "sourceFile": "packages/engine/core/session-coordinator.ts",
+      "kind": "write-file",
+      "excerpt": "fsp.writeFile(tmpPath, encoded, { encoding: \"utf8\", flag: \"wx\" })",
+      "reason": "Creates, repairs, archives, restores, or appends session JSONL locators.",
+      "storeId": "session-jsonl",
+      "exemptionId": null,
+      "ordinal": 0
     },
     {
       "sourceFile": "packages/engine/core/session-jsonl-file.ts",
