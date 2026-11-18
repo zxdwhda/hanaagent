@@ -19,7 +19,7 @@ function runIsolated(script: string) {
 describe("independent locally managed distribution", () => {
   it("owns a distinct product identity and production/development data homes", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-    expect(pkg).toMatchObject({ name: "hanaagent", version: "0.450.1", build: {
+    expect(pkg).toMatchObject({ name: "hanaagent", version: "0.450.2", build: {
       appId: "com.zxdwhda.hanaagent", productName: "hanaagent",
     } });
     expect(resolveHanakoHome(undefined, "/tmp/independent-user")).toBe("/tmp/independent-user/.hanaagent");
