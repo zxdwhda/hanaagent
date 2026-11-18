@@ -203,6 +203,20 @@ export function extractFactSection(markdown) {
   return extractMarkdownSection(markdown, FACT_SECTION_TITLES);
 }
 
+/** Replace only the existing Facts body, keeping its heading and the timeline. */
+export function replaceFactSection(markdown: string, body: string) {
+  const lines = markdown.split(/\r?\n/);
+  const fact = findHeading(lines, FACT_SECTION_TITLES);
+  if (!fact) return markdown;
+  let end = fact.index + 1;
+  while (end < lines.length) {
+    const heading = parseMarkdownHeading(lines[end]);
+    if (heading && heading.level <= fact.level) break;
+    end += 1;
+  }
+  return [...lines.slice(0, fact.index + 1), body, "", ...lines.slice(end)].join("\n").trimEnd();
+}
+
 /**
  * facts 段正文是否是显式空标记（- 无 / - None）。
  * @param {string} text

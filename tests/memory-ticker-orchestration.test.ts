@@ -726,7 +726,7 @@ describe("fork memory reset watermark", () => {
       forkedAt: new Date(Date.now() + 4_000).toISOString(),
     });
     const rollingLLM = vi.fn().mockResolvedValue(
-      "### 重要事实\n- 分叉记忆已在重启后独立物化。\n\n### 事情经过\n- 助手完成了共同前缀的摘要。",
+      "### 重要事实\n- 无\n\n### 事情经过\n- 分叉记忆已在重启后独立物化，助手完成了共同前缀的摘要。",
     );
     (summaryManager as any)._callRollingLLM = rollingLLM;
     ticker = makeTicker(tmpDir, summaryManager, {

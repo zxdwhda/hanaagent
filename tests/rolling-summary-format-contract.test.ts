@@ -169,17 +169,16 @@ describe("rolling summary format single source", () => {
 // 3. cache snapshot reflection — 写入前校验 + bounded repair
 // ---------------------------------------------------------------------------
 
-function makeReflectionFixture(responses) {
+function makeReflectionFixture(responses, messages: { role: string; content: string; timestamp: string; entryId?: string }[] = [
+  { role: "user", content: "我们聊聊记忆系统。", timestamp: "2026-06-03T10:00:00.000Z" },
+  { role: "assistant", content: "好的，先看缓存快照。", timestamp: "2026-06-03T10:01:00.000Z" },
+]) {
   const model = {
     id: "memory-model",
     provider: "deepseek",
     api: "openai-completions",
     baseUrl: "http://localhost:1234",
   };
-  const messages = [
-    { role: "user", content: "我们聊聊记忆系统。", timestamp: "2026-06-03T10:00:00.000Z" },
-    { role: "assistant", content: "好的，先看缓存快照。", timestamp: "2026-06-03T10:01:00.000Z" },
-  ];
   const snapshot = buildSessionCacheSnapshot({
     sessionPath: "/tmp/sessions/s1.jsonl",
     reason: "memory.reflection",
@@ -205,6 +204,47 @@ function makeReflectionFixture(responses) {
 }
 
 describe("runMemoryReflection format validation and bounded repair", () => {
+  it.each([false, true])("verifies write-mode facts in one snapshot call when unsupported claims present=%s", async (unsupportedClaims) => {
+    const direct = "我喜欢观察候鸟。";
+    const suggestion = "你可以试试养兰花。";
+    const denied = "我不喜欢养兰花。";
+    const confirmation = "是的，我每周都会去公园观察候鸟。";
+    const annotated = [
+      "### 重要事实",
+      `- [user:direct] ${direct}`,
+      `- [user:confirmation] ${confirmation}`,
+      ...(unsupportedClaims ? ["- [user:denial] 我喜欢养兰花。", `- [user:suggestion] ${suggestion}`] : []),
+      "### 事情经过",
+      "- 无",
+    ].join("\n");
+    const { snapshot, model, messages, streamFn, calls } = makeReflectionFixture([annotated], [
+      { role: "assistant", content: suggestion, timestamp: "2026-06-03T10:00:00.000Z", entryId: "suggestion" },
+      { role: "user", content: denied, timestamp: "2026-06-03T10:01:00.000Z", entryId: "denial" },
+      { role: "user", content: direct, timestamp: "2026-06-03T10:02:00.000Z", entryId: "direct" },
+      { role: "assistant", content: "你每周都会去公园观察候鸟吗？", timestamp: "2026-06-03T10:03:00.000Z", entryId: "question" },
+      { role: "user", content: confirmation, timestamp: "2026-06-03T10:04:00.000Z", entryId: "confirmation" },
+    ]);
+
+    const result = await runMemoryReflection({ snapshot, model, sessionId: "s1", messages, verifyUserFacts: true, streamFn });
+
+    expect(streamFn).toHaveBeenCalledOnce();
+    expect(calls[0].messages.slice(0, -1)).toEqual(snapshot.messages);
+    const suffix = calls[0].messages.at(-1).content[0].text;
+    expect(suffix).toContain('"direct":"' + direct + '"');
+    expect(suffix).not.toContain(suggestion);
+    expect(result.summary).toContain(direct);
+    expect(result.summary).not.toContain("[user:");
+    expect(result.summary).not.toContain("养兰花");
+    expect(result.data.userFactProvenance).toEqual({
+      status: unsupportedClaims ? "unresolved" : "verified",
+      candidates: [
+        { text: direct, source: { entryId: "direct", sentenceHash: expect.any(String) } },
+        { text: confirmation, source: { entryId: "confirmation", sentenceHash: expect.any(String) } },
+      ],
+    });
+    expect(JSON.stringify(result.data)).not.toContain(denied);
+  });
+
   it("repairs a format-violating reflection output with validation feedback", async () => {
     const { snapshot, model, messages, streamFn, calls } = makeReflectionFixture([
       FREE_FORM_SUMMARY,
@@ -240,6 +280,7 @@ describe("runMemoryReflection format validation and bounded repair", () => {
     expect(streamFn).toHaveBeenCalledTimes(2);
     expect(result.summary).toBe(VALID_ZH_SUMMARY);
     expect(result.data.summary).toBe(VALID_ZH_SUMMARY);
+    expect(result.data).not.toHaveProperty("userFactProvenance");
 
     // 修复请求必须带上校验失败反馈和原始草稿，且仍基于同一 session 前缀
     const repairText = calls[1].messages.at(-1).content[0].text;

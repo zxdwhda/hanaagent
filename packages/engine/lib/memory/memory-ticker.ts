@@ -43,6 +43,7 @@ import {
   migrateLegacyWeekToLongterm,
 } from "./compile.ts";
 import { processDirtySessions } from "./deep-memory.ts";
+import { getLocale } from "../i18n.ts";
 import { getLogicalDay, shiftLogicalDate } from "../time-utils.ts";
 import { readCompiledResetAt } from "./compiled-memory-state.ts";
 import { listSessionFiles, readCurrentSessionBranch, SessionBranchError, sessionIdFromFilename } from "../session-jsonl.ts";
@@ -51,6 +52,7 @@ import { buildSourceTimeRange } from "./time-context.ts";
 import { writeCacheSnapshotObservation } from "./cache-snapshot-observation.ts";
 import { runMemoryReflection as defaultRunMemoryReflection } from "./memory-reflection-runner.ts";
 import { validateRollingSummaryFormat } from "./rolling-summary-format.ts";
+import { applyUserFactProvenanceToSummary, revalidateUserFactProvenance } from "./user-fact-provenance.ts";
 import { CACHE_STRATEGIES } from "../llm/cache-strategy-contract.ts";
 import { atomicWriteSync } from "../../../shared/safe-fs.ts";
 import { invalidateSessionDerivedStateSync } from "./session-derived-state.ts";
@@ -612,6 +614,7 @@ export function createMemoryTicker(opts) {
         previousSummary,
         sessionId,
         messages,
+        verifyUserFacts: mode === "write",
         sourceTimeRange: buildSourceTimeRange(messages, { timeZone: rollingOptions.timeZone }),
         timeZone: rollingOptions.timeZone,
         streamFn: getSessionStreamFn?.(sessionPath),
@@ -645,6 +648,11 @@ export function createMemoryTicker(opts) {
       }
 
       if (mode === "write" && reflection?.data) {
+        if (_getCompiledResetAt() !== rollingOptions.resetAt) {
+          const err: any = new Error("compiled memory was reset while processing cache snapshot reflection");
+          err.cacheMetadata = metadata;
+          throw err;
+        }
         // 写入前结构校验（#1628）：reflection runner 是可注入依赖，落盘边界
         // 不信任上游；不满足 compileFacts 提取假设的摘要禁止覆盖旧摘要。
         const formatValidation = validateRollingSummaryFormat(String(reflection.data.summary || ""));
@@ -655,7 +663,23 @@ export function createMemoryTicker(opts) {
           err.cacheMetadata = metadata;
           throw err;
         }
-        summaryManager.saveSummary(sessionId, reflection.data);
+        const provenance = reflection.data.userFactProvenance;
+        const currentProjection = rollingOptions.revalidateProjection();
+        const emittedBy = rollingOptions.projection;
+        const originalCursor = { coveredLeafId: emittedBy.selectedLeafId ?? null, lineageHash: emittedBy.lineageHash };
+        if (
+          !_summaryCursorBelongsToProjection({ cursor: originalCursor }, currentProjection)
+          || !revalidateUserFactProvenance(provenance, currentProjection.messages)
+        ) {
+          const err: any = new Error("cache snapshot reflection facts do not match the current session branch");
+          err.cacheMetadata = metadata;
+          throw err;
+        }
+        summaryManager.saveSummary(sessionId, {
+          ...reflection.data,
+          summary: applyUserFactProvenanceToSummary(reflection.data.summary, provenance, getLocale()),
+          cursor: originalCursor,
+        });
       }
 
       const observation = writeCacheSnapshotObservation(agentDir, {
@@ -778,6 +802,7 @@ export function createMemoryTicker(opts) {
             getSourceTimeRange: _createSourceTimeRangeResolver(),
             getCurrentBranchProjection: () => _readSessionBranch(sessionPath),
             sessionIds: [sessionId],
+            requireUserFactProvenance: true,
           });
           if (summaryManager.getSummary(sessionId)?.factReplacementRequired === true) {
             throw new Error("branch fact replacement remains pending");
@@ -928,6 +953,8 @@ export function createMemoryTicker(opts) {
           const factsBefore = _readFactsLines();
           await compileEditableFacts(summaryManager, factsMdPath, await getResolvedMemoryModel(), {
             since: resetAt,
+            getCurrentBranchProjection: _createSessionBranchProjectionResolver(),
+            requireUserFactProvenance: true,
           });
           _recordNewFactLines(factsBefore);
           _markDailyStepCompleted("compileFacts", context);
@@ -959,6 +986,7 @@ export function createMemoryTicker(opts) {
               timeZone: _getTimezone(),
               getSourceTimeRange: _createSourceTimeRangeResolver(),
               getCurrentBranchProjection: _createSessionBranchProjectionResolver(),
+              requireUserFactProvenance: true,
             },
           );
           const replacementStillPending = typeof summaryManager.getDirtySessions === "function"
