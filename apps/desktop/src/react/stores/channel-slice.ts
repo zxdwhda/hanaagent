@@ -1,11 +1,17 @@
 import type { AgentPhoneToolMode, Channel, ChannelAgentActivities, ChannelMessage, ChannelTickerStatusMap } from '../types';
 
+export interface ChannelHistoryPosition {
+  before: number | null;
+  prepended: number;
+}
+
 export interface ChannelSlice {
   channels: Channel[];
   currentChannel: string | null;
   channelMessages: ChannelMessage[];
   channelMessageCache: Record<string, ChannelMessage[]>;
   channelMessageCacheDirty: Record<string, boolean>;
+  channelHistory: Record<string, ChannelHistoryPosition>;
   channelMembers: string[];
   channelTotalUnread: number;
   channelsEnabled: boolean | undefined;
@@ -38,6 +44,7 @@ export const createChannelSlice = (
   channelMessages: [],
   channelMessageCache: {},
   channelMessageCacheDirty: {},
+  channelHistory: {},
   channelMembers: [],
   channelTotalUnread: 0,
   channelsEnabled: undefined,

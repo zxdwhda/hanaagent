@@ -15,6 +15,7 @@ const mockState: Record<string, unknown> = {
   channelMessages: [],
   channelMessageCache: {},
   channelMessageCacheDirty: {},
+  channelHistory: {},
   channelTotalUnread: 0,
   channelsEnabled: true,
   userName: 'testuser',
@@ -62,6 +63,7 @@ describe('channel-actions', () => {
     mockState.channelMessages = [];
     mockState.channelMessageCache = {};
     mockState.channelMessageCacheDirty = {};
+    mockState.channelHistory = {};
     mockState.channelTotalUnread = 0;
     mockState.channelsEnabled = true;
     mockState.channelAgentPhoneToolMode = 'read_only';
@@ -112,6 +114,56 @@ describe('channel-actions', () => {
   });
 
   describe('openChannel', () => {
+    it('keeps live messages arriving during the recent and older history requests', async () => {
+      vi.stubGlobal('window', { t: (key: string) => key });
+      const { openChannel, loadOlderChannelMessages, appendChannelMessage } = await import('../../stores/channel-actions');
+      const message = (body: string) => ({ sender: 'bob', timestamp: '2026-05-19 12:00:00', body });
+      let reply: (response: Response) => void;
+      const pendingResponse = () => new Promise<Response>(resolve => { reply = resolve; });
+      mockFetch.mockResolvedValue(new Response(null, { status: 404 }));
+      mockFetch.mockImplementationOnce(pendingResponse);
+
+      const opening = openChannel('ch1');
+      appendChannelMessage('ch1', message('live while opening'), { markRead: false });
+      reply!(Response.json({ messages: [message('recent')], nextBefore: 123 }));
+      await opening;
+      expect(mockFetch).toHaveBeenCalledWith('/api/channels/ch1?limit=100');
+      expect(mockState.channelMessages).toEqual([message('recent'), message('live while opening')]);
+
+      mockFetch.mockImplementationOnce(pendingResponse);
+      const paging = loadOlderChannelMessages('ch1');
+      appendChannelMessage('ch1', message('live while paging'), { markRead: false });
+      reply!(Response.json({ messages: [message('older')], nextBefore: null }));
+      await paging;
+      expect(mockFetch).toHaveBeenCalledWith('/api/channels/ch1?limit=100&before=123', { throwOnHttpError: false });
+      expect(mockState.channelMessages).toEqual([
+        message('older'), message('recent'), message('live while opening'), message('live while paging'),
+      ]);
+      expect(mockState.channelHistory).toEqual({ ch1: { before: null, prepended: 1 } });
+    });
+
+    it.each(['same', 'different'])('ignores a delayed DM snapshot after a newer %s selection', async (selection) => {
+      vi.stubGlobal('window', { t: (key: string) => key });
+      const { openChannel } = await import('../../stores/channel-actions');
+      let resolveOld: (response: Response) => void;
+      mockFetch.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
+      mockFetch.mockResolvedValueOnce(Response.json({
+        peerName: 'Updated peer', messages: [{ sender: 'peer', timestamp: '2026-05-19 12:00:02', body: 'new reply' }],
+      })).mockResolvedValue(new Response(null, { status: 404 }));
+
+      const old = openChannel('dm:bob', true);
+      const activeId = selection === 'same' ? 'dm:bob' : 'dm:charlie';
+      await openChannel(activeId, true);
+      resolveOld!(Response.json({
+        peerName: 'Old peer', messages: [{ sender: 'bob', timestamp: '2026-05-19 12:00:01', body: 'old reply' }],
+      }));
+      await old;
+
+      expect(mockState.currentChannel).toBe(activeId);
+      expect(mockState.channelHeaderName).toBe('Updated peer');
+      expect(mockState.channelMessages).toEqual([{ sender: 'peer', timestamp: '2026-05-19 12:00:02', body: 'new reply' }]);
+    });
+
     it('opens DM history with the stored owner agent id', async () => {
       vi.stubGlobal('window', { t: (key: string) => key });
       mockState.channels = [{
@@ -583,7 +635,7 @@ describe('channel-actions', () => {
       mockState.currentTab = 'channels';
       await hydrateCurrentChannelIfNeeded();
 
-      expect(mockFetch).not.toHaveBeenCalledWith('/api/channels/ch1', expect.anything());
+      expect(mockFetch).not.toHaveBeenCalledWith('/api/channels/ch1?limit=100');
       expect(mockState.channelMessages).toEqual((mockState.channelMessageCache as any).ch1);
     });
 
@@ -656,7 +708,7 @@ describe('channel-actions', () => {
 
       await hydrateCurrentChannelIfNeeded();
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/channels/ch1');
+      expect(mockFetch).toHaveBeenCalledWith('/api/channels/ch1?limit=100');
       expect(mockState.channelMessages).toEqual([
         { sender: 'testuser', timestamp: '2026-05-07 17:00:00', body: 'old' },
         { sender: 'hanako', timestamp: '2026-05-07 17:01:00', body: 'reloaded reply' },

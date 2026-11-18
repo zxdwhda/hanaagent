@@ -35,9 +35,8 @@ function safeFilenamePart(value: string) {
   const part = value
     .normalize("NFKD")
     .replace(/[^\p{L}\p{N}._-]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-  return part || "conversation";
+    .replace(/^-+|-+$/g, "");
+  return [...part].slice(0, 64).join("") || "conversation";
 }
 
 function archiveFilename(options: ConversationExportOptions, generatedAt: Date) {

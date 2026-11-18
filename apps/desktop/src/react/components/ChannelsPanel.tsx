@@ -13,6 +13,7 @@ import {
   addChannelMember,
   exportCurrentConversation,
   loadChannels,
+  loadOlderChannelMessages,
   removeChannelMember,
   saveConversationAgentPhoneSettings,
   sendChannelMessage,
@@ -94,6 +95,7 @@ export function ChannelMessages() {
   const { t } = useI18n();
   const messages = useStore(s => s.channelMessages);
   const currentChannel = useStore(s => s.currentChannel);
+  const history = useStore(s => s.currentChannel ? s.channelHistory[s.currentChannel] : undefined);
   const channels = useStore(s => s.channels);
   const agents = useStore(s => s.agents);
   const userName = useStore(s => s.userName);
@@ -104,7 +106,12 @@ export function ChannelMessages() {
   const isNearBottomRef = useRef(true);
   const previousChannelRef = useRef<string | null>(null);
   const previousLengthRef = useRef(0);
+  const previousPrependedRef = useRef(0);
+  const previousFirstOffsetRef = useRef(0);
   const [showNewMessages, setShowNewMessages] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const prepended = history?.prepended ?? 0;
 
   const getScrollContainer = useCallback(() => (
     wrapperRef.current?.closest('.channel-messages') as HTMLElement | null
@@ -131,6 +138,8 @@ export function ChannelMessages() {
     isNearBottomRef.current = true;
     previousChannelRef.current = null;
     previousLengthRef.current = 0;
+    previousPrependedRef.current = 0;
+    previousFirstOffsetRef.current = 0;
     setShowNewMessages(false);
   }, [currentChannel]);
 
@@ -146,12 +155,21 @@ export function ChannelMessages() {
     const el = getScrollContainer();
     const channelChanged = previousChannelRef.current !== currentChannel;
     const previousLength = previousLengthRef.current;
-    const grew = messages.length > previousLength;
+    const addedBefore = prepended - previousPrependedRef.current;
+    const addedAfter = messages.length - previousLength - Math.max(0, addedBefore);
 
     if (el && messages.length > 0) {
+      const contentOffset = (item: Element) => item.getBoundingClientRect().top
+        - el.getBoundingClientRect().top + el.scrollTop;
       if (channelChanged || previousLength === 0) {
         scrollToBottom();
-      } else if (grew) {
+      } else if (addedBefore > 0) {
+        const anchor = wrapperRef.current?.children[addedBefore];
+        if (anchor) {
+          setChannelScrollTopInstant(el, el.scrollTop + contentOffset(anchor) - previousFirstOffsetRef.current);
+        }
+        if (addedAfter > 0 && !checkNearBottom()) setShowNewMessages(true);
+      } else if (addedAfter > 0) {
         const nearNow = el.scrollHeight - el.scrollTop - el.clientHeight <= CHANNEL_SCROLL_THRESHOLD;
         if (isNearBottomRef.current || nearNow) {
           scrollToBottom();
@@ -159,11 +177,28 @@ export function ChannelMessages() {
           setShowNewMessages(true);
         }
       }
+      const first = wrapperRef.current?.firstElementChild;
+      if (first) previousFirstOffsetRef.current = contentOffset(first);
     }
 
     previousChannelRef.current = currentChannel;
     previousLengthRef.current = messages.length;
-  }, [currentChannel, getScrollContainer, messages.length, scrollToBottom]);
+    previousPrependedRef.current = prepended;
+  }, [checkNearBottom, currentChannel, getScrollContainer, messages.length, prepended, scrollToBottom]);
+
+  async function loadOlder() {
+    if (!currentChannel) return;
+    setLoadingHistory(currentChannel);
+    setHistoryError(null);
+    try {
+      await loadOlderChannelMessages(currentChannel);
+    } catch (error) {
+      console.warn('[channels] load older history failed:', error);
+      setHistoryError(currentChannel);
+    } finally {
+      setLoadingHistory(channel => channel === currentChannel ? null : channel);
+    }
+  }
 
   if (!currentChannel || messages.length === 0) {
     return <div className={styles.channelWelcome}>{t('channel.noMessages')}</div>;
@@ -176,6 +211,14 @@ export function ChannelMessages() {
 
   return (
     <>
+      {history?.before != null && (
+        <div className={styles.channelHistoryControl}>
+          <Button size="sm" variant="ghost" loading={loadingHistory === currentChannel} onClick={loadOlder}>
+            {t('channel.loadOlderMessages')}
+          </Button>
+          {historyError === currentChannel && <div role="status">{t('channel.loadOlderMessagesFailed')}</div>}
+        </div>
+      )}
       <div ref={wrapperRef}>
         {messages.map((msg, idx) => {
           const isContinuation = msg.sender === lastSender;
@@ -183,7 +226,7 @@ export function ChannelMessages() {
           const isSelf = senderInfo.isUser || (isDM && msg.sender === dmOwnerId);
           const el = (
             <div
-              key={`${msg.timestamp}-${msg.sender}-${idx}`}
+              key={`${msg.timestamp}-${msg.sender}-${idx - prepended}`}
               className={
                 styles.channelMsg
                 + (isContinuation ? ` ${styles.channelMsgContinuation}` : '')

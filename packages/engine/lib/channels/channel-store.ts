@@ -8,6 +8,7 @@
  */
 
 import fs, { promises as fsp } from "fs";
+import type { FileHandle } from "node:fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { getLocale, t } from "../i18n.ts";
@@ -31,9 +32,10 @@ function withFileLock(filePath, fn) {
   const next = prev.then(fn, fn); // 无论前一个成功失败都继续
   _fileLocks.set(filePath, next);
   // 清理已完成的锁（防止 Map 无限增长）
-  next.finally(() => {
+  const cleanup = () => {
     if (_fileLocks.get(filePath) === next) _fileLocks.delete(filePath);
-  });
+  };
+  void next.then(cleanup, cleanup);
   return next;
 }
 
@@ -101,6 +103,107 @@ export function parseChannel(content) {
   }
 
   return { meta, messages };
+}
+
+const HISTORY_CHUNK_BYTES = 64 * 1024;
+
+async function readChannelBytes(file: FileHandle, start: number, length: number): Promise<Buffer> {
+  const buffer = Buffer.allocUnsafe(length);
+  let offset = 0;
+  while (offset < length) {
+    const { bytesRead } = await file.read(buffer, offset, length - offset, start + offset);
+    if (bytesRead === 0) throw new Error("Channel history changed while reading");
+    offset += bytesRead;
+  }
+  return buffer;
+}
+
+async function readChannelFrontmatter(file: FileHandle, size: number) {
+  const lines: string[] = [];
+  let partial: Buffer = Buffer.alloc(0);
+  for (let position = 0; position < size;) {
+    const chunk = await readChannelBytes(file, position, Math.min(HISTORY_CHUNK_BYTES, size - position));
+    let start = 0;
+    while (start < chunk.length) {
+      const newline = chunk.indexOf(10, start);
+      if (newline === -1 && position + chunk.length < size) break;
+      const end = newline === -1 ? chunk.length : newline;
+      const fragment = chunk.subarray(start, end);
+      const line = (partial.length ? Buffer.concat([partial, fragment]) : fragment).toString("utf8");
+      partial = Buffer.alloc(0);
+      if (!lines.length && line.trim() !== "---") return { meta: {}, bodyStart: 0 };
+      if (lines.length && line.trim() === "---") {
+        return { meta: parseFrontmatter(lines.slice(1)), bodyStart: position + end + (newline === -1 ? 0 : 1) };
+      }
+      lines.push(line);
+      start = end + 1;
+    }
+    if (start < chunk.length) partial = Buffer.concat([partial, chunk.subarray(start)]);
+    position += chunk.length;
+  }
+  return { meta: {}, bodyStart: 0 };
+}
+
+export async function readChannelMetadata(filePath: string) {
+  const file = await fsp.open(filePath, "r");
+  try {
+    return (await readChannelFrontmatter(file, (await file.stat()).size)).meta;
+  } finally {
+    await file.close();
+  }
+}
+
+/** Read the newest page, or the page ending before a body-relative byte cursor. */
+export function readChannelHistoryPage(filePath: string, limit: number, before?: number) {
+  return withFileLock(filePath, async () => {
+    const file = await fsp.open(filePath, "r");
+    try {
+      const { size } = await file.stat();
+      const { meta, bodyStart } = await readChannelFrontmatter(file, size);
+      const end = before === undefined ? size : bodyStart + before;
+      if (before !== undefined) {
+        if (end >= size || size - end < 4) return null;
+        const boundary = await readChannelBytes(file, end - 1, 5);
+        if (boundary.toString("ascii") !== "\n### ") return null;
+      }
+
+      let pageStart = end;
+      let count = 0;
+      let hasOlder = false;
+      const suffix: Buffer[] = [];
+      const inspectLine = (fragment: Buffer, position: number) => {
+        const line = suffix.length ? Buffer.concat([fragment, ...suffix.reverse()]) : fragment;
+        suffix.length = 0;
+        if (line[0] !== 35 || !MSG_HEADER_RE.test(line.toString("utf8"))) return false;
+        count += 1;
+        if (count > limit) return true;
+        pageStart = position;
+        return false;
+      };
+
+      for (let position = end; position > bodyStart && !hasOlder;) {
+        const start = Math.max(bodyStart, position - HISTORY_CHUNK_BYTES);
+        const chunk = await readChannelBytes(file, start, position - start);
+        let lineEnd = chunk.length;
+        while (lineEnd > 0) {
+          const newline = chunk.lastIndexOf(10, lineEnd - 1);
+          if (newline === -1) break;
+          hasOlder = inspectLine(chunk.subarray(newline + 1, lineEnd), start + newline + 1);
+          if (hasOlder) break;
+          lineEnd = newline;
+        }
+        if (!hasOlder) suffix.push(chunk.subarray(0, lineEnd));
+        position = start;
+      }
+      if (!hasOlder && suffix.length) hasOlder = inspectLine(Buffer.alloc(0), bodyStart);
+
+      const content = await readChannelBytes(file, pageStart, end - pageStart);
+      const { messages } = parseChannel(content.toString("utf8"));
+      return { meta, messages, nextBefore: hasOlder ? pageStart - bodyStart : null };
+    } finally {
+      await file.close();
+    }
+  });
 }
 
 /**

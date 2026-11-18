@@ -119,6 +119,18 @@ describe("DeferredResultExtension", () => {
     expect(store.query("t1").delivered).toBe(false);
   });
 
+  it("leaves Bridge subagent retry to the outbound coordinator when the parent reopens", async () => {
+    const bridgePi = createMockPi();
+    createDeferredResultExtension(store, { shouldSkipSteer: task => task.meta.type === "subagent" })(bridgePi);
+    store.defer("t-bridge", "/bridge/a", { type: "subagent", deliveryIntent: "trigger_parent_turn" });
+    store.resolve("t-bridge", "Result");
+
+    bridgePi._trigger("session_start", {}, { sessionManager: { getSessionFile: () => "/bridge/a" } });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(bridgePi.sendMessage).not.toHaveBeenCalled();
+    expect(store.query("t-bridge").delivered).toBe(false);
+  });
+
   it("does NOT send notification for a different session", () => {
     pi._trigger("session_start", {}, { sessionManager: { getSessionFile: () => "/s/a" } });
     store.defer("t1", "/s/b", { type: "image-generation" });

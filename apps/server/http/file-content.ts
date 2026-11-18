@@ -102,9 +102,9 @@ export function parseRangeHeader(value, size) {
   return { start, end: Math.min(end, size - 1) };
 }
 
-export function contentDisposition(filename) {
+export function contentDisposition(filename: string, disposition: "inline" | "attachment" = "inline") {
   const fallback = asciiFilenameFallback(filename);
-  return `inline; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 export function guessMime(filename) {

@@ -41,6 +41,7 @@ vi.mock("../packages/engine/lib/pi-sdk/index.js", async (importOriginal) => {
 });
 
 import { BridgeSessionManager } from "../packages/engine/core/bridge-session-manager.ts";
+import { createSessionOps } from "../packages/engine/core/slash-commands/session-ops.ts";
 import { VisionBridge, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
 import { CORE_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
 
@@ -241,6 +242,108 @@ describe("BridgeSessionManager teardown", () => {
     expect(emitSessionShutdownMock).toHaveBeenCalledWith(session);
     expect(session.dispose).toHaveBeenCalledOnce();
     expect(manager.activeSessions.has("bridge-k1")).toBe(false);
+  });
+
+  it.each([false, true])("preserves the latest bridge index across a concurrent archive (same conversation: %s)", async (sameConversation) => {
+    const agent = makeAgent(rootDir);
+    const manager = new BridgeSessionManager(makeDeps(agent));
+    const oldFile = "owner/old.jsonl";
+    const bridgeDir = path.join(agent.sessionDir, "bridge");
+    const archivedKey = "wx_dm_archived@agent-a";
+    const currentKey = sameConversation ? archivedKey : "wx_dm_current@agent-a";
+    const currentPath = path.join(bridgeDir, sameConversation ? oldFile : "owner/fresh.jsonl");
+    manager.writeIndex({ [archivedKey]: { file: oldFile, name: "Archived contact" } }, agent);
+    fs.mkdirSync(path.dirname(currentPath), { recursive: true });
+    fs.writeFileSync(path.join(bridgeDir, oldFile), "{}\n");
+    const sessionManager = { getSessionFile: () => currentPath };
+    sessionManagerCreateMock.mockReturnValue(sessionManager);
+    sessionManagerOpenMock.mockReturnValue(sessionManager);
+    let finish: () => void;
+    const prompt = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    createAgentSessionMock.mockResolvedValue({
+      session: { model: { input: ["text"] }, sessionManager, prompt, subscribe: vi.fn(() => () => {}), dispose: vi.fn() },
+    });
+    const ops = createSessionOps({ engine: { getAgent: () => agent, bridgeSessionManager: manager } });
+    const pending = manager.executeExternalMessage("message", currentKey, null, { agentId: agent.id });
+    try {
+      await vi.waitFor(() => expect(prompt).toHaveBeenCalledOnce());
+      expect(await ops.rotate({ kind: "bridge", sessionKey: archivedKey, agentId: agent.id })).toEqual({ status: "rotated" });
+    } finally {
+      finish?.();
+      await pending;
+    }
+
+    const index = manager.readIndex(agent);
+    if (!sameConversation) expect(index[currentKey].file).toBe("owner/fresh.jsonl");
+    expect(index[archivedKey]).toEqual({ name: "Archived contact" });
+  });
+
+  it.each([
+    ["rotate", false], ["rotate", true], ["delete", false], ["delete", true],
+  ] as const)("prevents an unbound in-flight turn from reclaiming its index after %s (existing metadata: %s)", async (operation, hasMetadata) => {
+    const agent = makeAgent(rootDir);
+    const manager = new BridgeSessionManager(makeDeps(agent));
+    const bridgeDir = path.join(agent.sessionDir, "bridge");
+    const sessionKey = "wx_dm_unbound@agent-a";
+    if (hasMetadata) manager.writeIndex({ [sessionKey]: { name: "Existing contact" } }, agent);
+    const firstPath = path.join(bridgeDir, "owner", "interrupted.jsonl");
+    const nextPath = path.join(bridgeDir, "owner", "new.jsonl");
+    const firstManager = { getSessionFile: () => firstPath };
+    const nextManager = { getSessionFile: () => nextPath };
+    sessionManagerCreateMock.mockReturnValueOnce(firstManager).mockReturnValueOnce(nextManager);
+    let finish: () => void;
+    const heldPrompt = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    const runtime = (sessionManager, prompt) => ({
+      model: { input: ["text"] }, sessionManager, prompt, subscribe: vi.fn(() => () => {}), dispose: vi.fn(),
+    });
+    createAgentSessionMock
+      .mockResolvedValueOnce({ session: runtime(firstManager, heldPrompt) })
+      .mockResolvedValueOnce({ session: runtime(nextManager, vi.fn(async () => {})) });
+    const ops = createSessionOps({ engine: { getAgent: () => agent, bridgeSessionManager: manager } });
+    const pending = manager.executeExternalMessage("initial", sessionKey, null, { agentId: agent.id });
+    try {
+      await vi.waitFor(() => expect(heldPrompt).toHaveBeenCalledOnce());
+      await ops[operation]({ kind: "bridge", sessionKey, agentId: agent.id });
+    } finally {
+      finish?.();
+      await pending;
+    }
+
+    expect(manager.readIndex(agent)[sessionKey]?.file).toBeUndefined();
+    await manager.executeExternalMessage("next", sessionKey, null, { agentId: agent.id });
+    expect(sessionManagerOpenMock).not.toHaveBeenCalled();
+    expect(manager.readIndex(agent)[sessionKey]?.file).toBe("owner/new.jsonl");
+  });
+
+  it.each(["none", "prefix", "full"])("captures completed Bridge text once (streamed: %s)", async (streamed) => {
+    const agent = makeAgent(rootDir);
+    const manager = new BridgeSessionManager(makeDeps(agent));
+    const sessionPath = path.join(agent.sessionDir, "bridge", "owner", "terminal-text.jsonl");
+    const sessionManager = { getSessionFile: () => sessionPath };
+    sessionManagerCreateMock.mockReturnValue(sessionManager);
+    let emit: (event: unknown) => void;
+    createAgentSessionMock.mockResolvedValue({
+      session: {
+        model: { input: ["text"] }, sessionManager, dispose: vi.fn(),
+        subscribe: vi.fn(fn => { emit = fn; return () => {}; }),
+        prompt: vi.fn(async () => {
+          if (streamed !== "none") emit({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: streamed === "prefix" ? "final " : "final answer" } });
+          emit({
+            type: "message_end",
+            message: { role: "assistant", stopReason: "stop", content: [
+              { type: "thinking", text: "private thought" },
+              { type: "text", text: "final " },
+              { type: "text", text: "answer" },
+            ] },
+          });
+        }),
+      },
+    });
+    const onDelta = vi.fn();
+    const result = await manager.executeExternalMessage("hello", "bridge-terminal-text", null, { agentId: agent.id, onDelta });
+    expect(result).toMatchObject({ text: "final answer", error: null });
+    expect(onDelta.mock.calls.map(([delta]) => delta).join("")).toBe("final answer");
+    expect(onDelta.mock.calls.at(-1)?.[1]).toBe("final answer");
   });
 
   it("emits normal bridge turns through the desktop chat stream contract", async () => {

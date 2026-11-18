@@ -42,6 +42,33 @@ describe("sanitizeBridgeVisibleText — Bridge 可见文本时间标签", () => 
   });
 });
 
+it("removes guillemet tool traffic from outgoing Bridge text while preserving Markdown code", () => {
+  const example = '«antml:invoke name="fixture"»example«/antml:invoke»';
+  const input = '说明 `' + example + '`\n普通 «引用»\n' + example + '\n结尾';
+  const expected = '说明 `' + example + '`\n普通 «引用»\n\n结尾';
+  expect(stripInternalTags(input)).toBe(expected);
+  expect(__test_cleanReplyForPlatform(input)).toBe(expected);
+  expect(__test_cleanStreamSnapshot(input).text).toBe(expected);
+});
+
+it("removes the reported bare guillemet invocation without removing the surrounding reply", () => {
+  const invocation = "«antml:invoke»\noh-my-claudecode:backlog";
+  const input = `前文\n${invocation}\n后文`;
+  expect(__test_cleanReplyForPlatform(input)).toBe("前文\n\n后文");
+  expect(__test_cleanStreamSnapshot(input).text).toBe("前文\n\n后文");
+  expect(stripInternalTags("La balise «antml:invoke» est un exemple.")).toBe("La balise «antml:invoke» est un exemple.");
+  expect(feedAll(new StreamCleaner(), ["前文\n«antml:inv", "oke»\noh-my-claude", "code:backlog\n后文"])).toBe("前文\n后文");
+});
+
+it("keeps guillemet and angle markers separate and clears tool arguments containing inline code", () => {
+  const mixed = "Avant «antml:invoke» explication à lire </invoke> après.";
+  expect(stripInternalTags(mixed)).toContain("explication à lire");
+  const input = '前文«antml:invoke name="fixture"»arg `code` hidden«/antml:invoke»后文';
+  expect(__test_cleanReplyForPlatform(input)).toBe("前文后文");
+  expect(__test_cleanStreamSnapshot(input).text).toBe("前文后文");
+  expect(feedAll(new StreamCleaner(), [input])).toBe("前文后文");
+});
+
 // ── stripInternalTags：纯函数契约 ────────────────────────────
 
 describe("stripInternalTags — 裸闭合 think 标签 (#1308)", () => {

@@ -487,7 +487,18 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
     path.join(hanakoHome, ".ephemeral", "deferred-tasks.json"),
     { getSessionIdForPath: (sessionPath: string) => engine.getSessionIdForPath?.(sessionPath) || null },
   );
-  engine.setDeferredResultStore(deferredResultStore);
+  const resolveBridgeSubagentOrigin = (task) => {
+    if (task.meta?.type !== "subagent" || task.meta?.deliveryIntent !== "trigger_parent_turn") return null;
+    const origin = task.meta?.bridgeSubagentOrigin || engine.getBridgeContextForSessionPath(task.sessionPath);
+    return origin?.isBridgeSession ? origin : null;
+  };
+  engine.setDeferredResultStore(deferredResultStore, {
+    deliverBridgeSubagent: (taskId, task, shouldDeliver) => {
+      const origin = resolveBridgeSubagentOrigin(task);
+      if (!origin) return null;
+      return hub.bridgeManager?.deliverSubagentResult(taskId, task, origin, shouldDeliver) ?? "retry";
+    },
+  });
   registerDeferredResultBusHandlers(hub.eventBus, deferredResultStore);
 
   const loopStore = new LoopStore(
@@ -495,7 +506,9 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
     { log },
   );
 
-  await engine.registerExtensionFactory(createDeferredResultExtension(deferredResultStore));
+  await engine.registerExtensionFactory(createDeferredResultExtension(deferredResultStore, {
+    shouldSkipSteer: (task) => !!resolveBridgeSubagentOrigin(task),
+  }));
   await engine.registerExtensionFactory(createCompactionGuardExtension({
     usageLedger: engine.usageLedger,
     getCompactionMode: () => getResolvedCompactionMode(engine.preferences),

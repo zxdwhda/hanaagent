@@ -249,7 +249,18 @@ export async function saveConversationAgentPhoneSettings(patch: Partial<AgentPho
 // 打开频道
 // ══════════════════════════════════════════════════════
 
+let activeOpenRequest: { channelId: string } | null = null;
+const CHANNEL_HISTORY_PAGE_SIZE = 100;
+
+function channelHistoryUrl(channelId: string, before?: number): string {
+  const base = `/api/channels/${encodeURIComponent(channelId)}?limit=${CHANNEL_HISTORY_PAGE_SIZE}`;
+  return before === undefined ? base : `${base}&before=${before}`;
+}
+
 export async function openChannel(channelId: string, isDM?: boolean): Promise<void> {
+  const request = { channelId };
+  activeOpenRequest = request;
+  const isCurrent = () => activeOpenRequest === request && useStore.getState().currentChannel === channelId;
   const s = useStore.getState();
   const ch = s.channels.find((c: Channel) => c.id === channelId);
   const isThisDM = isDM ?? ch?.isDM ?? false;
@@ -277,6 +288,7 @@ export async function openChannel(channelId: string, isDM?: boolean): Promise<vo
       const res = await hanaFetch(`/api/dm/${encodeURIComponent(peerId)}${ownerQuery}`);
       if (res.ok) {
         const data = await res.json();
+        if (!isCurrent()) return;
         const responseOwnerId = data.ownerAgentId || dmOwnerId;
         const messages = data.messages || [];
         const fresh = useStore.getState();
@@ -300,18 +312,27 @@ export async function openChannel(channelId: string, isDM?: boolean): Promise<vo
       }
       // 404 = 没有历史，基本信息已在上方设置，不需要额外处理
     } else {
-      const res = await hanaFetch(`/api/channels/${encodeURIComponent(channelId)}`);
+      const res = await hanaFetch(channelHistoryUrl(channelId));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (!isCurrent()) return;
       const members = data.members || [];
       const displayMembers = [useStore.getState().userName || 'user', ...members];
-      const messages = data.messages || [];
       const fresh = useStore.getState();
+      const messages: ChannelMessage[] = data.messages || [];
+      // Preserve messages delivered after the server took the page snapshot.
+      const arriving = (fresh.channelMessageCache[channelId] || []).slice(cachedMessages.length);
+      const combined = [...messages, ...arriving.filter(message =>
+        !messages.some(item => sameChannelMessage(item, message)))];
       useStore.setState({
-        channelMessages: messages,
+        channelMessages: combined,
         channelMessageCache: {
           ...fresh.channelMessageCache,
-          [channelId]: messages,
+          [channelId]: combined,
+        },
+        channelHistory: {
+          ...fresh.channelHistory,
+          [channelId]: { before: data.nextBefore ?? null, prepended: 0 },
         },
         channelMessageCacheDirty: {
           ...fresh.channelMessageCacheDirty,
@@ -325,8 +346,7 @@ export async function openChannel(channelId: string, isDM?: boolean): Promise<vo
       });
 
       // Mark as read
-      const msgs = messages;
-      const lastMsg = msgs[msgs.length - 1];
+      const lastMsg = combined.at(-1);
       if (lastMsg) {
         hanaFetch(`/api/channels/${encodeURIComponent(channelId)}/read`, {
           method: 'POST',
@@ -346,13 +366,44 @@ export async function openChannel(channelId: string, isDM?: boolean): Promise<vo
         }
       }
     }
+    if (!isCurrent()) return;
     loadConversationAgentActivities(channelId).catch((err: unknown) =>
       console.warn('[channel-actions] load agent activities failed', err));
     loadConversationAgentPhoneToolMode(channelId).catch((err: unknown) =>
       console.warn('[channel-actions] load phone tool mode failed', err));
   } catch (err) {
-    console.error('[channels] open failed:', err);
+    if (isCurrent()) console.error('[channels] open failed:', err);
+  } finally {
+    if (activeOpenRequest === request) activeOpenRequest = null;
   }
+}
+
+export async function loadOlderChannelMessages(channelId: string): Promise<void> {
+  const state = useStore.getState();
+  const position = state.channelHistory[channelId];
+  if (state.currentChannel !== channelId || position?.before == null || activeOpenRequest) return;
+
+  const res = await hanaFetch(channelHistoryUrl(channelId, position.before), { throwOnHttpError: false });
+  const fresh = useStore.getState();
+  if (fresh.currentChannel !== channelId || fresh.channelHistory[channelId] !== position || activeOpenRequest) return;
+  if (res.status === 409) {
+    await openChannel(channelId);
+    return;
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const page = await res.json();
+  const latest = useStore.getState();
+  if (latest.currentChannel !== channelId || latest.channelHistory[channelId] !== position || activeOpenRequest) return;
+  const older: ChannelMessage[] = page.messages;
+  const messages = [...older, ...latest.channelMessages];
+  useStore.setState({
+    channelMessages: messages,
+    channelMessageCache: { ...latest.channelMessageCache, [channelId]: messages },
+    channelHistory: {
+      ...latest.channelHistory,
+      [channelId]: { before: page.nextBefore, prepended: position.prepended + older.length },
+    },
+  });
 }
 
 function sameChannelMessage(a: ChannelMessage, b: ChannelMessage): boolean {
@@ -371,6 +422,7 @@ function sameCachedMessage(a: ChannelMessage, b: ChannelMessage): boolean {
 
 export function markChannelMessagesDirty(channelId: string): void {
   if (!channelId) return;
+  if (activeOpenRequest?.channelId === channelId) activeOpenRequest = null;
   const state = useStore.getState();
   useStore.setState({
     channelMessageCacheDirty: {
@@ -637,6 +689,7 @@ export async function toggleChannelsEnabled(): Promise<boolean | undefined> {
         channelMessages: [],
         channelMessageCache: {},
         channelMessageCacheDirty: {},
+        channelHistory: {},
         channelMembers: [],
         channelTotalUnread: 0,
         channelHeaderName: '',

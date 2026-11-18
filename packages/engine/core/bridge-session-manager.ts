@@ -394,6 +394,7 @@ function readLastJsonlEntry(filePath) {
  */
 
 export class BridgeSessionManager {
+  private pendingIndexBindings = new Map<string, symbol>();
   declare _activeSessionRoles: any;
   declare _activeSessions: any;
   declare _deps: any;
@@ -659,6 +660,14 @@ export class BridgeSessionManager {
     const dir = path.dirname(this._indexPath(agent));
     fs.mkdirSync(dir, { recursive: true });
     atomicWriteSync(this._indexPath(agent), JSON.stringify(index, null, 2) + "\n");
+  }
+
+  private indexBindingKey(agentId: string, sessionKey: string) {
+    return JSON.stringify([agentId, sessionKey]);
+  }
+
+  invalidateIndexBinding(agentId: string, sessionKey: string) {
+    return this.pendingIndexBindings.delete(this.indexBindingKey(agentId, sessionKey));
   }
 
   /**
@@ -1115,10 +1124,14 @@ export class BridgeSessionManager {
     let providerErrorMessage = null;
     // 工具 details.media 收集器（被动提取 tool_execution_end 事件）
     const toolMediaUrls = [];
+    const binding = Symbol();
+    let bindingKey: string | undefined;
     try {
       let promptText = prompt;
       const isGuest = opts.guest === true;
       let agent = this._resolveAgent(opts, "executeExternalMessage");
+      bindingKey = this.indexBindingKey(agent.id, sessionKey);
+      this.pendingIndexBindings.set(bindingKey, binding);
       agent = await this._ensureAgentRuntime(agent, "executeExternalMessage");
       const bridgeContext = this._buildBridgeContext(sessionKey, meta, opts, agent);
       const mm = this._deps.getModelManager();
@@ -1133,7 +1146,7 @@ export class BridgeSessionManager {
       const entry = this._normalizeIndexEntry(raw);
       const existingFile = typeof raw === "string" ? raw : raw?.file || null;
       const previousRole = this._inferIndexEntryRole(entry, existingFile);
-      const currentRole = bridgeContext.role || (isGuest ? "guest" : "owner");
+      const currentRole = bridgeContext.isBridgeSession ? bridgeContext.role : (isGuest ? "guest" : "owner");
       const roleChanged = !!previousRole && previousRole !== currentRole;
       let promptSnapshot = roleChanged ? null : normalizeSessionPromptSnapshot(entry.promptSnapshot);
       const existingPath = existingFile ? path.join(bridgeDir, existingFile) : null;
@@ -1323,12 +1336,9 @@ export class BridgeSessionManager {
           model: session.model,
           bridgeContext,
         });
-        if (event.type === "message_update") {
-          const sub = event.assistantMessageEvent;
-          if (sub?.type === "text_delta") {
-            const { emittedDelta, text } = visibleText.appendTextDelta(sub.delta || "");
-            try { opts.onDelta?.(emittedDelta, text); } catch {}
-          }
+        const visible = visibleText.appendAssistantEvent(event);
+        if (visible) {
+          try { opts.onDelta?.(visible.emittedDelta, visible.text); } catch {}
         } else if (event.type === "tool_execution_start") {
           visibleText.markHiddenToolBoundary();
         } else if (event.type === "tool_execution_end" && !event.isError) {
@@ -1417,8 +1427,14 @@ export class BridgeSessionManager {
 
       // 更新索引 + 元数据
       const sessionPath = activeSessionPath || session.sessionManager?.getSessionFile?.();
-      if (sessionPath) {
-        const { changed, file } = this._syncIndexEntry(index, sessionKey, raw, {
+      const latestIndex = sessionPath ? this.readIndex(agent) : null;
+      const latestRaw = latestIndex?.[sessionKey];
+      const latestFile = typeof latestRaw === "string" ? latestRaw : latestRaw?.file || null;
+      // A turn can outlive a slash reset or another conversation's index write.
+      const bindingUnchanged = this.pendingIndexBindings.get(bindingKey) === binding
+        && latestFile === existingFile && (latestRaw == null) === (raw == null);
+      if (sessionPath && bindingUnchanged) {
+        const { changed, file } = this._syncIndexEntry(latestIndex, sessionKey, latestRaw, {
           bridgeDir,
           sessionPath,
           resetRoleBoundState: roleChanged,
@@ -1435,10 +1451,10 @@ export class BridgeSessionManager {
               log.log(`${sessionKey} 已自愈：${existingFile} -> ${file}`);
             }
           }
-          this.writeIndex(index, agent);
+          this.writeIndex(latestIndex, agent);
         }
       }
-      if (!isGuest && sessionPath) {
+      if (!isGuest && sessionPath && bindingUnchanged) {
         try {
           agent.memoryTicker?.notifyTurn?.(sessionPath);
         } catch (err) {
@@ -1462,6 +1478,10 @@ export class BridgeSessionManager {
         // message_end 携带的 provider 错误（若有）比 transport throw 更贴近根因，优先保留
         error: providerErrorMessage || err.message || String(err),
       });
+    } finally {
+      if (bindingKey && this.pendingIndexBindings.get(bindingKey) === binding) {
+        this.pendingIndexBindings.delete(bindingKey);
+      }
     }
   }
 

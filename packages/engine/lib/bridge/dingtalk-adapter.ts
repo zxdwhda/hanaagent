@@ -490,6 +490,8 @@ export function createDingTalkAdapter({
 
   return {
     streamingCapabilities: DINGTALK_STREAMING_CAPABILITIES,
+    // This robot API sends durable replies and offers no transient typing event.
+    receiptCapabilities: { mode: "none" },
 
     async sendReply(chatId: string, text: string, options: Record<string, any> = {}) {
       const content = asString(text);

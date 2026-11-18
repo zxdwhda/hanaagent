@@ -214,6 +214,17 @@ function buildCdnUploadUrl(uploadParam, filekey) {
   return `${CDN_BASE_URL}/upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`;
 }
 
+function signedCdnUploadUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.origin !== new URL(CDN_BASE_URL).origin || url.username || url.password) return null;
+    return value.trim();
+  } catch {
+    return null;
+  }
+}
+
 // ── 消息文本提取 ──
 
 function extractText(itemList) {
@@ -391,12 +402,14 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
       base_info: { channel_version: "1.0.0" },
     });
 
-    if (!uploadResp.upload_param) throw new Error("getUploadUrl 未返回 upload_param");
+    const signedUrl = signedCdnUploadUrl(uploadResp.upload_full_url);
+    if (!signedUrl && !uploadResp.upload_param) throw new Error("getUploadUrl 未返回可用的 CDN 上传地址");
 
     const ciphertext = encryptAesEcb(buffer, rawKey);
-    const cdnUrl = buildCdnUploadUrl(uploadResp.upload_param, filekey);
+    const cdnUrl = signedUrl || buildCdnUploadUrl(uploadResp.upload_param, filekey);
     const cdnRes = await fetch(cdnUrl, {
       method: "POST",
+      ...(signedUrl ? { redirect: "error" } : {}),
       headers: { "Content-Type": "application/octet-stream" },
       body: new Uint8Array(ciphertext),
     });

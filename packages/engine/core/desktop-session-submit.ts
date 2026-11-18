@@ -365,12 +365,9 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
     const visibleText = createVisibleTextAccumulator();
     const toolMedia = [];
     const unsub = session.subscribe?.((event) => {
-      if (event.type === "message_update") {
-        const sub = event.assistantMessageEvent;
-        if (sub?.type === "text_delta") {
-          const { emittedDelta, text } = visibleText.appendTextDelta(sub.delta || "");
-          try { onDelta?.(emittedDelta, text); } catch {}
-        }
+      const visible = visibleText.appendAssistantEvent(event);
+      if (visible) {
+        try { onDelta?.(visible.emittedDelta, visible.text); } catch {}
       } else if (event.type === "tool_execution_start") {
         visibleText.markHiddenToolBoundary();
       } else if (event.type === "tool_execution_end" && !event.isError) {

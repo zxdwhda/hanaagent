@@ -35,6 +35,7 @@ export class DeferredResultCoordinator {
   declare _unsubs: any;
   declare log: any;
   declare recordCustomEntry: any;
+  declare deliverBridgeSubagent: any;
   declare retryIntervalMs: any;
   declare sessionCoordinator: any;
   declare store: any;
@@ -44,10 +45,13 @@ export class DeferredResultCoordinator {
     retryIntervalMs = DEFAULT_RETRY_INTERVAL_MS,
     log = console,
     recordCustomEntry = sessionCoordinator?.recordCustomEntry?.bind(sessionCoordinator),
+    deliverBridgeSubagent = null as ((taskId: string, task: any, shouldDeliver: () => boolean) =>
+      Promise<"delivered" | "retry" | "stale" | null> | "retry" | null) | null,
   }) {
     this.store = store;
     this.sessionCoordinator = sessionCoordinator;
     this.recordCustomEntry = recordCustomEntry;
+    this.deliverBridgeSubagent = deliverBridgeSubagent;
     this.retryIntervalMs = retryIntervalMs;
     this.log = log;
     this._unsubs = [];
@@ -113,6 +117,24 @@ export class DeferredResultCoordinator {
       return await this._recordUiOnlyTask(taskId, task);
     }
 
+    const shouldDeliver = () => {
+      const current = this.store.query(taskId);
+      return current && !current.delivered && !current.deliverySuppressed
+        && current.status === task.status && current.deferredAt === task.deferredAt && current.meta === task.meta;
+    };
+    if (!shouldDeliver()) return false;
+    if (task.meta?.type === "subagent" && task.meta?.deliveryIntent === "trigger_parent_turn" && this.deliverBridgeSubagent) {
+      try {
+        const delivery = await this.deliverBridgeSubagent(taskId, task, shouldDeliver);
+        if (delivery === "delivered") return shouldDeliver() && this.store.markDelivered(taskId);
+        if (delivery === "stale" && shouldDeliver()) this.store.suppressDelivery(taskId, "originating Bridge session no longer active");
+        if (delivery !== null) return false;
+      } catch (err) {
+        this.log.warn?.(`[deferred-result] Bridge delivery failed for ${taskId}: ${err.message}`);
+        return false;
+      }
+    }
+
     if (
       typeof this.sessionCoordinator.isRunnableSessionPath === "function"
       && !this.sessionCoordinator.isRunnableSessionPath(task.sessionPath)
@@ -122,7 +144,6 @@ export class DeferredResultCoordinator {
     }
 
     try {
-      const shouldDeliver = () => this.store.query(taskId)?.deliverySuppressed !== true;
       if (!shouldDeliver()) return false;
       const delivery = await this.sessionCoordinator.deliverCustomMessage(
         task.sessionPath,

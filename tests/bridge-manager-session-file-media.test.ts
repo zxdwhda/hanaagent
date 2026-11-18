@@ -16,6 +16,8 @@ vi.mock("../packages/engine/lib/debug-log.js", () => ({
 }));
 
 import { BridgeManager } from "../packages/engine/lib/bridge/bridge-manager.ts";
+import { DeferredResultCoordinator } from "../packages/engine/lib/deferred-result-coordinator.ts";
+import { DeferredResultStore } from "../packages/engine/lib/deferred-result-store.ts";
 
 const TELEGRAM_CAPS = {
   inputModes: ["buffer", "remote_url", "public_url"],
@@ -44,6 +46,79 @@ describe("BridgeManager session_file media delivery", () => {
     const hub = { eventBus: { emit: vi.fn() } };
     return new BridgeManager({ engine, hub });
   }
+
+  it.each(["offline-parent", "reply-window", "retry", "replaced-session"])("delivers a background subagent result through its original Bridge binding: %s", async (scenario) => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-bridge-deferred-"));
+    const sessionPath = path.join(tmpDir, "bridge", "owner", "source.jsonl");
+    const otherPath = path.join(tmpDir, "bridge", "owner", "replacement.jsonl");
+    const isWechat = scenario === "offline-parent" || scenario === "reply-window";
+    const origin = {
+      isBridgeSession: true, platform: isWechat ? "wechat" : "telegram", chatType: isWechat ? "dm" : "group",
+      chatId: "source-chat", sessionKey: isWechat ? "wx_dm_source-chat@agent-a" : "tg_group_source-chat@agent-a",
+      agentId: "agent-a", ...(isWechat ? {} : { messageThreadId: 33 }),
+    };
+    const store = new DeferredResultStore(null, null);
+    const sessionCoordinator = { isRunnableSessionPath: () => false, deliverCustomMessage: vi.fn() };
+    let currentPath = sessionPath;
+    const engine = {
+      hanakoHome: tmpDir,
+      getAgent: (id) => id === "agent-a" ? { agentName: "Hana" } : null,
+      getSessionIdForPath: (locator) => locator === sessionPath ? "session-a" : null,
+      bridgeSessionManager: { resolveSessionPathForSessionKey: () => currentPath },
+      getBridgeContextForSessionPath: () => origin,
+      recordSessionCustomEntry: vi.fn(),
+    };
+    const hub = { eventBus: { emit: vi.fn() } };
+    const manager = new BridgeManager({ engine, hub });
+    const sendReply = vi.fn(async () => {});
+    const canReply = vi.fn(() => scenario !== "reply-window");
+    const otherSend = vi.fn();
+    const adapter = { sendReply, canReply, capabilities: { proactive: !isWechat } };
+    const entry = { platform: origin.platform, agentId: "agent-a", status: "connected", adapter };
+    manager._platforms.set(`${origin.platform}:agent-a`, entry);
+    manager._platforms.set(`${origin.platform}:agent-b`, {
+      platform: origin.platform, agentId: "agent-b", status: "connected", adapter: { sendReply: otherSend },
+    });
+    const coordinator = new DeferredResultCoordinator({
+      store,
+      sessionCoordinator,
+      retryIntervalMs: 0,
+      deliverBridgeSubagent: (taskId, task, shouldDeliver) => manager.deliverSubagentResult(taskId, task, origin, shouldDeliver),
+    });
+    store.defer("task-a", { sessionId: "session-a", sessionPath }, {
+      type: "subagent", deliveryIntent: "trigger_parent_turn", bridgeSubagentOrigin: origin,
+    });
+    store.resolve("task-a", "Completed analysis");
+    if (scenario === "replaced-session") currentPath = otherPath;
+    if (scenario === "retry") {
+      entry.status = "disconnected";
+      expect(await coordinator.deliverTask("task-a")).toBe(false);
+      expect(store.query("task-a").delivered).toBe(false);
+      expect(sendReply).not.toHaveBeenCalled();
+      entry.status = "connected";
+    }
+    if (scenario === "reply-window") {
+      expect(await coordinator.deliverTask("task-a")).toBe(false);
+      expect(store.query("task-a").delivered).toBe(false);
+      expect(sendReply).not.toHaveBeenCalled();
+      canReply.mockReturnValue(true);
+    }
+
+    await Promise.all([coordinator.deliverTask("task-a"), coordinator.deliverTask("task-a")]);
+    await coordinator.flushUndelivered();
+    expect(otherSend).not.toHaveBeenCalled();
+    expect(sessionCoordinator.deliverCustomMessage).not.toHaveBeenCalled();
+    if (scenario === "replaced-session") {
+      expect(sendReply).not.toHaveBeenCalled();
+      expect(store.query("task-a").deliverySuppressed).toBe(true);
+    } else {
+      expect(sendReply).toHaveBeenCalledExactlyOnceWith("source-chat", "Completed analysis", isWechat
+        ? { isGroup: false, targetScope: "dm" }
+        : { isGroup: true, targetScope: "group", messageThreadId: 33 });
+      expect(store.query("task-a").delivered).toBe(true);
+      expect(engine.recordSessionCustomEntry).toHaveBeenCalledWith(sessionPath, "hana-deferred-result", expect.objectContaining({ taskId: "task-a" }));
+    }
+  });
 
   it("sends a session_file through sendMediaBuffer on buffer-capable platforms", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-bridge-media-"));

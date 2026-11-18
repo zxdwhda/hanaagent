@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantMessage } from '../../components/chat/AssistantMessage';
+import { ChannelAutomationSuggestions } from '../../components/channels/ChannelAutomationSuggestions';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { useStore } from '../../stores';
 
@@ -72,6 +73,7 @@ describe('AssistantMessage automation suggestion card', () => {
       sessions: [{ sessionId: 'session-main', path: '/sessions/main.jsonl' }],
       streamingSessions: [],
       selectedMessageIdsBySession: {},
+      channelAgentActivities: {},
       addToast,
     } as never);
     addToast.mockReset();
@@ -82,6 +84,48 @@ describe('AssistantMessage automation suggestion card', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it('shows a new phone suggestion in its channel and confirms it with the phone session id', async () => {
+    const channelId = 'ch_crew';
+    const suggestionId = 'phone-suggestion';
+    const endpoint = `/api/channels/${channelId}/automation-suggestions`;
+    vi.mocked(hanaFetch)
+      .mockResolvedValueOnce(Response.json({ suggestions: [] }))
+      .mockResolvedValueOnce(Response.json({ suggestions: [{
+        sessionId: 'phone-session',
+        block: {
+          type: 'suggestion_card',
+          kind: 'automation_draft',
+          suggestionId,
+          status: 'pending',
+          title: 'Review the board',
+          detail: {
+            jobData: { type: 'cron', schedule: '0 9 * * *', prompt: 'Review the board', actorAgentId: 'hanako' },
+          },
+        },
+      }] }))
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValueOnce(Response.json({ suggestions: [] }));
+    render(<ChannelAutomationSuggestions channelId={channelId} />);
+    await waitFor(() => expect(hanaFetch).toHaveBeenCalledWith(endpoint, expect.anything()));
+    expect(screen.queryByText('Review the board')).toBeNull();
+
+    act(() => useStore.setState({
+      channelAgentActivities: { [channelId]: { hanako: [{
+        agentId: 'hanako', conversationId: channelId, conversationType: 'channel',
+        state: 'using_tool', summary: 'Automation suggestion awaiting confirmation',
+        timestamp: '2026-11-18T10:00:00Z', details: { automationSuggestionId: suggestionId },
+      }] } },
+    }));
+    fireEvent.click(await screen.findByRole('button', { name: 'automation.openDraft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'automation.confirmCreate' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'automation.openDraft' })).toBeNull());
+    const request = vi.mocked(hanaFetch).mock.calls.find(([url]) => url === '/api/desk/cron');
+    expect(JSON.parse(request?.[1]?.body as string)).toMatchObject({
+      action: 'apply_suggestion', sessionId: 'phone-session', suggestionId,
+    });
   });
 
   it('keeps a suggestion card clickable with a first-line view tail and no status badge', () => {

@@ -16,6 +16,28 @@ export interface FeishuOutboundMessage {
   content: string;
 }
 
+// Budget the serialized content rather than UTF-16 length. Preserve code points and
+// the original text, including formatting syntax, for an ordinary Feishu text message.
+export function renderFeishuFallbackTextContents(text: string) {
+  const maxBytes = 16 * 1024;
+  const overhead = Buffer.byteLength(JSON.stringify({ text: "" }));
+  const contents: string[] = [];
+  let chunk = "";
+  let bytes = overhead;
+  for (const char of text) {
+    const charBytes = Buffer.byteLength(JSON.stringify(char)) - 2;
+    if (bytes + charBytes > maxBytes) {
+      contents.push(JSON.stringify({ text: chunk }));
+      chunk = "";
+      bytes = overhead;
+    }
+    chunk += char;
+    bytes += charBytes;
+  }
+  if (chunk) contents.push(JSON.stringify({ text: chunk }));
+  return contents;
+}
+
 function renderFeishuPostParagraph(text: string) {
   const parts: Array<Record<string, string>> = [];
   let cursor = 0;

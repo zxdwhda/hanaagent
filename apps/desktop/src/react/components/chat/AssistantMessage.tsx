@@ -865,7 +865,14 @@ function buildAutomationExecutionContext({
   };
 }
 
-const CronConfirmBlock = memo(function CronConfirmBlock({ block, sessionPath }: { block: any; sessionPath?: string }) {
+export const CronConfirmBlock = memo(function CronConfirmBlock({
+  block, sessionPath, suggestionSessionId, onApproved,
+}: {
+  block: any;
+  sessionPath?: string;
+  suggestionSessionId?: string;
+  onApproved?: () => void;
+}) {
   const [status, setStatus] = useState(block.status);
   const [modalOpen, setModalOpen] = useState(false);
   const isSuggestionCard = block.type === 'suggestion_card';
@@ -879,7 +886,7 @@ const CronConfirmBlock = memo(function CronConfirmBlock({ block, sessionPath }: 
   const agents = useStore(s => s.agents);
   const addToast = useStore(s => s.addToast);
   const currentAgentId = useStore(s => s.currentAgentId);
-  const sourceSessionId = useStore(state => sessionIdForPathFromLocatorState(state, sessionPath));
+  const sourceSessionId = useStore(state => suggestionSessionId ?? sessionIdForPathFromLocatorState(state, sessionPath));
   const fallbackAgentName = useStore(s => s.agentName) || 'Hanako';
   const fallbackAgentYuan = useStore(s => s.agentYuan) || 'hanako';
   const initialPrompt = (jobData.prompt as string) || (block.description as string) || '';
@@ -1034,6 +1041,7 @@ const CronConfirmBlock = memo(function CronConfirmBlock({ block, sessionPath }: 
       }
       setStatus('approved');
       setModalOpen(false);
+      onApproved?.();
     } catch (err) {
       const prefix = window.t('automation.createFailed');
       const detail = err instanceof AutomationSubmissionError ? err.message.trim() : '';

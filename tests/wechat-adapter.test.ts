@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createDecipheriv, createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -77,10 +78,13 @@ describe("createWechatAdapter", () => {
   });
 
   it.each([
-    ["image/png", "image.png", 2, "image_item"],
-    ["text/plain", "note.txt", 4, "file_item"],
-  ])("uploads %s buffers and sends the matching OpenClaw-compatible iLink message item", async (mime, filename, itemType, itemKey) => {
+    ["image/png", "image.png", 2, "image_item", "legacy"],
+    ["text/plain", "note.txt", 4, "file_item", "legacy"],
+    ["text/plain", "note.txt", 4, "file_item", "signed"],
+    ["text/plain", "note.txt", 4, "file_item", "signed-and-legacy"],
+  ])("uploads %s (%s, type %d, %s) using the %s CDN ticket", async (mime, filename, itemType, itemKey, ticketType) => {
     let getUpdatesCount = 0;
+    const signedUrl = "https://novac2c.cdn.weixin.qq.com/c2c/upload?encrypted_query_param=signed%2Bvalue";
     const fetchMock = vi.fn(async (url, options: any = {}) => {
       const requestUrl = String(url);
       if (requestUrl.includes("ilink/bot/getupdates")) {
@@ -99,7 +103,11 @@ describe("createWechatAdapter", () => {
         return new Promise(() => {});
       }
       if (requestUrl.includes("ilink/bot/getuploadurl")) {
-        return jsonResponse({ ret: 0, upload_param: "upload-param" });
+        return jsonResponse({
+          ret: 0,
+          ...(ticketType !== "signed" ? { upload_param: "upload-param" } : {}),
+          ...(ticketType !== "legacy" ? { upload_full_url: signedUrl } : {}),
+        });
       }
       if (requestUrl.includes("/c2c/upload")) {
         return cdnUploadResponse();
@@ -122,7 +130,8 @@ describe("createWechatAdapter", () => {
     await vi.waitFor(() => expect(onMessage).toHaveBeenCalledOnce());
     expect(adapter.canReply("user-1")).toBe(true);
 
-    await adapter.sendMediaBuffer("user-1", Buffer.from("file"), { mime, filename });
+    const original = Buffer.from([0, 1, 127, 128, 254, 255, 10]);
+    await adapter.sendMediaBuffer("user-1", original, { mime, filename });
 
     const sendMessageCall = fetchMock.mock.calls.find(([url]) => String(url).includes("ilink/bot/sendmessage"));
     expect(sendMessageCall).toBeTruthy();
@@ -132,10 +141,33 @@ describe("createWechatAdapter", () => {
     expect(item.type).toBe(itemType);
     expect(item[itemKey]).toBeTruthy();
     const media = item[itemKey].media;
-    expect(Buffer.from(media.aes_key, "base64").toString("ascii")).toMatch(/^[0-9a-f]{32}$/);
+    const keyHex = Buffer.from(media.aes_key, "base64").toString("ascii");
+    expect(keyHex).toMatch(/^[0-9a-f]{32}$/);
+    expect(media.encrypt_query_param).toBe("download-param");
     expect(decodeIlinkMediaAesKey(media.aes_key)).toHaveLength(16);
+    const uploadCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/c2c/upload"));
+    const encrypted = Buffer.from(uploadCall[1].body);
+    const decipher = createDecipheriv("aes-128-ecb", Buffer.from(keyHex, "hex"), null);
+    expect(Buffer.concat([decipher.update(encrypted), decipher.final()])).toEqual(original);
+    const requestCall = fetchMock.mock.calls.find(([url]) => String(url).includes("ilink/bot/getuploadurl"));
+    const request = JSON.parse(requestCall[1].body);
+    expect(request).toMatchObject({
+      aeskey: keyHex,
+      rawsize: original.length,
+      filesize: encrypted.length,
+      rawfilemd5: createHash("md5").update(original).digest("hex"),
+      to_user_id: "user-1",
+    });
+    if (ticketType === "legacy") {
+      expect(new URL(String(uploadCall[0])).searchParams.get("filekey")).toBe(request.filekey);
+    } else {
+      expect(uploadCall[0]).toBe(signedUrl);
+    }
     if (itemKey === "file_item") {
       expect(item.file_item.file_name).toBe(filename);
+      expect(item.file_item.len).toBe(String(original.length));
+    } else {
+      expect(item.image_item.mid_size).toBe(encrypted.length);
     }
 
     adapter.stop();

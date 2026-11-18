@@ -49,7 +49,7 @@ export function buildBridgeContext(input: Record<string, any> = {}, locale = "zh
   const parsed = parseSessionKey(input.sessionKey || "");
   const platform = input.platform || parsed.platform;
   if (!BRIDGE_NOTIFY_PLATFORMS.includes(platform)) {
-    return { isBridgeSession: false };
+    return { isBridgeSession: false as const };
   }
 
   const chatType = input.chatType || parsed.chatType || "dm";
@@ -67,7 +67,7 @@ export function buildBridgeContext(input: Record<string, any> = {}, locale = "zh
     : null;
 
   return {
-    isBridgeSession: true,
+    isBridgeSession: true as const,
     platform,
     platformLabel: bridgePlatformLabel(platform, locale),
     chatType,
@@ -76,6 +76,8 @@ export function buildBridgeContext(input: Record<string, any> = {}, locale = "zh
     agentId,
     userId,
     chatId,
+    ...(input.messageThreadId != null ? { messageThreadId: input.messageThreadId } : {}),
+    ...(typeof input.targetType === "string" && input.targetType ? { targetType: input.targetType } : {}),
     notificationHint,
     // 派生字段：始终由平台声明表重建，不从持久化 meta / 缓存读取
     interactionCapabilities: interactionCapabilitiesForPlatform(platform),

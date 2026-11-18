@@ -458,6 +458,19 @@
     flex-direction: row-reverse;
 }
 
+.channelHistoryControl {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.channelAutomationSuggestions {
+    display: grid;
+    gap: var(--space-8);
+    max-height: 24vh;
+    overflow-y: auto;
+    padding: var(--space-8) var(--space-24);
+}
+
 .channelNewMessagesBtn {
     position: sticky;
     bottom: var(--space-12);

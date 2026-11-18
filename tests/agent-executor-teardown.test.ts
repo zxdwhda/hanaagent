@@ -430,8 +430,16 @@ describe("runAgentSession teardown", () => {
     sessionManagerCreateMock.mockReturnValue({ getSessionFile: () => sessionFile });
 
     let subscriber = null;
+    const onActivity = vi.fn();
     const session = {
       prompt: vi.fn(async () => {
+        subscriber?.({ type: "tool_execution_start", toolName: "automation" });
+        subscriber?.({
+          type: "tool_execution_end",
+          toolName: "automation",
+          isError: false,
+          result: { details: { automationSuggestion: { suggestionId: "suggestion-1" } } },
+        });
         subscriber?.({ type: "tool_execution_start", toolName: "channel_reply" });
         subscriber?.({
           type: "message_update",
@@ -455,20 +463,24 @@ describe("runAgentSession teardown", () => {
       engine: makeEngine(agent, cwd),
       conversationId: "ch_crew",
       conversationType: "channel",
-      extraCustomTools: [{ name: "channel_reply", execute: vi.fn() }],
+      extraCustomTools: [{ name: "automation", execute: vi.fn() }, { name: "channel_reply", execute: vi.fn() }],
+      onActivity,
       returnDiagnostics: true,
     });
 
     expect(result).toMatchObject({
       text: "raw text",
       diagnostics: {
-        activeToolNames: ["channel_reply"],
-        toolCallCount: 1,
-        toolCallNames: ["channel_reply"],
+        activeToolNames: ["automation", "channel_reply"],
+        toolCallCount: 2,
+        toolCallNames: ["automation", "channel_reply"],
         ordinaryTextLength: 8,
         rawTextLength: 8,
         stopReason: "end_turn",
       },
+    });
+    expect(onActivity).toHaveBeenCalledWith("using_tool", expect.any(String), {
+      automationSuggestionId: "suggestion-1",
     });
   });
 

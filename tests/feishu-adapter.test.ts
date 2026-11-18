@@ -6,6 +6,7 @@ const mockImageGet = vi.fn();
 const mockMessageResourceGet = vi.fn();
 const mockMessageCreate = vi.fn();
 const mockMessageUpdate = vi.fn();
+const mockMessageDelete = vi.fn();
 const mockCardCreate = vi.fn();
 const mockCardSettings = vi.fn();
 const mockCardElementContent = vi.fn();
@@ -80,6 +81,7 @@ vi.mock("@larksuiteoapi/node-sdk", () => {
         message: {
           create: mockMessageCreate,
           update: mockMessageUpdate,
+          delete: mockMessageDelete,
         },
       };
     }
@@ -137,6 +139,7 @@ describe("createFeishuAdapter", () => {
     mockMessageResourceGet.mockReset();
     mockMessageCreate.mockReset();
     mockMessageUpdate.mockReset();
+    mockMessageDelete.mockReset().mockResolvedValue({ code: 0 });
     mockCardCreate.mockReset();
     mockCardSettings.mockReset();
     mockCardElementContent.mockReset();
@@ -266,6 +269,69 @@ describe("createFeishuAdapter", () => {
 
     expect(onStatus).toHaveBeenLastCalledWith("connected");
     adapter.stop();
+  });
+
+  it("accepts a Feishu message ID once even while its sender lookup is pending", async () => {
+    vi.useFakeTimers();
+    const onMessage = vi.fn();
+    let finishLookup: (value: unknown) => void;
+    mockContactUserGet.mockImplementationOnce(() => new Promise(resolve => { finishLookup = resolve; }));
+    const adapter = createFeishuAdapter({ appId: "fixture-app", appSecret: "fixture", agentId: "hana", onMessage });
+    const receive = registeredHandlers["im.message.receive_v1"];
+    const event = {
+      message: {
+        message_id: "om_replayed",
+        message_type: "text",
+        content: JSON.stringify({ text: "same message" }),
+        chat_id: "oc_fixture",
+        chat_type: "p2p",
+      },
+      sender: { sender_type: "user", sender_id: { open_id: "ou_fixture" } },
+    };
+
+    const first = receive(event);
+    const repeated = receive(event);
+    expect(mockContactUserGet).toHaveBeenCalledTimes(1);
+    finishLookup!({ data: { user: { name: "Fixture" } } });
+    await Promise.all([first, repeated]);
+    await receive(event);
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    await receive({ ...event, message: { ...event.message, message_id: "om_new_message" } });
+    expect(onMessage).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(31 * 60 * 1000);
+    await receive(event);
+    expect(onMessage).toHaveBeenCalledTimes(3);
+    adapter.stop();
+  });
+
+  it("delivers a long fallback as Feishu text and recalls the stale stream only after delivery", async () => {
+    mockMessageCreate.mockResolvedValue({ code: 0, data: { message_id: "om_text" } });
+    const adapter = createFeishuAdapter({ appId: "app-id", appSecret: "secret", agentId: "hana", onMessage: vi.fn() });
+    const body = '**正文**\n'.repeat(2600) + '𠮷 "quoted"';
+    try {
+      await adapter.sendStreamFallbackReply("oc_chat", { messageId: "om_partial", previousMessageId: "om_old" }, body);
+      const messages = mockMessageCreate.mock.calls.map(([payload]) => payload.data);
+      expect(messages.length).toBeGreaterThan(1);
+      expect(messages.every(msg => msg.msg_type === "text" && Buffer.byteLength(msg.content) <= 16 * 1024)).toBe(true);
+      expect(messages.map(msg => JSON.parse(msg.content).text).join("")).toBe(body);
+      expect(mockMessageDelete.mock.calls).toEqual([
+        [{ path: { message_id: "om_partial" } }], [{ path: { message_id: "om_old" } }],
+      ]);
+      expect(mockMessageDelete.mock.invocationCallOrder[0]).toBeGreaterThan(mockMessageCreate.mock.invocationCallOrder.at(-1)!);
+    } finally {
+      adapter.stop();
+    }
+  });
+
+  it("keeps a usable preview when sending its replacement fails", async () => {
+    mockMessageCreate.mockRejectedValue(new Error("fixture denied"));
+    const adapter = createFeishuAdapter({ appId: "app-id", appSecret: "secret", agentId: "hana", onMessage: vi.fn() });
+    try {
+      await expect(adapter.sendStreamFallbackReply("oc_chat", { messageId: "om_partial" }, "正文")).rejects.toThrow(/fixture denied/);
+      expect(mockMessageDelete).not.toHaveBeenCalled();
+    } finally {
+      adapter.stop();
+    }
   });
 
   it("keeps message_id on inbound image attachments", async () => {
@@ -1011,6 +1077,7 @@ describe("createFeishuAdapter", () => {
 
   it("declares Feishu CardKit rich streaming and updates markdown content by sequence", async () => {
     mockCardCreate.mockResolvedValue({ data: { card_id: "card_stream_001" } });
+    mockMessageCreate.mockResolvedValueOnce({ data: { message_id: "om_cardkit" } });
     const adapter = createFeishuAdapter({
       appId: "app-id",
       appSecret: "app-secret",
@@ -1033,6 +1100,7 @@ describe("createFeishuAdapter", () => {
 
     expect(state).toEqual({
       cardId: "card_stream_001",
+      messageId: "om_cardkit",
       elementId: "hana_stream_markdown",
       sequence: 5,
     });
@@ -1117,6 +1185,25 @@ describe("createFeishuAdapter", () => {
     });
     expect(mockCardCreate).toHaveBeenCalledOnce();
     expect(mockMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the posted message ID when enabling streaming fails after CardKit delivery", async () => {
+    mockCardCreate.mockResolvedValue({ data: { card_id: "card_fixture" } });
+    mockMessageCreate.mockResolvedValueOnce({ data: { message_id: "om_preview" } }).mockResolvedValueOnce({ code: 0 });
+    mockCardSettings.mockResolvedValue({ code: 230099, msg: "settings denied" });
+    const adapter = createFeishuAdapter({ appId: "fixture", appSecret: "fixture", agentId: "hana", onMessage: vi.fn() });
+    try {
+      const failure = await adapter.startRichStreamReply("oc_chat", "partial").catch(err => err);
+      expect(failure).toMatchObject({
+        operation: "CardKit 流式设置",
+        streamState: { cardId: "card_fixture", messageId: "om_preview" },
+      });
+      await adapter.sendStreamFallbackReply("oc_chat", failure.streamState, "final text");
+      expect(mockMessageCreate.mock.calls[1][0].data).toMatchObject({ msg_type: "text", content: '{"text":"final text"}' });
+      expect(mockMessageDelete).toHaveBeenCalledWith({ path: { message_id: "om_preview" } });
+    } finally {
+      adapter.stop();
+    }
   });
 
   it("rejects resolved CardKit business failures during stream update", async () => {

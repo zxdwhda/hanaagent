@@ -19,6 +19,7 @@ let currentConfig = normalizeNetworkProxyConfig(undefined);
 let currentDispatcher: any = null;
 let nodeProxyAgentCache: Map<string, any> = new Map();
 let undiciProxyDispatcherCache: Map<string, any> = new Map();
+let telegramRequestAgent: NodeProxyAgent | null = null;
 
 function proxyProtocol(proxyUrl: any) {
   try {
@@ -88,6 +89,7 @@ function resetNodeProxyAgentCache() {
     agent.destroy?.();
   }
   nodeProxyAgentCache = new Map();
+  telegramRequestAgent?.cache.clear();
 }
 
 function resetUndiciProxyDispatcherCache() {
@@ -158,7 +160,7 @@ export function getNodeProxyAgentForUrl(targetUrl, env = process.env) {
   if (!proxyUrl) return null;
   let agent = nodeProxyAgentCache.get(proxyUrl);
   if (!agent) {
-    agent = new NodeProxyAgent(proxyUrl);
+    agent = new NodeProxyAgent({ getProxyForUrl: () => proxyUrl });
     nodeProxyAgentCache.set(proxyUrl, agent);
   }
   return agent;
@@ -191,13 +193,13 @@ export function webSocketOptionsForUrl(targetUrl: any) {
 }
 
 export function telegramBotOptions(baseOptions: any = {}) {
-  const agent = getNodeProxyAgentForUrl("https://api.telegram.org");
-  if (!agent) return { ...baseOptions };
+  // The polling client keeps its initial options when network settings change.
+  telegramRequestAgent ??= new NodeProxyAgent({ getProxyForUrl: url => resolveProxyForUrl(url, currentConfig, process.env) });
   return {
     ...baseOptions,
     request: {
       ...(baseOptions.request || {}),
-      agent,
+      agent: telegramRequestAgent,
     },
   };
 }

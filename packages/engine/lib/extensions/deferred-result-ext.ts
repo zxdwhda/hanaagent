@@ -44,7 +44,9 @@ function tryDeliver(pi, store, taskId, task) {
  * @param {import("../deferred-result-store.ts").DeferredResultStore} deferredStore
  * @returns {(pi: object) => void}
  */
-export function createDeferredResultExtension(deferredStore) {
+export function createDeferredResultExtension(deferredStore, {
+  shouldSkipSteer = (_task): boolean => false,
+} = {}) {
   return function (pi) {
     let sessionPath = null;
 
@@ -56,7 +58,7 @@ export function createDeferredResultExtension(deferredStore) {
         const undelivered = deferredStore.listUndelivered(sessionPath);
         for (const task of undelivered) {
           if (isUiOnlyDeferredResultTask(task) && !shouldNotifyAgentOnFailure(task)) continue;
-          if (isExternallyDeliveredTask(task)) continue;
+          if (isExternallyDeliveredTask(task) || shouldSkipSteer(task)) continue;
           tryDeliver(pi, deferredStore, task.taskId, task);
         }
 

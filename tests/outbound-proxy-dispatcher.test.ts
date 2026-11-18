@@ -7,8 +7,13 @@
  * 所以依赖代理的出站 fetch 必须显式从这里拿 dispatcher。
  */
 
-import { afterEach, describe, expect, it } from "vitest";
-import { createOutboundProxyRuntime, fetchDispatcherForUrl } from "../packages/engine/lib/net/outbound-proxy.ts";
+import { once } from "node:events";
+import http from "node:http";
+import https from "node:https";
+import net from "node:net";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import WebSocket from "ws";
+import { createOutboundProxyRuntime, fetchDispatcherForUrl, telegramBotOptions, webSocketOptionsForUrl } from "../packages/engine/lib/net/outbound-proxy.ts";
 
 describe("fetchDispatcherForUrl", () => {
   const runtime = createOutboundProxyRuntime({ log: () => {}, warn: () => {}, env: {} });
@@ -63,5 +68,87 @@ describe("fetchDispatcherForUrl", () => {
     const resolved = fetchDispatcherForUrl("https://api.sgroup.qq.com/gateway", {});
     expect(resolved.proxyUrl).toBe("socks5://127.0.0.1:1080");
     expect(resolved.dispatcher).toBeTruthy();
+  });
+});
+
+describe("Node-backed Bridge clients honor the selected proxy", () => {
+  const runtime = createOutboundProxyRuntime({ env: {} });
+
+  beforeEach(() => {
+    for (const key of Object.keys(process.env).filter(key => /(?:^|_)(?:http|https|all|no|ws|wss)_proxy$/i.test(key))) {
+      vi.stubEnv(key, undefined);
+    }
+  });
+  afterEach(() => {
+    runtime.reset();
+    vi.unstubAllEnvs();
+  });
+
+  it("sends Telegram HTTPS requests through the manually configured HTTP CONNECT endpoint", async () => {
+    const connectTargets: string[] = [];
+    const proxy = http.createServer();
+    proxy.on("connect", (request, socket) => {
+      connectTargets.push(request.url || "");
+      socket.end("HTTP/1.1 502 Test endpoint\r\nConnection: close\r\n\r\n");
+    });
+    proxy.listen(0, "127.0.0.1");
+    await once(proxy, "listening");
+    try {
+      const url = `http://127.0.0.1:${(proxy.address() as net.AddressInfo).port}`;
+      runtime.apply({ mode: "manual", httpsProxy: url, noProxy: "bridge-bypass.invalid" });
+      const options = telegramBotOptions().request;
+      await new Promise<void>(resolve => {
+        const request = https.get("https://api.telegram.org", {
+          ...options,
+          signal: AbortSignal.timeout(2000),
+          lookup: (_host, _options, callback) => callback(new Error("Direct DNS disabled by fixture"), "", 4),
+        }, response => {
+          response.resume();
+          resolve();
+        });
+        request.once("error", () => resolve());
+      });
+      expect(connectTargets).toEqual(["api.telegram.org:443"]);
+      expect(webSocketOptionsForUrl("wss://bridge-bypass.invalid")).toEqual({});
+      runtime.apply({ mode: "manual", httpsProxy: "http://127.0.0.1:1" });
+      expect(options.agent.getProxyForUrl("https://api.telegram.org")).toBe("http://127.0.0.1:1");
+      runtime.apply({ mode: "direct" });
+      expect(options.agent.getProxyForUrl("https://api.telegram.org")).toBe("");
+    } finally {
+      proxy.close();
+      await once(proxy, "close");
+    }
+  });
+
+  it("starts a SOCKS5 dialogue for WebSocket clients rather than sending an HTTP request", async () => {
+    const commands: Buffer[] = [];
+    const proxy = net.createServer(socket => {
+      socket.once("data", greeting => {
+        commands.push(greeting);
+        socket.write(Buffer.from([5, 0]));
+        socket.once("data", request => {
+          commands.push(request);
+          socket.end(Buffer.from([5, 5, 0, 1, 127, 0, 0, 1, 0, 0]));
+        });
+      });
+    });
+    proxy.listen(0, "127.0.0.1");
+    await once(proxy, "listening");
+    try {
+      runtime.apply({ mode: "manual", wssProxy: `socks5://127.0.0.1:${(proxy.address() as net.AddressInfo).port}` });
+      const target = "wss://bridge.fixture.invalid";
+      const ws = new WebSocket(target, {
+        ...webSocketOptionsForUrl(target),
+        handshakeTimeout: 2000,
+        lookup: (_host, _options, callback) => callback(null, "127.0.0.2", 4),
+      });
+      ws.on("error", () => {});
+      await new Promise<void>(resolve => ws.once("close", () => resolve()));
+      expect(commands[0]?.[0]).toBe(5);
+      expect(Array.from(commands[1]?.subarray(0, 4) || [])).toEqual([5, 1, 0, 1]);
+    } finally {
+      proxy.close();
+      await once(proxy, "close");
+    }
   });
 });

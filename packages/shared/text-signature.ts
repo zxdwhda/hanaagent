@@ -32,3 +32,17 @@ export function getAssistantTextPhase(block: unknown): AssistantTextPhase | null
 export function isAssistantCommentaryTextBlock(block: unknown): boolean {
   return getAssistantTextPhase(block) === "commentary";
 }
+
+export function getCompletedAssistantText(message: { role?: string; stopReason?: string; content?: unknown } | null | undefined): string {
+  if (message?.role !== "assistant" || !Array.isArray(message.content)) return "";
+  if (message.stopReason === "error" || message.stopReason === "aborted") return "";
+  return message.content
+    .filter(block => block?.type === "text" && typeof block.text === "string" && !isAssistantCommentaryTextBlock(block))
+    .map(block => block.text)
+    .join("");
+}
+
+export function getMissingCompletedAssistantText(message: Parameters<typeof getCompletedAssistantText>[0], streamedText: string): string {
+  const completed = getCompletedAssistantText(message);
+  return completed.startsWith(streamedText) ? completed.slice(streamedText.length) : "";
+}

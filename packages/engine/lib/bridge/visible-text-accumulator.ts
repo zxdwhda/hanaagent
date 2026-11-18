@@ -6,6 +6,8 @@
  * inserts a normalized `\n\n` when a tool intervenes between visible prose.
  */
 
+import { getMissingCompletedAssistantText } from "../../../shared/text-signature.ts";
+
 function paragraphBoundaryPrefix(existing: string, incoming: string): string {
   if (!existing || !incoming) return "";
   const trailingNewlines = (existing.match(/\n*$/)?.[0] || "").length;
@@ -17,8 +19,22 @@ function paragraphBoundaryPrefix(existing: string, incoming: string): string {
 export function createVisibleTextAccumulator() {
   let text = "";
   let pendingParagraphBoundary = false;
+  let streamedMessageText = "";
 
   return {
+    appendAssistantEvent(event: any) {
+      if (event.type === "message_update") {
+        const update = event.assistantMessageEvent;
+        if (update?.type !== "text_delta" || !update.delta) return null;
+        streamedMessageText += update.delta;
+        return this.appendTextDelta(update.delta);
+      }
+      if (event.type !== "message_end" || event.message?.role !== "assistant") return null;
+      const tail = getMissingCompletedAssistantText(event.message, streamedMessageText);
+      streamedMessageText = "";
+      return tail ? this.appendTextDelta(tail) : null;
+    },
+
     appendTextDelta(delta: string) {
       const raw = delta || "";
       if (!raw) return { emittedDelta: "", text };
