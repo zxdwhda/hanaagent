@@ -34,6 +34,7 @@ vi.mock("../packages/engine/lib/debug-log.js", () => ({
 
 import { SessionCoordinator } from "../packages/engine/core/session-coordinator.ts";
 import { SessionManifestStore } from "../packages/engine/core/session-manifest/store.ts";
+import { migrateLegacySessions } from "../packages/engine/core/session-manifest/legacy-migration.ts";
 
 function buildCoordinator({ tempDir, sessionDir, store, emitEvent = vi.fn() }) {
   const agent = {
@@ -410,6 +411,34 @@ describe("SessionCoordinator pin order", () => {
     expect(readMeta(second.sessionPath)?.pinOrder).toBe(-2048);
   });
 
+  it("assigns distinct persisted orders to concurrent pins", async () => {
+    const first = seedSession("alpha", "2026-07-27T01:00:00.000Z");
+    const second = seedSession("beta", "2026-07-27T02:00:00.000Z");
+
+    await Promise.all([
+      coordinator.setSessionPinned(first.sessionPath, true),
+      coordinator.setSessionPinned(second.sessionPath, true),
+    ]);
+
+    expect(store.getBySessionId(first.sessionId)?.pinOrder).toBe(-1024);
+    expect(store.getBySessionId(second.sessionId)?.pinOrder).toBe(-2048);
+    expect(readMeta(second.sessionPath)?.pinOrder).toBe(-2048);
+  });
+
+  it("lets overlapping pin and unpin requests commit and verify in arrival order", async () => {
+    const ref = seedSession("alpha", "2026-07-27T01:00:00.000Z");
+
+    const [pin, unpin] = await Promise.all([
+      coordinator.setSessionPinned(ref, true),
+      coordinator.setSessionPinned(ref, false),
+    ]);
+
+    expect(pin.pinnedAt).toEqual(expect.any(String));
+    expect(unpin).toEqual({ pinnedAt: null, pinOrder: null });
+    expect(readMeta(ref.sessionPath)).toMatchObject(unpin);
+    expect(store.getBySessionId(ref.sessionId)).toMatchObject(unpin);
+  });
+
   it("clears the order when a session is unpinned and issues a fresh one when it is pinned again", async () => {
     const first = seedSession("alpha", "2026-07-27T01:00:00.000Z");
     const second = seedSession("beta", "2026-07-27T02:00:00.000Z");
@@ -425,6 +454,22 @@ describe("SessionCoordinator pin order", () => {
     await coordinator.setSessionPinned(first.sessionPath, true);
 
     expect(store.getBySessionId(first.sessionId)?.pinOrder).toBe(-3072);
+  });
+
+  it("retains a re-pin and its order after reopening the manifest and rescanning legacy files", async () => {
+    const ref = seedSession("alpha", "2026-07-27T01:00:00.000Z");
+    await coordinator.setSessionPinned(ref, true);
+    await coordinator.setSessionPinned(ref, false);
+    const rePin = await coordinator.setSessionPinned(ref, true);
+
+    store.close();
+    store = new SessionManifestStore({ dbPath: path.join(tempDir, "session-manifest.db") });
+    migrateLegacySessions({ hanaHome: tempDir, store });
+    coordinator = buildCoordinator({ tempDir, sessionDir, store, emitEvent });
+
+    expect(store.getBySessionId(ref.sessionId)).toMatchObject(rePin);
+    expect(readMeta(ref.sessionPath)).toMatchObject(rePin);
+    expect(await coordinator.listSessions()).toMatchObject([{ sessionId: ref.sessionId, ...rePin }]);
   });
 
   it("renumbers pinned sessions from a submitted order and announces every change", async () => {
@@ -523,5 +568,59 @@ describe("SessionCoordinator pin order", () => {
 
     expect(sessions.find((s) => s.path === first.sessionPath)?.pinOrder).toBe(-1024);
     expect(sessions.find((s) => s.path === second.sessionPath)?.pinOrder).toBe(-2048);
+  });
+
+  it("imports a late legacy pin even after one-shot ordering was marked complete", async () => {
+    const ref = seedSession("legacy", "2026-07-27T01:00:00.000Z");
+    const pinnedAt = "2026-07-01T00:00:00.000Z";
+    fs.writeFileSync(path.join(sessionDir, "session-meta.json"), JSON.stringify({ "legacy.jsonl": { pinnedAt } }));
+    store.setState("pin-order-backfill-v1", { completedAt: pinnedAt });
+
+    expect(await coordinator.listSessions()).toMatchObject([{ sessionId: ref.sessionId, pinnedAt }]);
+    await coordinator._pinOrderBackfill;
+
+    expect(store.getBySessionId(ref.sessionId)).toMatchObject({ pinnedAt, pinOrder: 1024 });
+    await expect(coordinator.setSessionPinOrder([ref])).resolves.toEqual([{ sessionId: ref.sessionId, pinOrder: 1024 }]);
+  });
+
+  it("allows a validated legacy pin to participate in reorder before listing it", async () => {
+    const ref = seedSession("legacy", "2026-07-27T01:00:00.000Z");
+    const pinnedAt = "2026-07-01T00:00:00.000Z";
+    fs.writeFileSync(path.join(sessionDir, "session-meta.json"), JSON.stringify({ "legacy.jsonl": { pinnedAt, pinOrder: 3072 } }));
+
+    await expect(coordinator.setSessionPinOrder([ref])).resolves.toEqual([{ sessionId: ref.sessionId, pinOrder: 1024 }]);
+
+    expect(readMeta(ref.sessionPath)).toMatchObject({ pinnedAt, pinOrder: 1024 });
+    expect(store.getBySessionId(ref.sessionId)).toMatchObject({ pinnedAt, pinOrder: 1024 });
+  });
+
+  it("does not import a legacy pin if the fresh sidecar clears it before backfill", async () => {
+    const ref = seedSession("legacy", "2026-07-27T01:00:00.000Z");
+    const metaPath = path.join(sessionDir, "session-meta.json");
+    const pinnedAt = "2026-07-01T00:00:00.000Z";
+    fs.writeFileSync(metaPath, JSON.stringify({ "legacy.jsonl": { pinnedAt } }));
+    const queue = Promise.withResolvers<void>();
+    coordinator._pinMutationQueue = queue.promise;
+    expect(await coordinator.listSessions()).toMatchObject([{ sessionId: ref.sessionId, pinnedAt }]);
+    fs.writeFileSync(metaPath, JSON.stringify({ "legacy.jsonl": { pinnedAt: null } }));
+    queue.resolve();
+    await coordinator._pinOrderBackfill;
+
+    expect(store.getBySessionId(ref.sessionId)).toMatchObject({ pinnedAt: null, pinOrder: null });
+  });
+
+  it("keeps an explicit unpin after reopening with a stale legacy pin mirror", async () => {
+    const ref = seedSession("legacy", "2026-07-27T01:00:00.000Z");
+    await coordinator.setSessionPinned(ref, true);
+    const pin = readMeta(ref.sessionPath);
+    await coordinator.setSessionPinned(ref, false);
+
+    fs.writeFileSync(path.join(sessionDir, "session-meta.json"), JSON.stringify({ "legacy.jsonl": pin }));
+    store.close();
+    store = new SessionManifestStore({ dbPath: path.join(tempDir, "session-manifest.db") });
+    coordinator = buildCoordinator({ tempDir, sessionDir, store, emitEvent });
+
+    expect(await coordinator.listSessions()).toMatchObject([{ sessionId: ref.sessionId, pinnedAt: null, pinOrder: null }]);
+    await expect(coordinator.setSessionPinOrder([ref])).rejects.toMatchObject({ code: "session_not_pinned" });
   });
 });

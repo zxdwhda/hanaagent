@@ -139,6 +139,7 @@ function deleteSessionScopedValue<T>(
 
 export interface SessionSlice {
   sessions: Session[];
+  sessionListStatus: 'loading' | 'ready' | 'error';
   currentSessionPath: string | null;
   currentSessionId: string | null;
   sessionLocatorsById: Record<string, { path: string | null }>;
@@ -198,6 +199,7 @@ export const createSessionSlice = (
   set: (partial: Partial<SessionSlice> | ((s: SessionSlice) => Partial<SessionSlice>)) => void
 ): SessionSlice => ({
   sessions: [],
+  sessionListStatus: 'loading',
   currentSessionPath: null,
   currentSessionId: null,
   sessionLocatorsById: {},

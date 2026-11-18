@@ -27,6 +27,7 @@ describe("LocalFsProvider", () => {
   let tempRoot: string | null = null;
 
   afterEach(() => {
+    vi.restoreAllMocks();
     if (tempRoot) fs.rmSync(tempRoot, { recursive: true, force: true });
     tempRoot = null;
   });
@@ -236,6 +237,122 @@ describe("LocalFsProvider", () => {
     expect(JSON.parse(fs.readFileSync(path.join(trashRoot, "mobile-workbench", trashed.trashId, "metadata.json"), "utf-8")))
       .toMatchObject({ originalName: "renamed.md", rootId: "default" });
     expect(fs.existsSync(path.join(cwd, "archive", "renamed.md"))).toBe(false);
+  });
+
+  it.each([false, true])("publishes recoverable cross-volume trash, directory=%s", async (directory) => {
+    const { realCwd, provider } = makeProvider();
+    const source = path.join(realCwd, "source");
+    const relativeFile = directory ? path.join("nested", "note.txt") : "";
+    const sourceFile = path.join(source, relativeFile);
+    if (directory) fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+    fs.writeFileSync(sourceFile, "original");
+    const rename = fs.renameSync;
+    vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      if (from === source) throw Object.assign(new Error("different filesystems"), { code: "EXDEV" });
+      rename(from, to);
+    });
+
+    const result = await provider.trash({ kind: "local-file", path: source });
+
+    expect(fs.existsSync(source)).toBe(false);
+    expect(fs.readFileSync(path.join(result.payloadPath!, relativeFile), "utf8")).toBe("original");
+    expect(JSON.parse(fs.readFileSync(path.join(result.trashPath!, "metadata.json"), "utf8")))
+      .toMatchObject({ originalPath: source, originalName: "source", trashId: result.trashId });
+    expect(fs.readdirSync(result.trashPath!).sort()).toEqual(["metadata.json", "payload"]);
+  });
+
+  it.each(["metadata", "copy", "publish"])("preserves the original when trash %s fails", async (step) => {
+    const { realCwd, provider, trashRoot } = makeProvider();
+    const source = path.join(realCwd, "source.txt");
+    fs.writeFileSync(source, "original");
+    const ioFailure = Object.assign(new Error("synthetic failure"), { code: "EIO" });
+    const rename = fs.renameSync;
+    const write = fs.writeFileSync;
+    vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      if (from === source) throw Object.assign(new Error("different filesystems"), { code: "EXDEV" });
+      if (step === "publish") throw ioFailure;
+      rename(from, to);
+    });
+    if (step === "metadata") {
+      vi.spyOn(fs, "writeFileSync").mockImplementation((target, data, options) => {
+        if (String(target).endsWith("metadata.json")) throw ioFailure;
+        write(target, data, options);
+      });
+    } else if (step === "copy") {
+      vi.spyOn(fs, "cpSync").mockImplementation((_from, to) => {
+        fs.writeFileSync(to, "partial");
+        throw ioFailure;
+      });
+    }
+
+    await expect(provider.trash({ kind: "local-file", path: source })).rejects.toBe(ioFailure);
+    expect(fs.readFileSync(source, "utf8")).toBe("original");
+    expect(fs.readdirSync(path.join(trashRoot, "resource-io"))).toEqual([]);
+  });
+
+  it("retains a complete recovery copy if cross-volume source cleanup fails partway", async () => {
+    const { realCwd, provider, trashRoot } = makeProvider();
+    const source = path.join(realCwd, "source");
+    fs.mkdirSync(source);
+    fs.writeFileSync(path.join(source, "first.txt"), "first");
+    fs.writeFileSync(path.join(source, "second.txt"), "second");
+    const rename = fs.renameSync;
+    vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      if (from === source) throw Object.assign(new Error("different filesystems"), { code: "EXDEV" });
+      rename(from, to);
+    });
+    const remove = fs.rmSync;
+    vi.spyOn(fs, "rmSync").mockImplementation((target, options) => {
+      if (target === source) {
+        fs.unlinkSync(path.join(source, "first.txt"));
+        throw Object.assign(new Error("synthetic interrupted removal"), { code: "EIO" });
+      }
+      remove(target, options);
+    });
+
+    await expect(provider.trash({ kind: "local-file", path: source })).rejects.toMatchObject({
+      code: "trash_source_removal_failed",
+    });
+    const namespaceRoot = path.join(trashRoot, "resource-io");
+    const [trashId] = fs.readdirSync(namespaceRoot);
+    const recovery = path.join(namespaceRoot, trashId);
+    expect(JSON.parse(fs.readFileSync(path.join(recovery, "metadata.json"), "utf8"))).toMatchObject({ originalPath: source });
+    expect(fs.readFileSync(path.join(recovery, "payload", "first.txt"), "utf8")).toBe("first");
+    expect(fs.readFileSync(path.join(recovery, "payload", "second.txt"), "utf8")).toBe("second");
+  });
+
+  it.each(["copy", "publication"])("preserves an in-place descendant edit during cross-volume %s", async (stage) => {
+    const { realCwd, provider, trashRoot } = makeProvider();
+    const source = path.join(realCwd, "source");
+    fs.mkdirSync(source);
+    const note = path.join(source, "note.txt");
+    fs.writeFileSync(note, "original");
+    const before = fs.statSync(source, { bigint: true });
+    const editDescendant = () => {
+      fs.writeFileSync(note, "updated contents");
+      const after = fs.statSync(source, { bigint: true });
+      expect(after.mtimeNs).toBe(before.mtimeNs);
+      expect(after.ctimeNs).toBe(before.ctimeNs);
+    };
+    const rename = fs.renameSync;
+    vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      if (from === source) throw Object.assign(new Error("different filesystems"), { code: "EXDEV" });
+      rename(from, to);
+      if (stage === "publication" && path.basename(String(from)) === ".pending-payload") editDescendant();
+    });
+    if (stage === "copy") {
+      const copy = fs.cpSync;
+      vi.spyOn(fs, "cpSync").mockImplementation((from, to, options) => {
+        copy(from, to, options);
+        editDescendant();
+      });
+    }
+
+    await expect(provider.trash({ kind: "local-file", path: source })).rejects.toMatchObject({
+      code: "trash_source_changed",
+    });
+    expect(fs.readFileSync(note, "utf8")).toBe("updated contents");
+    expect(fs.readdirSync(path.join(trashRoot, "resource-io"))).toEqual([]);
   });
 });
 

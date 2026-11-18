@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HanaEngine } from "../packages/engine/core/engine.ts";
 import { SessionManifestResolver } from "../packages/engine/core/session-manifest/resolver.ts";
 import { LEGACY_SESSION_MANIFEST_MIGRATION_KEY } from "../packages/engine/core/session-manifest/startup-migration.ts";
@@ -268,10 +268,13 @@ describe("HanaEngine getSessionMetadataRecoveryStatus", () => {
 
   it("runtime meta quarantine → degraded with meta_quarantined reason", () => {
     const metaPath = path.join(tmpDir, "agents", "hana", "sessions", "session-meta.json");
+    const backupPath = path.join(path.dirname(metaPath), "session-meta.oversized.111.json");
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+    fs.writeFileSync(backupPath, "{}");
     engine._sessionCoord = {
       listMetaQuarantines: () => [{
         metaPath,
-        backupPath: path.join(tmpDir, "agents", "hana", "sessions", "session-meta.oversized.111.json"),
+        backupPath,
         quarantinedAt: "2026-07-23T00:00:00.000Z",
       }],
     };
@@ -310,6 +313,8 @@ describe("HanaEngine getSessionMetadataRecoveryStatus", () => {
 
   it("legacy scan ledger with too_large entries → degraded with meta_skipped reason", () => {
     const skippedPath = path.join(tmpDir, "agents", "bob", "sessions", "session-meta.json");
+    fs.mkdirSync(path.dirname(skippedPath), { recursive: true });
+    fs.writeFileSync(skippedPath, "{}");
     store.setState(LEGACY_META_SCAN_LEDGER_KEY, {
       [skippedPath]: { size: 999_999_999, mtimeMs: 1, status: "too_large", recordedAt: "2026-07-23T00:00:00.000Z" },
     });
@@ -322,14 +327,54 @@ describe("HanaEngine getSessionMetadataRecoveryStatus", () => {
     ]);
   });
 
+  it("clears live warnings when a quarantined backup moves while retaining the skip ledger", () => {
+    const metaPath = path.join(tmpDir, "agents", "hana", "sessions", "session-meta.json");
+    const backupPath = path.join(path.dirname(metaPath), "session-meta.oversized.123.json");
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+    fs.writeFileSync(backupPath, "{}");
+    store.setState(LEGACY_META_SCAN_LEDGER_KEY, {
+      [backupPath]: { size: 12, mtimeMs: 1, status: "too_large", recordedAt: "2026-07-23T00:00:00.000Z" },
+    });
+    engine._sessionCoord = { listMetaQuarantines: () => [{ metaPath, backupPath }] };
+    expect(engine.getSessionMetadataRecoveryStatus().reasons.map(({ kind }) => kind)).toEqual([
+      "meta_quarantined", "meta_skipped",
+    ]);
+
+    fs.renameSync(backupPath, path.join(tmpDir, "moved-copy.json"));
+
+    expect(engine.getSessionMetadataRecoveryStatus()).toEqual({ degraded: false, reasons: [] });
+    expect(store.getState(LEGACY_META_SCAN_LEDGER_KEY)[backupPath]).toMatchObject({ status: "too_large" });
+  });
+
+  it("retains a skip warning when an I/O error has not proved the source missing", () => {
+    const backupPath = path.join(tmpDir, "session-meta.oversized.123.json");
+    store.setState(LEGACY_META_SCAN_LEDGER_KEY, { [backupPath]: { status: "parse_error" } });
+    const stat = vi.spyOn(fs, "statSync").mockImplementationOnce(() => {
+      throw Object.assign(new Error("fixture permission denied"), { code: "EACCES" });
+    });
+    try {
+      expect(engine.getSessionMetadataRecoveryStatus()).toMatchObject({
+        degraded: true,
+        reasons: [{ kind: "meta_skipped" }],
+      });
+    } finally {
+      stat.mockRestore();
+    }
+  });
+
   it("all three sources firing at once → all reasons present", () => {
     const quarantinedPath = path.join(tmpDir, "agents", "hana", "sessions", "session-meta.json");
     const skippedPath = path.join(tmpDir, "agents", "bob", "sessions", "session-titles.json");
+    const backupPath = `${quarantinedPath}.oversized.1.json`;
+    for (const filePath of [backupPath, skippedPath]) {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, "{}");
+    }
     engine._sessionManifestStoreRecovery = { status: "unavailable", error: new Error("boom") };
     engine._sessionCoord = {
       listMetaQuarantines: () => [{
         metaPath: quarantinedPath,
-        backupPath: `${quarantinedPath}.oversized.1.json`,
+        backupPath,
         quarantinedAt: "2026-07-23T00:00:00.000Z",
       }],
     };

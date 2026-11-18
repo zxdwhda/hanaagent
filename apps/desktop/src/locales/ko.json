@@ -140,6 +140,8 @@
     }
   },
   "sidebar": {
+    "sessionListFailed": "채팅 목록을 불러오지 못했습니다.",
+    "sessionListRetry": "다시 시도",
     "title": "대화",
     "newChat": "새 대화",
     "collapse": "사이드바 접기",
@@ -484,8 +486,8 @@
       "떠오르는 대로 편하게 말해 주세요."
     ],
     "memoryOn": "기억",
-    "memoryOff": "이 대화에서는 기억을 사용하지 않아요",
-    "memoryDisabled": "기억이 꺼져 있어요",
+    "memoryOff": "이 대화에서는 기억을 사용하지 않아요(고정 기억 포함)",
+    "memoryDisabled": "기억이 꺼져 있어요(고정 기억 포함)",
     "agentSelector": "에이전트 선택",
     "placeholderTips": [
       "/ 를 입력하면 명령 메뉴가 열려요",
@@ -1901,7 +1903,7 @@
     },
     "pins": {
       "title": "고정 기억",
-      "hint": "항상 대화에 주입되며 감쇠하지 않아요",
+      "hint": "기억이 켜져 있을 때 어시스턴트가 고정 기억을 참고해요. 대화나 어시스턴트의 기억을 꺼도 고정 기억은 저장된 상태로 유지돼요.",
       "empty": "아직 고정 기억이 없어요",
       "delete": "삭제",
       "addPlaceholder": "고정 기억 추가..."
@@ -2742,7 +2744,16 @@
       },
       "status": {
         "available": "사용 가능",
-        "expired": "만료됨"
+        "expired": "만료됨",
+        "missing": "원래 위치에 없음"
+      },
+      "filters": {
+        "label": "대화 파일 필터",
+        "all": "모든 파일",
+        "availableWithoutEmbeddedMedia": "사용 가능한 비포함 파일만",
+        "hideEmbeddedMedia": "문서에 포함된 미디어 숨기기",
+        "hideUnavailable": "사용할 수 없는 파일 숨기기",
+        "empty": "필터에 맞는 파일이 없어요"
       }
     },
     "jian": {
@@ -3004,6 +3015,8 @@
     "pinnedRemoved": "{count}개를 제거했어요: {items}",
     "expEmpty": "경험 라이브러리가 비어 있어요.",
     "expCategoryNotFound": "\"{category}\" 카테고리의 경험을 찾을 수 없어요.",
+    "expIndexMore": "미리보기에 없는 항목이 {count}개 더 있어요. 카테고리를 열어 확인하세요.",
+    "expQueryNoMatches": "검색어가 포함된 카테고리가 없어요.",
     "expEmptyInput": "카테고리 이름과 경험 내용을 비워둘 수 없어요.",
     "expDuplicate": "이 경험은 이미 기록되어 있어요.",
     "expRecorded": "경험을 기록했어요 [{category}]: {content}",

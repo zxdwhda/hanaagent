@@ -461,10 +461,14 @@ export class SessionFileRegistry {
     };
   }
 
-  list(sessionPath) {
+  _listRegisteredFiles(sessionPath) {
     this._hydrateSession(sessionPath);
     const ids = this._idsBySession.get(this._sessionKeyForPath(sessionPath)) || [];
     return ids.map(id => this._byId.get(id)).filter(Boolean);
+  }
+
+  list(sessionPath) {
+    return this._listRegisteredFiles(sessionPath).map(file => projectExternalFileAvailability(file, this._now));
   }
 
   /**
@@ -475,7 +479,9 @@ export class SessionFileRegistry {
   listReachable(sessionPath, references = []) {
     const retainedIdentities = collectSessionFileReferenceIdentities(references);
     if (retainedIdentities.size === 0) return [];
-    return this.list(sessionPath).filter((file) => sessionFileIsReachable(file, retainedIdentities));
+    return this._listRegisteredFiles(sessionPath)
+      .filter(file => sessionFileIsReachable(file, retainedIdentities))
+      .map(file => projectExternalFileAvailability(file, this._now));
   }
 
   unloadSession(sessionPath, { sessionId = null }: any = {}) {
@@ -841,6 +847,19 @@ function existingMaterializationExists(file) {
   if (!file || file.status === "expired") return false;
   const target = file.realPath || file.filePath;
   return !!target && fs.existsSync(target);
+}
+
+function projectExternalFileAvailability(file, now: () => number) {
+  if (file.storageKind !== "external" || file.status === "expired") return file;
+  const target = file.realPath || file.filePath;
+  if (!target) return file;
+  try {
+    fs.statSync(target);
+  } catch (error) {
+    if (error?.code !== "ENOENT" && error?.code !== "ENOTDIR") return file;
+    return { ...file, status: "missing", missingAt: file.missingAt ?? now() };
+  }
+  return file.status === "missing" ? { ...file, status: "available", missingAt: null } : file;
 }
 
 function isInsideRoot(filePath, root) {

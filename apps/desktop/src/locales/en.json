@@ -140,6 +140,8 @@
     }
   },
   "sidebar": {
+    "sessionListFailed": "Could not load chats.",
+    "sessionListRetry": "Retry",
     "title": "Chats",
     "newChat": "New Chat",
     "collapse": "Collapse sidebar",
@@ -484,8 +486,8 @@
       "Just say whatever comes to mind."
     ],
     "memoryOn": "Memory",
-    "memoryOff": "Memory not used for this chat",
-    "memoryDisabled": "Memory is off",
+    "memoryOff": "Memory off for this chat (including pins)",
+    "memoryDisabled": "Memory is off (including pins)",
     "agentSelector": "Choose agent",
     "placeholderTips": [
       "Type / to bring up the command menu",
@@ -1970,7 +1972,7 @@
     },
     "pins": {
       "title": "Pinned Memories",
-      "hint": "Always injected into conversations, never decay",
+      "hint": "The assistant uses pins when memory is on. Disabling memory for a chat or assistant keeps pins saved.",
       "empty": "No pinned memories yet",
       "delete": "Delete",
       "addPlaceholder": "Add a pinned memory..."
@@ -2741,7 +2743,16 @@
       },
       "status": {
         "available": "Available",
-        "expired": "Expired"
+        "expired": "Expired",
+        "missing": "Missing"
+      },
+      "filters": {
+        "label": "Filter conversation files",
+        "all": "All files",
+        "availableWithoutEmbeddedMedia": "Available without embedded media",
+        "hideEmbeddedMedia": "Hide embedded document media",
+        "hideUnavailable": "Hide unavailable files",
+        "empty": "No files match these filters."
       }
     },
     "jian": {
@@ -3008,6 +3019,8 @@
     "pinnedRemoved": "Removed {count} items: {items}",
     "expEmpty": "Experience library is empty.",
     "expCategoryNotFound": "No experience found for category \"{category}\".",
+    "expIndexMore": "{count} more entries. Open the category to see them.",
+    "expQueryNoMatches": "No categories match that search.",
     "expEmptyInput": "Category name and experience content cannot be empty.",
     "expDuplicate": "This experience has already been recorded.",
     "expRecorded": "Experience recorded [{category}]: {content}",

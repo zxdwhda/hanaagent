@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../stores';
+import zh from '../../../locales/zh.json';
 
 const mocks = vi.hoisted(() => ({
   hanaFetch: vi.fn(async (_path: string, _opts?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200 })),
@@ -36,9 +37,9 @@ const translations: Record<string, string | string[] | Record<string, { avatar: 
   'input.addExternalFolder': '添加工作台以外的文件夹',
   'welcome.messages': ['想到什么就说什么吧~'],
   'yuan.welcome.hanako': ['想到什么就说什么吧~'],
-  'welcome.memoryOn': '记忆',
-  'welcome.memoryOff': '此次聊天不参考记忆',
-  'welcome.memoryDisabled': '记忆已关闭',
+  'welcome.memoryOn': zh.welcome.memoryOn,
+  'welcome.memoryOff': zh.welcome.memoryOff,
+  'welcome.memoryDisabled': zh.welcome.memoryDisabled,
   'yuan.types': { hanako: { avatar: 'Hanako.png' } },
 };
 
@@ -250,11 +251,26 @@ describe('WelcomeScreen workspace picker', () => {
     const { WelcomeScreen } = await import('../../components/WelcomeScreen');
 
     render(<WelcomeScreen />);
-    const button = screen.getByRole('button', { name: '记忆已关闭' });
+    const button = screen.getByRole('button', { name: '记忆已关闭（含置顶）' });
     fireEvent.click(button);
 
     expect((button as HTMLButtonElement).disabled).toBe(true);
     expect(useStore.getState().memoryEnabled).toBe(true);
+  });
+
+  it('explains that disabling memory for this chat also disables pinned memory', async () => {
+    useStore.setState({
+      agents: [
+        { id: 'hana', name: 'Hanako', yuan: 'hanako', isPrimary: true, memoryMasterEnabled: true },
+      ],
+      currentAgentId: 'hana',
+      memoryEnabled: true,
+    } as never);
+    const { WelcomeScreen } = await import('../../components/WelcomeScreen');
+
+    render(<WelcomeScreen />);
+    fireEvent.click(screen.getByRole('button', { name: '记忆' }));
+    expect(screen.getByRole('button', { name: '此次聊天不使用记忆（含置顶）' })).toBeInTheDocument();
   });
 
   it('selects the target agent workbench when choosing an agent on the welcome screen', async () => {
@@ -314,7 +330,7 @@ describe('WelcomeScreen workspace picker', () => {
           yuan: 'hanako',
           isPrimary: false,
           homeFolder: null,
-          effectiveHomeFolder: '/home/test/Desktop/OH-WorkSpace',
+          effectiveHomeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
         },
       ],
       currentAgentId: 'hana',
@@ -328,7 +344,7 @@ describe('WelcomeScreen workspace picker', () => {
     fireEvent.click(screen.getByRole('button', { name: /Mio/ }));
 
     expect(useStore.getState().selectedAgentId).toBe('mio');
-    expect(useStore.getState().selectedFolder).toBe('/home/test/Desktop/OH-WorkSpace');
+    expect(useStore.getState().selectedFolder).toBe('/fixture-homes/test/Desktop/OH-WorkSpace');
   });
 
   it('does not reload the visible workspace when two agents resolve to the same folder', async () => {
@@ -339,23 +355,23 @@ describe('WelcomeScreen workspace picker', () => {
           name: 'Hanako',
           yuan: 'hanako',
           isPrimary: true,
-          homeFolder: '/home/test/Desktop/OH-WorkSpace',
-          effectiveHomeFolder: '/home/test/Desktop/OH-WorkSpace',
+          homeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
+          effectiveHomeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
         },
         {
           id: 'mio',
           name: 'Mio',
           yuan: 'hanako',
           isPrimary: false,
-          homeFolder: '/home/test/Desktop/OH-WorkSpace',
-          effectiveHomeFolder: '/home/test/Desktop/OH-WorkSpace',
+          homeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
+          effectiveHomeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
         },
       ],
       currentAgentId: 'hana',
       selectedAgentId: null,
-      selectedFolder: '/home/test/Desktop/OH-WorkSpace',
-      deskBasePath: '/home/test/Desktop/OH-WorkSpace',
-      homeFolder: '/home/test/Desktop/OH-WorkSpace',
+      selectedFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
+      deskBasePath: '/fixture-homes/test/Desktop/OH-WorkSpace',
+      homeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
     } as never);
     const deskActions = await import('../../stores/desk-actions');
     const activateSpy = vi.spyOn(deskActions, 'activateWorkspaceDesk');
@@ -365,7 +381,7 @@ describe('WelcomeScreen workspace picker', () => {
     fireEvent.click(screen.getByRole('button', { name: /Mio/ }));
 
     expect(useStore.getState().selectedAgentId).toBe('mio');
-    expect(useStore.getState().selectedFolder).toBe('/home/test/Desktop/OH-WorkSpace');
+    expect(useStore.getState().selectedFolder).toBe('/fixture-homes/test/Desktop/OH-WorkSpace');
     expect(activateSpy).not.toHaveBeenCalled();
   });
 });

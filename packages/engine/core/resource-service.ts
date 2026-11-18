@@ -63,6 +63,12 @@ export class ResourceService {
         code: "resource_expired",
       });
     }
+    if (file.status === "missing") {
+      throw new ResourceError("resource content missing", {
+        status: 404,
+        code: "resource_content_missing",
+      });
+    }
     if (file.isDirectory) {
       throw new ResourceError("resource content is not available for directories", {
         status: 409,

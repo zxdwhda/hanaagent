@@ -136,7 +136,14 @@ export function resolveSessionNodeTarget(
         break;
       }
     }
-    if (!selectedEntry) throw new Error("assistant_turn has no completed assistant message");
+    if (!selectedEntry) {
+      // The transcript can show a failed response even when only the user
+      // input reached the session file. Retry can replay that persisted input.
+      if (mode !== "retry" || !userEntry || isHiddenTurnInputMessage(userEntry.message)) {
+        throw new Error("assistant_turn has no completed assistant message");
+      }
+      selectedEntry = userEntry;
+    }
   }
 
   const selectedUser = target.role === "user" ? userEntry : null;

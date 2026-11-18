@@ -108600,6 +108600,11 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/resource-io/agent-tools.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
           "kind": "import-statement"
         },
@@ -108634,7 +108639,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/resource-io/providers/local-fs-provider.ts (import-statement); packages/engine/lib/resource-io/providers/mount-provider.ts (import-statement); packages/engine/lib/resource-io/providers/resource-provider.ts (import-statement); +4 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/resource-io/agent-tools.ts (import-statement); packages/engine/lib/resource-io/providers/local-fs-provider.ts (import-statement); packages/engine/lib/resource-io/providers/mount-provider.ts (import-statement); +5 more importer(s)."
     },
     {
       "path": "packages/engine/lib/resource-io/materialize-tool.ts",

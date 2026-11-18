@@ -614,6 +614,58 @@ describe("sessions route", () => {
     expect(data.workspaceLabel).toBe("Docs");
   });
 
+  it("deduplicates concurrent and repeated detached creates for one request ID", async () => {
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const app = new Hono();
+    const receipt = { sessionPath: "/tmp/agents/hana/sessions/one.jsonl", sessionId: "sess_one", agentId: "hana" };
+    const creation = Promise.withResolvers<typeof receipt>();
+    const engine = { createDetachedSession: vi.fn(() => creation.promise) };
+    const hub = { eventBus: { emit: vi.fn() } };
+    app.route("/api", createSessionsRoute(engine, hub));
+    const post = (extra: object = {}) => app.request("/api/sessions/new-detached", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: "11111111111111111111111111111111", ...extra }),
+    });
+    const first = post();
+    const same = post();
+    await vi.waitFor(() => expect(engine.createDetachedSession).toHaveBeenCalledOnce());
+    expect((await post({ memoryEnabled: false })).status).toBe(409);
+    creation.resolve(receipt);
+
+    const replies = await Promise.all([first, same, post()]);
+    const data = await Promise.all(replies.map((response) => response.json()));
+    expect(replies.map((response) => response.status)).toEqual([200, 200, 200]);
+    expect(data.map(({ sessionId }) => sessionId)).toEqual(["sess_one", "sess_one", "sess_one"]);
+    expect(engine.createDetachedSession).toHaveBeenCalledOnce();
+    expect(hub.eventBus.emit).toHaveBeenCalledOnce();
+  });
+
+  it("uses the original detached session if a post-create update needs a retry", async () => {
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const app = new Hono();
+    const engine = {
+      createDetachedSession: vi.fn(async () => ({
+        sessionPath: "/tmp/agents/hana/sessions/one.jsonl", sessionId: "sess_one", agentId: "hana",
+      })),
+      updateConfig: vi.fn().mockRejectedValueOnce(new Error("temporary settings failure")).mockResolvedValue(null),
+    };
+    app.route("/api", createSessionsRoute(engine));
+    const post = () => app.request("/api/sessions/new-detached", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: "22222222222222222222222222222222", cwd: tmpDir, recordWorkspaceHistory: true,
+      }),
+    });
+    expect((await post()).status).toBe(500);
+    const retried = await post();
+    expect(retried.status).toBe(200);
+    expect(await retried.json()).toMatchObject({ sessionId: "sess_one" });
+    expect(engine.createDetachedSession).toHaveBeenCalledOnce();
+    expect(engine.updateConfig).toHaveBeenCalledTimes(2);
+  });
+
   it("creates a detached session without switching the focused session", async () => {
     const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();

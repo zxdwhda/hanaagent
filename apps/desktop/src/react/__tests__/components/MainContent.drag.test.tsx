@@ -119,6 +119,26 @@ describe('MainContent app file drag attachments', () => {
     expect(overlay).not.toHaveClass('visible');
   });
 
+  it('shows the failed attachment and its display reason without surfacing raw server paths', async () => {
+    const { attachFilesFromPaths } = await import('../../MainContent');
+    window.t = ((key, values) => key + (values?.files ? ': ' + values.files : '')) as typeof window.t;
+    useStore.setState({ toasts: [] });
+    vi.mocked(hanaFetch).mockResolvedValueOnce(jsonResponse({ uploads: [
+      { src: '/tmp/valid.txt', dest: '/uploads/valid.txt', name: 'valid.txt' },
+      {
+        src: '/tmp/missing-folder', error: 'Private server path: /tmp/private-server-root',
+        failureReason: 'Path not found',
+      },
+    ] }));
+
+    await attachFilesFromPaths(['/tmp/valid.txt', '/tmp/missing-folder']);
+
+    expect(useStore.getState().attachedFiles).toMatchObject([{ name: 'valid.txt' }]);
+    const [toast] = useStore.getState().toasts;
+    expect(toast.text).toContain('missing-folder: Path not found');
+    expect(toast.text).not.toContain('/tmp/');
+  });
+
   it('clamps unmatched dragleave events and resets on dragend cancellation', () => {
     const { container } = render(<MainContent><div>chat</div></MainContent>);
     const root = container.querySelector('.main-content');
@@ -174,7 +194,7 @@ describe('MainContent app file drag attachments', () => {
       currentTab: 'chat',
       deskBasePath: 'studio:mount_docs',
       deskWorkspaceMountId: 'mount_docs',
-      deskWorkspaceNativeRoot: '/Users/me/docs',
+      deskWorkspaceNativeRoot: '/fixture-homes/me/docs',
       deskFiles: [{ name: 'report.md', isDir: false }],
     } as never);
     const { attachAppFileDragPayloadToInput } = await import('../../MainContent');
@@ -185,14 +205,14 @@ describe('MainContent app file drag attachments', () => {
       files: [{
         id: 'workspace:report.md',
         name: 'report.md',
-        path: '/Users/me/docs/report.md',
+        path: '/fixture-homes/me/docs/report.md',
         sourceSubdir: '',
         isDirectory: false,
       }],
     });
 
     expect(useStore.getState().attachedFiles).toEqual([{
-      path: '/Users/me/docs/report.md',
+      path: '/fixture-homes/me/docs/report.md',
       name: 'report.md',
       isDirectory: false,
     }]);

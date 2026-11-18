@@ -235,6 +235,22 @@ describe('settings actions', () => {
     );
   });
 
+  it('reports a snapshot deadline when the server sends headers but never finishes the body', async () => {
+    vi.useFakeTimers();
+    try {
+      mockFetch.mockResolvedValue({ json: () => new Promise(() => {}) } as Response);
+      const { loadSettingsSnapshot } = await import('../../settings/actions');
+      const pending = loadSettingsSnapshot();
+      expect(mockState.settingsConfigStatus).toBe('loading');
+      await vi.advanceTimersByTimeAsync(30_000);
+      await pending;
+      expect(mockState.settingsConfigStatus).toBe('error');
+      expect(mockState.settingsSnapshot.status).toBe('error');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('loadSettingsSnapshot hydrates config, preferences, and plugin settings from one backend truth source', async () => {
     mockFetch.mockImplementation((path: string) => {
       if (path === '/api/settings/snapshot?agentId=agent-a') {

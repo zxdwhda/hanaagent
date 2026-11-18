@@ -27,10 +27,13 @@ import type { ChatMessage, ContentBlock } from './chat-types';
 import { readMessageLiveVersion } from './message-live-version';
 import type { SessionMetaRecoveryStatus, SessionPermissionMode } from '../types';
 import { findPrimaryAgent, resolveAgentWorkspace } from '../utils/agent-workspace';
+import { withRequestDeadline } from '../services/request-deadline';
+import { resolveServerConnection } from '../services/server-connection';
 
 // ── 防竞争计数器 ──
 
 let _switchVersion = 0;
+let _sessionListVersion = 0;
 let _switchAbortController: AbortController | null = null;
 let _pendingDraftSequence = 0;
 
@@ -175,13 +178,6 @@ function deleteSessionScopedStateValue(
   return next;
 }
 
-function isAbortError(err: unknown): boolean {
-  return !!err && typeof err === 'object' && (
-    (err as { name?: string }).name === 'AbortError' ||
-    (err as { message?: string }).message === 'This operation was aborted'
-  );
-}
-
 function isDesktopShell(): boolean {
   return typeof window !== 'undefined' && !!(window as unknown as { hana?: unknown }).hana;
 }
@@ -270,7 +266,7 @@ async function requestActiveSessionStreamResume(path: string, isStreaming: boole
   }
 }
 
-async function resetDeskForSessionWorkspace({
+function resetDeskForSessionWorkspace({
   cwd,
   workspaceMountId,
   workspaceLabel,
@@ -278,12 +274,14 @@ async function resetDeskForSessionWorkspace({
   cwd?: string | null;
   workspaceMountId?: string | null;
   workspaceLabel?: string | null;
-}): Promise<void> {
+}): void {
   // Session 切换后的 cwd 以服务端显式返回值为准；右侧 desk 视图归 workspace/CWD 所有。
   // 切到同一 workspace 时保留当前子目录；切到不同 workspace 时恢复该 workspace 的上次子目录。
-  await activateWorkspaceDesk(cwd || null, {
+  void activateWorkspaceDesk(cwd || null, {
     mountId: workspaceMountId || null,
     label: workspaceLabel || null,
+  }).catch((err) => {
+    console.warn('[session] activate workspace after switch failed:', err);
   });
 }
 
@@ -333,9 +331,10 @@ function clearSessionRuntimeCaches(path: string): void {
 // 消息加载（从 app-messages-shim 迁移）
 // ══════════════════════════════════════════════════════
 
-export async function loadMessages(forPath?: string): Promise<void> {
+export async function loadMessages(forPath?: string, switchController?: AbortController): Promise<void> {
   const targetPath = forPath || useStore.getState().currentSessionPath;
   if (!targetPath) return;
+  const controller = switchController ?? new AbortController();
   const messageLiveVersionBefore = readMessageLiveVersion(targetPath);
   // 捕获 hydrate 前的 live 版本：若 fetch 期间有 tool_end 更新 todos，
   // 后面就跳过 hydrate 写入，避免旧快照覆盖刚收到的实时状态。
@@ -349,8 +348,10 @@ export async function loadMessages(forPath?: string): Promise<void> {
   // 通过后按 flight 结果决定是丢弃快照还是应用快照 + 重放 flight 期间的 upsert。
   useStore.getState().beginSessionFilesFlight(targetPath, myVersion);
   try {
-    const res = await hanaFetch(sessionMessagesUrl(targetPath));
-    const data = await res.json();
+    const data = await withRequestDeadline(controller, async () => {
+      const res = await hanaFetch(sessionMessagesUrl(targetPath), { signal: controller.signal });
+      return res.json();
+    });
     const latestVersion =
       sessionScopedValue(useStore.getState() as Record<string, any>, useStore.getState()._loadMessagesVersion, targetPath) ?? 0;
     if (latestVersion !== myVersion) {
@@ -420,10 +421,11 @@ export async function loadMessages(forPath?: string): Promise<void> {
       });
     }
   } catch (err) {
-    console.error('[loadMessages] error:', err);
     // fetch 失败也要清理本次 flight 记录，避免残留记录被后续 load 误判 version 冲突
     // （不消费返回值：失败路径不需要重放任何东西）。
     useStore.getState().consumeSessionFilesFlight(targetPath, myVersion);
+    if (switchController) throw err;
+    console.error('[loadMessages] error:', err);
   }
 }
 
@@ -557,9 +559,12 @@ export function reconcileCurrentSessionMessages(reason = 'unknown'): Promise<voi
 // 让健康检查探测的失败反过来拖垮或延后会话列表本身的加载。
 async function fetchSessionMetaRecoveryStatus(): Promise<SessionMetaRecoveryStatus | null> {
   try {
-    const res = await hanaFetch('/api/health');
-    const data = await res.json();
-    return (data && typeof data === 'object' && data.sessionStore) || null;
+    const controller = new AbortController();
+    return await withRequestDeadline(controller, async () => {
+      const res = await hanaFetch('/api/health', { signal: controller.signal });
+      const data = await res.json();
+      return (data && typeof data === 'object' && data.sessionStore) || null;
+    });
   } catch {
     return null;
   }
@@ -570,12 +575,20 @@ export async function loadSessions(): Promise<void> {
   // 第一个 hanaFetch 调用——调用方/测试对"/api/sessions 是这次加载的第一个
   // 请求"这个顺序有既有假设），紧接着不等待地发起 /api/health 探测：两个请求
   // 仍然背靠背同时打到网络上，只是调用顺序固定，不会因为并行而变得不确定。
-  const sessionsFetchPromise = hanaFetch('/api/sessions');
+  const version = ++_sessionListVersion;
+  useStore.setState({ sessionListStatus: 'loading' });
+  const controller = new AbortController();
+  const sessionsFetchPromise = withRequestDeadline(controller, async () => {
+    const res = await hanaFetch('/api/sessions', { signal: controller.signal });
+    const data: unknown = await res.json();
+    if (!Array.isArray(data)) throw new Error('Invalid session list response');
+    return data;
+  });
   const metaRecoveryPromise = fetchSessionMetaRecoveryStatus();
   try {
-    const res = await sessionsFetchPromise;
-    const data = await res.json();
-    const serverSessions = Array.isArray(data) ? data.map(normalizeServerSessionProjection) : [];
+    const data = await sessionsFetchPromise;
+    if (version !== _sessionListVersion) return;
+    const serverSessions = data.map(normalizeServerSessionProjection);
     const localSessions = useStore.getState().sessions || [];
     const sessions = mergeSessionsWithOptimisticFirstMessages(serverSessions, localSessions);
 
@@ -591,6 +604,7 @@ export async function loadSessions(): Promise<void> {
         : null;
       return {
         sessions,
+        sessionListStatus: 'ready',
         sessionLocatorsById,
         ...(currentLocatorPath && currentLocatorPath !== state.currentSessionPath
           ? { currentSessionPath: currentLocatorPath }
@@ -608,8 +622,11 @@ export async function loadSessions(): Promise<void> {
       // 首次加载：走完整的 switchSession 确保后端同步 + 消息加载
       await switchSession(sessions[0].path);
     }
-  } catch { /* ignore */ }
-  useStore.getState().setSessionMetaRecovery(await metaRecoveryPromise);
+  } catch {
+    if (version === _sessionListVersion) useStore.setState({ sessionListStatus: 'error' });
+  }
+  const metaRecovery = await metaRecoveryPromise;
+  if (version === _sessionListVersion) useStore.getState().setSessionMetaRecovery(metaRecovery);
 }
 
 const EMPTY_FIRST_MESSAGE_PLACEHOLDER = '(no messages)';
@@ -750,7 +767,7 @@ export async function switchSession(path: string): Promise<void> {
   useStore.setState({ pendingSessionSwitchPath: path });
 
   if (isDeletedAgentSession(path)) {
-    await switchDeletedAgentSession(path, myVersion);
+    await switchDeletedAgentSession(path);
     return;
   }
 
@@ -765,17 +782,19 @@ export async function switchSession(path: string): Promise<void> {
   const targetSessionId = sessionIdForPathFromState(s as Record<string, any>, path);
 
   try {
-    const res = await hanaFetch('/api/sessions/switch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        path,
-        ...(targetSessionId ? { sessionId: targetSessionId } : {}),
-        currentSessionPath: s.currentSessionPath,
-      }),
-      signal: abortController.signal,
+    const data = await withRequestDeadline(abortController, async () => {
+      const res = await hanaFetch('/api/sessions/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path,
+          ...(targetSessionId ? { sessionId: targetSessionId } : {}),
+          currentSessionPath: s.currentSessionPath,
+        }),
+        signal: abortController.signal,
+      });
+      return res.json();
     });
-    const data = await res.json();
     if (!isCurrentSwitch(myVersion, path)) return;
     if (data.error) {
       // 带上错误码，呈现层才能把它翻成人话；没有码的原生崩溃走兜底文案 + 详情。
@@ -838,7 +857,7 @@ export async function switchSession(path: string): Promise<void> {
     // 竞态守卫跳过 hydrate，store 丢失完整历史。提前加载可避免此竞态。
     const hasData = !!sessionScopedValue(useStore.getState() as Record<string, any>, useStore.getState().chatSessions, path);
     if (!hasData) {
-      await loadMessages(path);
+      await loadMessages(path, abortController);
       if (myVersion !== _switchVersion) return;
     }
 
@@ -882,13 +901,11 @@ export async function switchSession(path: string): Promise<void> {
       void reconcileCurrentSessionMessages('session_switch');
     }
 
-    await resetDeskForSessionWorkspace({
+    resetDeskForSessionWorkspace({
       cwd: data.cwd || null,
       workspaceMountId: data.workspaceMountId || null,
       workspaceLabel: data.workspaceLabel || null,
     });
-    if (myVersion !== _switchVersion) return;
-
     // 同步浏览器状态到 keyed store（服务端返回当前 session 的 browser 状态）
     if (path) {
       setBrowserStateForPath(path, {
@@ -957,7 +974,7 @@ export async function switchSession(path: string): Promise<void> {
     // Restore input focus only if the user is still in the chat surface that initiated the switch.
     requestChatInputFocus(path);
   } catch (err) {
-    if (myVersion !== _switchVersion || isAbortError(err)) return;
+    if (myVersion !== _switchVersion) return;
     useStore.setState((state: Record<string, any>) => (
       state.pendingSessionSwitchPath === path ? { pendingSessionSwitchPath: null } : {}
     ));
@@ -970,7 +987,7 @@ export async function switchSession(path: string): Promise<void> {
   }
 }
 
-async function switchDeletedAgentSession(path: string, version: number): Promise<void> {
+async function switchDeletedAgentSession(path: string): Promise<void> {
   const state = useStore.getState();
   const projection = findSessionProjection(path);
   const currentPath = state.currentSessionPath;
@@ -1015,13 +1032,11 @@ async function switchDeletedAgentSession(path: string, version: number): Promise
     docContextAttached: false,
   });
 
-  await resetDeskForSessionWorkspace({
+  resetDeskForSessionWorkspace({
     cwd: projection?.cwd || null,
     workspaceMountId: (projection as any)?.workspaceMountId || null,
     workspaceLabel: (projection as any)?.workspaceLabel || null,
   });
-  if (version !== _switchVersion) return;
-
   useStore.getState().clearQuotedSelection();
   emitSessionPermissionMode('read_only');
 
@@ -1041,6 +1056,8 @@ interface CreateNewSessionOptions {
 }
 
 type PendingSessionCreateBody = Record<string, any>;
+const pendingSessionCreateIds = new Map<string, string>();
+let attemptedPendingSessionDraftId: string | null = null;
 
 function buildPendingSessionCreateBody(state: Record<string, any>): PendingSessionCreateBody {
   const body: PendingSessionCreateBody = {
@@ -1075,21 +1092,58 @@ function pendingSessionCreateKey(body: PendingSessionCreateBody): string {
   return JSON.stringify(body);
 }
 
-function currentPendingSessionDraft(): { body: PendingSessionCreateBody; key: string } | null {
-  const state = useStore.getState() as Record<string, any>;
-  if (state.pendingNewSession !== true || !normalizeSessionId(state.pendingDraftId)) return null;
-  const body = buildPendingSessionCreateBody(state);
-  return { body, key: `${state.pendingDraftId}:${pendingSessionCreateKey(body)}` };
+function pendingSessionBackendKey(state: Record<string, any>): string {
+  const connection = resolveServerConnection(state);
+  if (!connection) return '';
+  return JSON.stringify([
+    connection.connectionId,
+    connection.serverId,
+    connection.serverNodeId,
+    connection.baseUrl,
+    connection.studioId,
+    connection.credentialKind,
+    connection.userId,
+    connection.platformAccountId,
+    connection.userId || connection.platformAccountId ? null : connection.token,
+  ]);
 }
 
-async function postPendingSessionCreate(body: PendingSessionCreateBody): Promise<any> {
-  const res = await hanaFetch('/api/sessions/new-detached', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    throwOnHttpError: false,
+function currentPendingSessionDraft(): { body: PendingSessionCreateBody; key: string; draftId: string } | null {
+  const state = useStore.getState() as Record<string, any>;
+  const draftId = normalizeSessionId(state.pendingDraftId);
+  if (state.pendingNewSession !== true || !draftId) return null;
+  const body = buildPendingSessionCreateBody(state);
+  return { body, draftId, key: `${draftId}:${state.selectedAgentId || state.currentAgentId || ''}:${pendingSessionCreateKey(body)}` };
+}
+
+function pendingSessionCreateRequestId(key: string): string {
+  const existing = pendingSessionCreateIds.get(key);
+  if (existing) return existing;
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const id = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  pendingSessionCreateIds.set(key, id);
+  if (pendingSessionCreateIds.size > 128) {
+    const oldest = pendingSessionCreateIds.keys().next().value;
+    if (oldest !== undefined) pendingSessionCreateIds.delete(oldest);
+  }
+  return id;
+}
+
+async function postPendingSessionCreate(draft: NonNullable<ReturnType<typeof currentPendingSessionDraft>>): Promise<any> {
+  const requestId = pendingSessionCreateRequestId(draft.key);
+  // Late defaults must not change the settings or request ID for this retry.
+  attemptedPendingSessionDraftId = draft.draftId;
+  const controller = new AbortController();
+  return withRequestDeadline(controller, async () => {
+    const res = await hanaFetch('/api/sessions/new-detached', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...draft.body, requestId }),
+      signal: controller.signal,
+      throwOnHttpError: false,
+    });
+    return res.json();
   });
-  return res.json();
 }
 
 function stageDetachedSessionForActivation(data: any, ref: Readonly<SessionRef>, state: Record<string, any>): void {
@@ -1128,17 +1182,26 @@ function stageDetachedSessionForActivation(data: any, ref: Readonly<SessionRef>,
 }
 
 export async function loadPendingNewSessionPermissionDefault(): Promise<SessionPermissionMode> {
+  const draftId = useStore.getState().pendingDraftId;
+  const controller = new AbortController();
+  let mode: SessionPermissionMode = 'ask';
   try {
-    const res = await hanaFetch('/api/preferences/session-permission-default');
-    const data = await res.json();
-    const mode = normalizeSessionPermissionMode(data.permissionMode);
-    if (isPendingNewSessionDraftView()) emitSessionPermissionMode(mode);
-    return mode;
+    const data = await withRequestDeadline(controller, async () => {
+      const res = await hanaFetch('/api/preferences/session-permission-default', { signal: controller.signal });
+      return res.json();
+    });
+    mode = normalizeSessionPermissionMode(data.permissionMode);
   } catch (err) {
     console.warn('[session] load permission default failed:', err);
-    if (isPendingNewSessionDraftView()) emitSessionPermissionMode('ask');
-    return 'ask';
   }
+  const latest = useStore.getState();
+  if (
+    isPendingNewSessionDraftView() && latest.pendingDraftId === draftId
+    && attemptedPendingSessionDraftId !== draftId && !latest.pendingNewSessionPermissionMode
+  ) {
+    emitSessionPermissionMode(mode);
+  }
+  return mode;
 }
 
 export async function createNewSession(options: CreateNewSessionOptions = {}): Promise<void> {
@@ -1165,6 +1228,7 @@ export async function createNewSession(options: CreateNewSessionOptions = {}): P
     ? options.projectId.trim()
     : null;
 
+  const identity = pendingNewSessionIdentityPatch();
   useStore.setState({
     welcomeVisible: true,
     currentSessionPath: null,
@@ -1177,7 +1241,7 @@ export async function createNewSession(options: CreateNewSessionOptions = {}): P
     selectedWorkspaceLabel: defaultWorkspaceLabel,
     workspaceFolders: [],
     selectedAgentId: selectedPrimaryAgentId,
-    ...pendingNewSessionIdentityPatch(),
+    ...identity,
     pendingProjectId,
     pendingNewSessionThinkingLevel: null,
     pendingNewSessionPermissionMode: null,
@@ -1186,30 +1250,33 @@ export async function createNewSession(options: CreateNewSessionOptions = {}): P
     docContextAttached: false,
   });
 
-  await activateWorkspaceDesk(defaultFolder, {
+  void activateWorkspaceDesk(defaultFolder, {
     mountId: defaultWorkspaceMountId,
     label: defaultWorkspaceLabel,
+  }).catch((err) => {
+    console.warn('[session] activate draft workspace failed:', err);
   });
 
   // 重置 context ring
   useStore.setState({ contextTokens: null, contextWindow: null, contextPercent: null });
-  await loadPendingNewSessionPermissionDefault();
-
-  try {
-    const res = await hanaFetch('/api/session-thinking-level?pendingNewSession=1');
-    const data = await res.json();
-    if (data.thinkingLevel && isPendingNewSessionDraftView()) {
-      useStore.getState().setThinkingLevel(data.thinkingLevel);
-      useStore.getState().setPendingNewSessionThinkingLevel(data.thinkingLevel);
-    }
-  } catch {
-    useStore.getState().setPendingNewSessionThinkingLevel(null);
+  requestChatInputFocus(null);
+  const controller = new AbortController();
+  const [, data] = await Promise.all([
+    loadPendingNewSessionPermissionDefault(),
+    withRequestDeadline(controller, async () => {
+      const res = await hanaFetch('/api/session-thinking-level?pendingNewSession=1', { signal: controller.signal });
+      return res.json();
+    }).catch(() => null),
+  ]);
+  const latest = useStore.getState();
+  if (!isPendingNewSessionDraftView() || latest.pendingDraftId !== identity.pendingDraftId) return;
+  if (data?.thinkingLevel && attemptedPendingSessionDraftId !== identity.pendingDraftId && !latest.pendingNewSessionThinkingLevel) {
+    latest.setThinkingLevel(data.thinkingLevel);
+    latest.setPendingNewSessionThinkingLevel(data.thinkingLevel);
   }
 
   // pending 状态下刷新 model 列表，让 ModelSelector 显示 agent Chat 默认 model
   loadModels();
-
-  requestChatInputFocus(null);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1222,10 +1289,13 @@ export async function ensureSession(expectedPendingDraftId?: string | null): Pro
     if (initialState.pendingNewSession !== true) return frozenSessionRefFromState(initialState);
     const draft = currentPendingSessionDraft();
     if (!draft) throw new Error('pending session draft identity is missing');
-    const draftId = normalizeSessionId(initialState.pendingDraftId);
+    const { draftId } = draft;
     if (expectedPendingDraftId && draftId !== expectedPendingDraftId) return null;
 
-    const data = await postPendingSessionCreate(draft.body);
+    const backendKey = pendingSessionBackendKey(initialState);
+    const data = await postPendingSessionCreate(draft);
+    const latestState = useStore.getState() as Record<string, any>;
+    if (pendingSessionBackendKey(latestState) !== backendKey) return null;
     // 带上错误码，呈现层才能把它翻成人话；没有码的原生崩溃走兜底文案 + 详情。
     if (data?.error) {
       const routeError = normalizeSessionRouteError(data);
@@ -1235,7 +1305,6 @@ export async function ensureSession(expectedPendingDraftId?: string | null): Pro
     if (!ref) throw new Error('session creation returned an incomplete session identity');
 
     const latestDraft = currentPendingSessionDraft();
-    const latestState = useStore.getState() as Record<string, any>;
     const stillOwnsPendingView = latestDraft?.key === draft.key
       && normalizeSessionId(latestState.pendingDraftId) === draftId;
     if (!stillOwnsPendingView) return ref;
@@ -1243,6 +1312,7 @@ export async function ensureSession(expectedPendingDraftId?: string | null): Pro
     stageDetachedSessionForActivation(data, ref, latestState);
     await switchSession(ref.sessionPath);
     const activated = useStore.getState() as Record<string, any>;
+    if (pendingSessionBackendKey(activated) !== backendKey) return null;
     if (activated.currentSessionId === ref.sessionId && activated.currentSessionPath === ref.sessionPath) {
       activated.clearDraft?.(HOME_DRAFT_KEY);
       activated.clearDraft?.(ref.sessionId);

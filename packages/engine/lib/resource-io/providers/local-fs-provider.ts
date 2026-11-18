@@ -215,17 +215,82 @@ export class LocalFsProvider {
     const trashId = `trash_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
     const namespace = normalizeTrashNamespace(options.namespace || "resource-io");
     const trashPath = path.join(this.trashRoot, namespace, trashId);
-    fs.mkdirSync(trashPath, { recursive: true });
+    fs.mkdirSync(path.dirname(trashPath), { recursive: true });
+    fs.mkdirSync(trashPath, { mode: 0o700 });
     const payloadPath = path.join(trashPath, "payload");
-    fs.renameSync(filePath, payloadPath);
-    fs.writeFileSync(path.join(trashPath, "metadata.json"), JSON.stringify({
-      schemaVersion: 1,
-      trashId,
-      originalPath: filePath,
-      originalName: path.basename(filePath),
-      deletedAt: new Date().toISOString(),
-      ...(options.metadata && typeof options.metadata === "object" ? options.metadata : {}),
-    }, null, 2) + "\n", "utf-8");
+    let copiedAcrossVolumes = false;
+    try {
+      // Publish recovery metadata before the original can disappear.
+      fs.writeFileSync(path.join(trashPath, "metadata.json"), JSON.stringify({
+        ...(options.metadata && typeof options.metadata === "object" ? options.metadata : {}),
+        schemaVersion: 1,
+        trashId,
+        originalPath: filePath,
+        originalName: path.basename(filePath),
+        deletedAt: new Date().toISOString(),
+      }, null, 2) + "\n", { encoding: "utf-8", flag: "wx" });
+      try {
+        fs.renameSync(filePath, payloadPath);
+      } catch (error) {
+        if (error?.code !== "EXDEV") throw error;
+        const pendingPayload = path.join(trashPath, ".pending-payload");
+        const sourceBefore = fs.lstatSync(filePath, { bigint: true });
+        const sourceRevisions = new Map([[filePath, sourceBefore]]);
+        fs.cpSync(filePath, pendingPayload, {
+          recursive: true,
+          errorOnExist: true,
+          force: false,
+          preserveTimestamps: true,
+          verbatimSymlinks: true,
+          filter: (entry) => {
+            const entryBefore = sourceRevisions.get(entry) || fs.lstatSync(entry, { bigint: true });
+            if (entryBefore.dev !== sourceBefore.dev) {
+              throw new ResourceIOError("A folder on a nested volume cannot be moved to trash with its parent.", {
+                code: "trash_nested_volume",
+                status: 409,
+              });
+            }
+            this.assertAllowed(entry, "read");
+            this.assertAllowed(entry, "delete");
+            sourceRevisions.set(entry, entryBefore);
+            return true;
+          },
+        });
+        fs.renameSync(pendingPayload, payloadPath);
+        // Verify every copied entry immediately before cleanup. An in-place
+        // descendant edit need not update the parent directory's metadata.
+        for (const [entry, before] of Array.from(sourceRevisions).reverse()) {
+          const after = fs.lstatSync(entry, { bigint: true, throwIfNoEntry: false });
+          if (!after || before.dev !== after.dev || before.ino !== after.ino
+            || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs
+            || before.size !== after.size || before.mode !== after.mode) {
+            throw new ResourceIOError("The original changed while being copied to trash. Try again.", {
+              code: "trash_source_changed",
+              status: 409,
+            });
+          }
+        }
+        copiedAcrossVolumes = true;
+      }
+    } catch (error) {
+      try {
+        fs.rmSync(trashPath, { recursive: true, force: true });
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], "Failed to trash the original and clean up its incomplete trash entry.");
+      }
+      throw error;
+    }
+    if (copiedAcrossVolumes) {
+      try {
+        fs.rmSync(filePath, { recursive: true });
+      } catch (error) {
+        // Directory removal can fail partway. Keep the complete recovery copy.
+        throw Object.assign(new ResourceIOError(`The recovery copy is saved in trash (${trashId}), but the original could not be fully removed.`, {
+          code: "trash_source_removal_failed",
+          status: 500,
+        }), { cause: error });
+      }
+    }
     return {
       resourceKey: localResourceKey(filePath),
       resource: this.resourceForPath(filePath),

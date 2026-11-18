@@ -534,6 +534,11 @@ export class SessionManifestStore {
         SET pin_order = @pinOrder, updated_at = @updatedAt
         WHERE session_id = @sessionId
       `),
+      setPinState: this.db.prepare(`
+        UPDATE session_manifests
+        SET pinned_at = @pinnedAt, pin_order = @pinOrder, updated_at = @updatedAt
+        WHERE session_id = @sessionId
+      `),
       minPinOrder: this.db.prepare(`
         SELECT MIN(pin_order) AS value
         FROM session_manifests
@@ -879,6 +884,26 @@ export class SessionManifestStore {
       updatedAt,
     });
     return this.getBySessionId(sessionId);
+  }
+
+  setPinState(sessionId, pinnedAt, pinOrder) {
+    return this.db.transaction(() => {
+      const updatedAt = this._now();
+      const result = this._stmts.setPinState.run({
+        sessionId,
+        pinnedAt: pinnedAt || null,
+        pinOrder: Number.isFinite(pinOrder) ? pinOrder : null,
+        updatedAt,
+      });
+      if (!pinnedAt && result.changes) {
+        this._stmts.setState.run({ key: `session-explicit-unpin-v1:${sessionId}`, valueJson: "true", updatedAt });
+      }
+      return this.getBySessionId(sessionId);
+    })();
+  }
+
+  hasExplicitUnpin(sessionId) {
+    return this.getState(`session-explicit-unpin-v1:${sessionId}`) === true;
   }
 
   /**

@@ -103,6 +103,27 @@ describe("T1: listSessions manifest query guard (session-coordinator)", () => {
     expect(found.sessionId == null).toBe(true);
   });
 
+  it("uses one manifest lookup per listed file while reading hibernated state", async () => {
+    const store = new SessionManifestStore({ dbPath: path.join(tempDir, "manifest.db") });
+    const manifest = store.createForPath({ sessionPath, ownerAgentId: "hana", domain: "desktop" });
+    const native = vi.spyOn(fs.realpathSync, "native");
+    const resolveByLocator = vi.spyOn(store, "resolveByLocatorPath");
+    try {
+      const coordinator = createCoordinator(store);
+      coordinator._hibernatedSessionMeta.set(manifest.sessionId, { permissionMode: "read_only" });
+
+      expect(await coordinator.listSessions()).toMatchObject([
+        { path: sessionPath, sessionId: manifest.sessionId, permissionMode: "read_only" },
+      ]);
+      expect(resolveByLocator).toHaveBeenCalledTimes(1);
+      // One lookup for filesystem deduplication, one for manifest identity.
+      expect(native.mock.calls.filter(([filePath]) => filePath === sessionPath)).toHaveLength(2);
+    } finally {
+      native.mockRestore();
+      store.close();
+    }
+  });
+
   it("does not publish a stale physical file whose manifest points at an archived locator", async () => {
     const healthyPath = path.join(sessionDir, "healthy.jsonl");
     fs.copyFileSync(sessionPath, healthyPath);

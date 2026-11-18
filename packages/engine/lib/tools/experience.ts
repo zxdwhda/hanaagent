@@ -2,7 +2,7 @@
  * experience.js — recall_experience / record_experience 工具
  *
  * 经验库采用渐进式披露：
- *   experience.md   — 索引（分类 + description + 路径），recall 无参时返回
+ *   experience.md   — 重建后的索引（分类 + description + 路径）
  *   experience/*.md  — 分类文件（数字列表），recall 有参时返回
  *
  * 索引由 rebuildIndex 自动生成，不手写。
@@ -26,38 +26,45 @@ const TITLE_META_RE = /^<!--\s*experience-title:\s*([A-Za-z0-9_-]+)\s*-->$/;
  *   - description：各条目前 ~20 字拼接，分号分隔
  *   - 路径引用：→ experience/{文件名}
  */
-export function rebuildIndex(experienceDir, indexPath) {
-  const docs = listExperienceDocuments(experienceDir);
-  if (docs.length === 0) {
-    // 目录不存在 → 清空索引
-    try { fs.writeFileSync(indexPath, "", "utf-8"); } catch {}
-    return;
-  }
-
+function renderExperienceIndex(docs: ReturnType<typeof listExperienceDocuments>) {
   const blocks = [];
 
   for (const doc of docs) {
     const entries = doc.body
       .split("\n")
-      .filter((l) => /^\d+\.\s/.test(l.trim()))
+      .map((line) => line.trim())
+      .filter((l) => /^\d+\.\s/.test(l))
       .map((l) => l.replace(/^\d+\.\s*/, "").trim());
 
     if (entries.length === 0) continue;
 
-    // description：每条取前 20 字，分号拼接，总长上限 120 字
-    const snippets = entries.map((e) =>
-      e.length > 20 ? e.slice(0, 20) + "…" : e,
-    );
-    let desc = snippets.join("; ");
-    if (desc.length > 120) desc = desc.slice(0, 117) + "…";
+    const snippets: string[] = [];
+    let length = 0;
+    for (const entry of entries) {
+      const snippet = entry.length > 20 ? entry.slice(0, 20) + "…" : entry;
+      const nextLength = length + snippet.length + (snippets.length > 0 ? 2 : 0);
+      if (nextLength > 120) break;
+      snippets.push(snippet);
+      length = nextLength;
+    }
+    const remaining = entries.length - snippets.length;
+    const note = remaining > 0 ? "\n" + t("error.expIndexMore", { count: remaining }) : "";
 
     blocks.push(
-      `# ${doc.title}（${entries.length} 条）\n${desc}\n→ experience/${doc.file}`,
+      `# ${doc.title}（${entries.length} 条）\n${snippets.join("; ")}${note}\n→ experience/${doc.file}`,
     );
   }
 
-  const indexContent = blocks.join("\n\n") + "\n";
-  fs.writeFileSync(indexPath, indexContent, "utf-8");
+  return blocks.length > 0 ? blocks.join("\n\n") + "\n" : "";
+}
+
+export function rebuildIndex(experienceDir, indexPath) {
+  const docs = listExperienceDocuments(experienceDir);
+  if (docs.length === 0) {
+    try { fs.writeFileSync(indexPath, "", "utf-8"); } catch {}
+    return;
+  }
+  fs.writeFileSync(indexPath, renderExperienceIndex(docs), "utf-8");
 }
 
 /**
@@ -157,10 +164,11 @@ export function createExperienceTools(agentDir, opts: { isEnabled?: () => boolea
   const recallTool = {
     name: "recall_experience",
     label: "Recall Experience",
-    description: "Browse the experience library. Without parameters, returns an overview of all categories. With a category name, returns specific experiences in that category. When the user asks you to do a concrete task (write code, research, create documents, analyze problems, etc.), check this tool first for relevant experience before starting. Not needed for casual chat, Q&A, or everyday conversation.",
+    description: "Browse the experience library. Without parameters, returns an overview with short previews. Use query to find category names containing an exact word or phrase across their full entries, then use category to read a specific category. When the user asks you to do a concrete task (write code, research, create documents, analyze problems, etc.), check this tool first for relevant experience before starting. Not needed for casual chat, Q&A, or everyday conversation.",
     sessionPermission: {
       resolveInvocation: (params: any = {}) => {
         if (params.category !== undefined && typeof params.category !== "string") return null;
+        if (params.query !== undefined && typeof params.query !== "string") return null;
         const category = typeof params.category === "string" ? params.category.trim() : "";
         if (!category) {
           return { action: "read", kind: "read", capability: "recall_experience.read" };
@@ -188,6 +196,9 @@ export function createExperienceTools(agentDir, opts: { isEnabled?: () => boolea
       category: Type.Optional(
         Type.String({ description: "Category name. Omit to get an overview of all categories" }),
       ),
+      query: Type.Optional(
+        Type.String({ description: "Case-insensitive literal word or phrase to find in full entries. Use without category." }),
+      ),
     }),
     execute: async (_toolCallId, params) => {
       if (!isExperienceEnabled(isEnabled)) return pausedResult();
@@ -195,16 +206,23 @@ export function createExperienceTools(agentDir, opts: { isEnabled?: () => boolea
       const category = params.category?.trim();
 
       if (!category) {
-        // 返回索引
-        const index = readFile(indexPath);
-        if (!index.trim()) {
+        const docs = listExperienceDocuments(experienceDir);
+        const query = params.query?.trim().toLowerCase();
+        if (query) {
+          const matches = docs.filter((doc) => doc.body.toLowerCase().includes(query));
           return {
-            content: [{ type: "text", text: t("error.expEmpty") }],
+            content: [{
+              type: "text",
+              text: matches.length > 0
+                ? matches.map(({ title, file }) => `- ${title} → experience/${file}`).join("\n")
+                : t("error.expQueryNoMatches"),
+            }],
             details: {},
           };
         }
+        // Build the overview from source files so external edits are reflected.
         return {
-          content: [{ type: "text", text: index }],
+          content: [{ type: "text", text: renderExperienceIndex(docs) || t("error.expEmpty") }],
           details: {},
         };
       }
@@ -355,7 +373,7 @@ function serializeExperienceDocument(title, body) {
 }
 
 export function parseExperienceDocument(content, fallbackTitle) {
-  const lines = content.split("\n");
+  const lines = content.split(/\r?\n/);
   const metaMatch = lines[0]?.match(TITLE_META_RE);
   if (!metaMatch) {
     return { title: fallbackTitle, body: content.trimEnd() };

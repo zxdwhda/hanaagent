@@ -1036,6 +1036,7 @@ export class SessionCoordinator {
   declare _turnContextBySession: Map<string, any>;
   declare _sessionManifestStore: any;
   declare _pinOrderBackfill: Promise<any> | null;
+  declare _pinMutationQueue: Promise<unknown>;
   declare _envChangeLedger: any;
   declare _ensureSessionLoadedInFlight: Map<string, Promise<any>>;
   declare _metaQuarantines: Map<string, { metaPath: string; backupPath: string; quarantinedAt: string }>;
@@ -1086,6 +1087,7 @@ export class SessionCoordinator {
     this._turnContextBySession = new Map();
     this._sessionManifestStore = deps.sessionManifestStore || null;
     this._pinOrderBackfill = null;
+    this._pinMutationQueue = Promise.resolve();
     this._envChangeLedger = deps.envChangeLedger || null;
     this._ensureSessionLoadedInFlight = new Map();
     // 运行期 session-meta 隔离记录：key 是 metaPath，value 是隔离详情。
@@ -1532,12 +1534,14 @@ export class SessionCoordinator {
     return this._sessionIdForPath(sessionPath) || sessionPath;
   }
 
-  _sessionTitleFromMap(titles: any, sessionPath: any, extraLegacyPaths: any[] = []) {
+  _sessionTitleFromMap(titles: any, sessionPath: any, extraLegacyPaths: any[] = [], knownSessionId?: string | null) {
     if (!titles || !sessionPath) return null;
     const keys: string[] = [];
     for (const candidate of [sessionPath, ...extraLegacyPaths]) {
       if (!candidate) continue;
-      const sessionId = this._sessionIdForPath(candidate);
+      const sessionId = candidate === sessionPath && knownSessionId !== undefined
+        ? knownSessionId
+        : this._sessionIdForPath(candidate);
       if (sessionId) keys.push(sessionId);
       keys.push(candidate);
       keys.push(path.basename(candidate));
@@ -2135,6 +2139,7 @@ export class SessionCoordinator {
         workspaceFolders: workspaceScope.workspaceFolders,
         authorizedFolders: folderScope.authorizedFolders,
         getAuthorizedFolders: () => this.getSessionAuthorizedFolders(sessionPathRef.current || sessionPathForMeta),
+        getSessionPath: () => sessionPathRef.current,
         agentDir: agent.agentDir,
         // Sizes the deferred-tool listing against the model this session froze.
         modelContextWindowTokens: effectiveModel?.contextWindow ?? null,
@@ -4529,10 +4534,15 @@ export class SessionCoordinator {
     return this.setSessionAuthorizedFolders(sessionPath, next);
   }
 
-  _sessionFolderEntry(sessionPath: any) {
+  _sessionFolderEntry(sessionPath: any, knownSessionId?: string | null) {
     if (!sessionPath) return null;
-    return this._getSessionEntryByPath(sessionPath)
-      || this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath)
+    const key = knownSessionId === undefined
+      ? this._sessionRuntimeKeyForPath(sessionPath, { warn: false })
+      : (knownSessionId || sessionPath);
+    return this._sessions.get(key)
+      || this._sessions.get(sessionPath)
+      || this._hibernatedSessionMeta.get(key)
+      || this._hibernatedSessionMeta.get(sessionPath)
       || null;
   }
 
@@ -6391,6 +6401,7 @@ export class SessionCoordinator {
       ...activeAgents.map(agent => ({ ...agent, agentDeleted: false })),
       ...deletedAgents.map(agent => ({ ...agent, agentDeleted: true })),
     ];
+    const legacyPinIds = new Set<string>();
 
     // 并行处理每个 agent，避免串行同步 I/O 阻塞事件循环
     const perAgent = await Promise.all(agents.map(async (agent) => {
@@ -6404,7 +6415,15 @@ export class SessionCoordinator {
         ]);
         const visibleSessions = [];
         for (const s of sessions) {
-          const title = this._sessionTitleFromMap(titles, s.path);
+          const manifest = this._resolveSessionManifestForPathQuiet(s.path);
+          if (manifest && (
+            manifest.lifecycle !== "active"
+            || manifest.domain !== "desktop"
+            || !manifest.currentLocator?.path
+            || path.resolve(manifest.currentLocator.path) !== path.resolve(s.path)
+          )) continue;
+          const sessionId = manifest?.sessionId || null;
+          const title = this._sessionTitleFromMap(titles, s.path, [], sessionId);
           if (title) s.title = title;
           s.agentId = agent.id;
           s.agentName = agent.name;
@@ -6416,16 +6435,7 @@ export class SessionCoordinator {
           }
           const sessKey = path.basename(s.path);
           const metaEntry = meta[sessKey];
-          const manifest = this._resolveSessionManifestForPathQuiet(s.path);
-          if (manifest && (
-            manifest.lifecycle !== "active"
-            || manifest.domain !== "desktop"
-            || !manifest.currentLocator?.path
-            || path.resolve(manifest.currentLocator.path) !== path.resolve(s.path)
-          )) {
-            continue;
-          }
-          const runtimeEntry = this._sessionFolderEntry(s.path);
+          const runtimeEntry = this._sessionFolderEntry(s.path, sessionId);
           if (hasSessionPermissionModeFields(runtimeEntry)) {
             s.permissionMode = normalizeSessionPermissionMode(runtimeEntry);
           } else if (hasSessionPermissionModeFields(metaEntry)) {
@@ -6433,12 +6443,11 @@ export class SessionCoordinator {
           } else if (manifest?.permissionModeSnapshot?.mode) {
             s.permissionMode = normalizeSessionPermissionMode(manifest.permissionModeSnapshot.mode);
           }
-          s.pinnedAt = typeof manifest?.pinnedAt === "string"
-            ? manifest.pinnedAt
-            : (typeof metaEntry?.pinnedAt === "string" ? metaEntry.pinnedAt : null);
-          s.pinOrder = Number.isFinite(manifest?.pinOrder)
+          const legacyPin = manifest?.pinnedAt ? null : this._legacySessionPin(manifest, metaEntry);
+          s.pinnedAt = manifest?.pinnedAt || legacyPin?.pinnedAt || null;
+          s.pinOrder = s.pinnedAt ? (Number.isFinite(manifest?.pinOrder)
             ? manifest.pinOrder
-            : (Number.isFinite(metaEntry?.pinOrder) ? metaEntry.pinOrder : null);
+            : (Number.isFinite(metaEntry?.pinOrder) ? metaEntry.pinOrder : null)) : null;
           s.projectId = typeof metaEntry?.projectId === "string" && metaEntry.projectId.trim()
             ? metaEntry.projectId.trim()
             : null;
@@ -6470,7 +6479,8 @@ export class SessionCoordinator {
             s.modelProvider = null;
           }
           if (!sessionMatchesListOptions(s, options)) continue;
-          s.sessionId = manifest?.sessionId || this._sessionIdForPath(s.path);
+          s.sessionId = sessionId;
+          if (sessionId && legacyPin) legacyPinIds.add(sessionId);
           visibleSessions.push(s);
         }
         return visibleSessions;
@@ -6534,7 +6544,7 @@ export class SessionCoordinator {
     }
 
     allSessions.sort((a, b) => b.modified - a.modified);
-    this._ensurePinOrderBackfill(allSessions);
+    this._ensurePinOrderBackfill(allSessions, legacyPinIds);
     return allSessions;
   }
 
@@ -6545,34 +6555,50 @@ export class SessionCoordinator {
    * pinned strip does not visibly shuffle on the upgrade. Runs in the
    * background: the list this was called with is already on its way out.
    */
-  _ensurePinOrderBackfill(projectedSessions: any[]) {
+  _ensurePinOrderBackfill(projectedSessions: any[], legacyPinIds = new Set<string>()) {
     const store = this._sessionManifestStore;
     if (!store || typeof store.getState !== "function") return;
     if (this._pinOrderBackfill) return;
-    if (store.getState(PIN_ORDER_BACKFILL_STATE_KEY)?.completedAt) return;
+    const backfillCompleted = !!store.getState(PIN_ORDER_BACKFILL_STATE_KEY)?.completedAt;
 
     const pending = projectedSessions
       .filter((session) => (
         typeof session?.pinnedAt === "string"
         && session.pinnedAt
-        && !Number.isFinite(session.pinOrder)
         && !!session.sessionId
+        && (legacyPinIds.has(session.sessionId) || (!backfillCompleted && !Number.isFinite(session.pinOrder)))
       ))
       .sort((a, b) => b.modified - a.modified);
+    if (!pending.length && backfillCompleted) return;
 
-    this._pinOrderBackfill = (async () => {
-      for (const [index, session] of pending.entries()) {
-        const pinOrder = (index + 1) * PIN_ORDER_STEP;
-        await this.writeSessionMeta(session.path, { pinOrder });
-        store.setPinOrder(session.sessionId, pinOrder);
+    this._pinOrderBackfill = this._queuePinMutation(async () => {
+      let ordered = 0;
+      let maxOrder = projectedSessions.reduce((max, session) => (
+        Number.isFinite(session.pinOrder) ? Math.max(max, session.pinOrder) : max
+      ), 0);
+      for (const session of pending) {
+        const current = store.getBySessionId(session.sessionId);
+        const sessionPath = current?.currentLocator?.path;
+        if (!sessionPath || current.lifecycle !== "active" || (current.pinnedAt && Number.isFinite(current.pinOrder))) continue;
+        const legacy = current.pinnedAt ? null : await this._readFreshLegacySessionPin(current, sessionPath);
+        const pinnedAt = current.pinnedAt || legacy?.pinnedAt;
+        if (!pinnedAt) continue;
+        const pinOrder = legacy?.pinOrder ?? (maxOrder += PIN_ORDER_STEP);
+        await this.writeSessionMeta(sessionPath, { pinnedAt, pinOrder });
+        await this._verifySessionPinnedState(sessionPath, pinnedAt, pinOrder);
+        if (legacy) store.setPinState(session.sessionId, pinnedAt, pinOrder);
+        else store.setPinOrder(session.sessionId, pinOrder);
         session.pinOrder = pinOrder;
-        this._emitSessionMetadataUpdated(session.path, { pinOrder });
+        this._emitSessionMetadataUpdated(sessionPath, { pinOrder });
+        ordered += 1;
       }
-      store.setState(PIN_ORDER_BACKFILL_STATE_KEY, {
-        completedAt: new Date().toISOString(),
-        ordered: pending.length,
-      });
-    })()
+      if (!backfillCompleted) {
+        store.setState(PIN_ORDER_BACKFILL_STATE_KEY, {
+          completedAt: new Date().toISOString(),
+          ordered,
+        });
+      }
+    })
       .catch((err) => {
         // Leaving the marker unset is the retry: the next list tries again.
         log.warn(`pin order backfill failed: ${err?.message || err}`);
@@ -6580,6 +6606,25 @@ export class SessionCoordinator {
       .finally(() => {
         this._pinOrderBackfill = null;
       });
+  }
+
+  _legacySessionPin(manifest: any, metaEntry: any) {
+    const pinnedAt = metaEntry?.pinnedAt;
+    if (typeof pinnedAt !== "string" || !Number.isFinite(Date.parse(pinnedAt))) return null;
+    try {
+      if (manifest?.sessionId && this._sessionManifestStore?.hasExplicitUnpin?.(manifest.sessionId)) return null;
+    } catch (err) {
+      log.warn(`legacy pin lookup failed for ${manifest.sessionId}: ${err?.message || err}`);
+      return null;
+    }
+    return { pinnedAt, pinOrder: Number.isFinite(metaEntry?.pinOrder) ? metaEntry.pinOrder : null };
+  }
+
+  async _readFreshLegacySessionPin(manifest: any, sessionPath: string) {
+    const metaPath = this._sessionMetaPathFor(sessionPath);
+    this.invalidateMetaCache(metaPath);
+    const meta = await this._readMetaCached(metaPath, { hydrate: false });
+    return this._legacySessionPin(manifest, meta[path.basename(sessionPath)]);
   }
 
   async saveSessionTitle(sessionPath: any, title: any) {
@@ -6608,16 +6653,26 @@ export class SessionCoordinator {
    * @returns {Promise<{pinnedAt: string|null, pinOrder: number|null}>}
    */
   async setSessionPinned(sessionRef: any, pinned: any) {
-    const { sessionId, sessionPath, manifest } = this._resolveSessionWriteRef(sessionRef, "setSessionPinned");
+    return this._queuePinMutation(() => this._setSessionPinned(sessionRef, pinned));
+  }
+
+  _queuePinMutation<T>(operation: () => Promise<T>) {
+    const pending = this._pinMutationQueue.then(operation, operation);
+    this._pinMutationQueue = pending;
+    return pending;
+  }
+
+  async _setSessionPinned(sessionRef: any, pinned: any) {
+    const { sessionId, sessionPath: requestedPath, manifest } = this._resolveSessionWriteRef(sessionRef, "setSessionPinned");
+    const sessionPath = manifest?.currentLocator?.path || requestedPath;
     const pinnedAt = pinned ? new Date().toISOString() : null;
     const pinOrder = pinned ? this._topPinOrder() : null;
     await this.writeSessionMeta(sessionPath, { pinnedAt, pinOrder });
+    await this._verifySessionPinnedState(sessionPath, pinnedAt, pinOrder);
     if (manifest || sessionId) {
       const targetSessionId = manifest?.sessionId || sessionId;
-      this._sessionManifestStore.setPinnedAt(targetSessionId, pinnedAt);
-      this._sessionManifestStore.setPinOrder(targetSessionId, pinOrder);
+      this._sessionManifestStore.setPinState(targetSessionId, pinnedAt, pinOrder);
     }
-    await this._verifySessionPinnedState(sessionPath, pinnedAt, pinOrder);
     this._emitSessionMetadataUpdated(sessionPath, { pinnedAt, pinOrder });
     return { pinnedAt, pinOrder };
   }
@@ -6638,6 +6693,10 @@ export class SessionCoordinator {
    * @returns {Promise<Array<{sessionId: string, pinOrder: number}>>}
    */
   async setSessionPinOrder(orderedRefs: any) {
+    return this._queuePinMutation(() => this._setSessionPinOrder(orderedRefs));
+  }
+
+  async _setSessionPinOrder(orderedRefs: any) {
     const refs = Array.isArray(orderedRefs) ? orderedRefs : null;
     if (!refs || refs.length === 0) {
       const error: any = new Error("setSessionPinOrder: at least one session is required");
@@ -6667,21 +6726,28 @@ export class SessionCoordinator {
       }
       seen.add(sessionId);
       const target = this._resolveSessionWriteRef({ sessionId }, "setSessionPinOrder");
-      if (!target.manifest?.pinnedAt) {
+      const legacy = !target.manifest?.pinnedAt && target.manifest?.lifecycle === "active"
+        ? await this._readFreshLegacySessionPin(target.manifest, target.sessionPath)
+        : null;
+      const pinnedAt = target.manifest?.pinnedAt || legacy?.pinnedAt;
+      if (!pinnedAt) {
         const error: any = new Error(`setSessionPinOrder: session ${sessionId} is not pinned`);
         error.code = "session_not_pinned";
         error.status = 400;
         error.sessionId = sessionId;
         throw error;
       }
-      resolved.push(target);
+      resolved.push({ ...target, pinnedAt, legacy });
     }
 
     const orders = [];
     for (const [index, target] of resolved.entries()) {
       const pinOrder = (index + 1) * PIN_ORDER_STEP;
-      await this.writeSessionMeta(target.sessionPath, { pinOrder });
-      this._sessionManifestStore.setPinOrder(target.manifest.sessionId, pinOrder);
+      const { pinnedAt } = target;
+      await this.writeSessionMeta(target.sessionPath, { pinnedAt, pinOrder });
+      await this._verifySessionPinnedState(target.sessionPath, pinnedAt, pinOrder);
+      if (target.legacy) this._sessionManifestStore.setPinState(target.manifest.sessionId, pinnedAt, pinOrder);
+      else this._sessionManifestStore.setPinOrder(target.manifest.sessionId, pinOrder);
       this._emitSessionMetadataUpdated(target.sessionPath, { pinOrder });
       orders.push({ sessionId: target.manifest.sessionId, pinOrder });
     }
@@ -6833,7 +6899,7 @@ export class SessionCoordinator {
             return {
               path: full,
               sessionId: manifest?.sessionId || null,
-              title: this._sessionTitleFromMap(titles, full, [activeKey]) || null,
+              title: this._sessionTitleFromMap(titles, full, [activeKey], manifest?.sessionId || null) || null,
               archivedAt: stat.mtime.toISOString(),
               sizeBytes: stat.size,
               agentId: agent.id,

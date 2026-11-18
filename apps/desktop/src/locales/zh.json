@@ -140,6 +140,8 @@
     }
   },
   "sidebar": {
+    "sessionListFailed": "对话列表加载失败。",
+    "sessionListRetry": "重试",
     "title": "对话",
     "newChat": "新对话",
     "collapse": "收起侧边栏",
@@ -484,8 +486,8 @@
       "想到什么就说什么吧～"
     ],
     "memoryOn": "记忆",
-    "memoryOff": "此次聊天不参考记忆",
-    "memoryDisabled": "记忆已关闭",
+    "memoryOff": "此次聊天不使用记忆（含置顶）",
+    "memoryDisabled": "记忆已关闭（含置顶）",
     "agentSelector": "选择助手",
     "placeholderTips": [
       "试试输入 / 唤起命令菜单",
@@ -1970,7 +1972,7 @@
     },
     "pins": {
       "title": "置顶记忆",
-      "hint": "你主动告诉助手一定要记住的东西，也可以手动编辑与添加",
+      "hint": "开启记忆时，助手会参考这些内容。关闭当前会话或助手的记忆时，置顶内容仍会保存。",
       "empty": "还没有置顶记忆",
       "delete": "删除",
       "addPlaceholder": "添加一条置顶记忆..."
@@ -2741,7 +2743,16 @@
       },
       "status": {
         "available": "可用",
-        "expired": "已过期"
+        "expired": "已过期",
+        "missing": "文件已不在原位置"
+      },
+      "filters": {
+        "label": "筛选对话文件",
+        "all": "全部文件",
+        "availableWithoutEmbeddedMedia": "仅可用的非内嵌文件",
+        "hideEmbeddedMedia": "隐藏文档内嵌媒体",
+        "hideUnavailable": "隐藏失效文件",
+        "empty": "没有符合筛选条件的文件"
       }
     },
     "jian": {
@@ -3003,6 +3014,8 @@
     "pinnedRemoved": "已移除 {count} 条：{items}",
     "expEmpty": "经验库为空。",
     "expCategoryNotFound": "没有找到分类「{category}」的经验。",
+    "expIndexMore": "另有 {count} 条未在预览中展示，可查看此分类的完整内容。",
+    "expQueryNoMatches": "没有分类包含该查询词。",
     "expEmptyInput": "分类名和经验内容不能为空。",
     "expDuplicate": "这条经验已经记录过了。",
     "expRecorded": "已记录经验 [{category}]：{content}",

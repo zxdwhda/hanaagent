@@ -134,6 +134,7 @@ describe("SessionCoordinator", () => {
     const resourceLoader = {
       getSystemPrompt: () => "BASE",
     };
+    const buildTools = vi.fn((_cwd, _toolSnapshot, _options) => ({ tools: [], customTools: [] }));
 
     const coordinator = new SessionCoordinator({
       agentsDir: "/tmp/agents",
@@ -147,7 +148,7 @@ describe("SessionCoordinator", () => {
       }),
       getResourceLoader: () => resourceLoader,
       getSkills: () => null,
-      buildTools: () => ({ tools: [], customTools: [] }),
+      buildTools,
       emitEvent: () => {},
       getHomeCwd: () => "/tmp/home",
       agentIdFromSessionPath: () => null,
@@ -165,6 +166,7 @@ describe("SessionCoordinator", () => {
     expect(agent.setMemoryEnabled).not.toHaveBeenCalled();
     expect(createAgentSessionMock).toHaveBeenCalledOnce();
     expect(createAgentSessionMock.mock.calls[0][0].resourceLoader.getSystemPrompt()).toBe("MEMORY OFF");
+    expect(buildTools.mock.calls[0][2].getSessionPath()).toBe("/tmp/session.jsonl");
   });
 
   it("keeps the base prompt cwd-free and appends the fresh workspace scope and instructions", async () => {

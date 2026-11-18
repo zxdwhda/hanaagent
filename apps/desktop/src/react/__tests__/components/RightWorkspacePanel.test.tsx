@@ -52,6 +52,8 @@ const tMap: Record<string, string> = {
   'rightWorkspace.sessionFiles.title': '对话文件',
   'rightWorkspace.sessionFiles.status.expired': '已过期',
   'rightWorkspace.sessionFiles.status.available': '可用',
+  'rightWorkspace.sessionFiles.status.missing': '文件已不在原位置',
+  'rightWorkspace.sessionFiles.filters.label': '筛选对话文件',
   'rightWorkspace.sessionFiles.actions.preview': '预览',
   'rightWorkspace.sessionFiles.actions.open': '打开',
   'rightWorkspace.sessionFiles.actions.reveal': '定位',
@@ -559,6 +561,34 @@ describe('RightWorkspacePanel', () => {
     expect(screen.queryByRole('button', { name: '打开 report.pdf' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '定位 report.pdf' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '复制路径 report.pdf' })).not.toBeInTheDocument();
+  });
+
+  it('labels missing files, disables their open actions, and filters DOCX media without removing history', () => {
+    const sessionPath = '/sessions/main.jsonl';
+    const rows = [
+      { id: 'sf_original', filePath: '/test/original.docx', label: 'original.docx', origin: 'user_upload', status: 'available' },
+      { id: 'sf_image', filePath: '/test/original-image-1.png', label: 'original-image-1.png', origin: 'agent_read_docx_media', status: 'available' },
+      { id: 'sf_expired', filePath: '/test/expired.png', label: 'expired.png', origin: 'agent_read_docx_media', status: 'expired' },
+      { id: 'sf_missing', filePath: '/test/moved.txt', label: 'moved.txt', origin: 'stage_files', status: 'missing' },
+    ];
+    useStore.setState({ sessionRegistryFilesByPath: { [sessionPath]: rows } } as never);
+    render(<RightWorkspacePanel />);
+    fireEvent.click(screen.getByRole('tab', { name: '对话文件' }));
+
+    const missing = screen.getByText('moved.txt').closest('[data-session-file-row]') as HTMLElement;
+    expect(missing).toHaveAttribute('draggable', 'false');
+    expect(within(missing).getByText('文件已不在原位置')).toBeInTheDocument();
+    expect(within(missing).getByRole('button', { name: '预览 moved.txt' })).toBeDisabled();
+
+    const filter = screen.getByRole('combobox', { name: '筛选对话文件' });
+    fireEvent.change(filter, { target: { value: 'no-embedded' } });
+    expect(screen.queryByText('original-image-1.png')).not.toBeInTheDocument();
+    expect(screen.getByText('moved.txt')).toBeInTheDocument();
+    fireEvent.change(filter, { target: { value: 'available-no-embedded' } });
+    expect(screen.getAllByTestId('session-file-name').map(node => node.textContent)).toEqual(['original.docx']);
+    fireEvent.change(filter, { target: { value: 'all' } });
+    expect(screen.getByText('expired.png')).toBeInTheDocument();
+    expect(useStore.getState().sessionRegistryFilesByPath[sessionPath]).toEqual(rows);
   });
 
   it('sorts session files without a manual refresh or add entry', () => {

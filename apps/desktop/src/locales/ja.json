@@ -140,6 +140,8 @@
     }
   },
   "sidebar": {
+    "sessionListFailed": "チャット一覧を読み込めませんでした。",
+    "sessionListRetry": "再試行",
     "title": "チャット",
     "newChat": "新しいチャット",
     "collapse": "サイドバーを折りたたむ",
@@ -484,8 +486,8 @@
       "思いついたことをそのまま話してください"
     ],
     "memoryOn": "記憶",
-    "memoryOff": "このチャットでは記憶を使用しません",
-    "memoryDisabled": "記憶はオフです",
+    "memoryOff": "このチャットでは記憶を使用しません（固定を含む）",
+    "memoryDisabled": "記憶はオフです（固定を含む）",
     "agentSelector": "エージェントを選択",
     "placeholderTips": [
       "/ を入力するとコマンドメニューが開きます",
@@ -1901,7 +1903,7 @@
     },
     "pins": {
       "title": "固定された記憶",
-      "hint": "常に会話に挿入され、減衰しません",
+      "hint": "記憶がオンのとき、アシスタントは固定した記憶を参照します。会話やアシスタントの記憶をオフにしても、固定した内容は保存されます。",
       "empty": "固定された記憶はまだありません",
       "delete": "削除",
       "addPlaceholder": "固定する記憶を追加..."
@@ -2742,7 +2744,16 @@
       },
       "status": {
         "available": "利用可能",
-        "expired": "期限切れ"
+        "expired": "期限切れ",
+        "missing": "元の場所にありません"
+      },
+      "filters": {
+        "label": "会話ファイルを絞り込む",
+        "all": "すべてのファイル",
+        "availableWithoutEmbeddedMedia": "利用可能な非埋め込みファイル",
+        "hideEmbeddedMedia": "文書の埋め込みメディアを隠す",
+        "hideUnavailable": "利用できないファイルを隠す",
+        "empty": "絞り込み条件に一致するファイルがありません"
       }
     },
     "jian": {
@@ -3004,6 +3015,8 @@
     "pinnedRemoved": "{count} 件を削除しました：{items}",
     "expEmpty": "経験ライブラリは空です。",
     "expCategoryNotFound": "カテゴリ「{category}」の経験が見つかりません。",
+    "expIndexMore": "ほかに {count} 件あります。カテゴリを開くとすべて表示されます。",
+    "expQueryNoMatches": "検索語を含むカテゴリはありません。",
     "expEmptyInput": "カテゴリ名と経験内容は空にできません。",
     "expDuplicate": "この経験は既に記録されています。",
     "expRecorded": "経験を記録しました [{category}]：{content}",

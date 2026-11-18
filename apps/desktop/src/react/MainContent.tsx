@@ -167,7 +167,9 @@ export async function attachFilesFromPaths(
           waveform: item.waveform || metadataByPath[item.src]?.waveform,
         });
       } else if (item.error) {
-        failed.push(nameMap[item.src] || baseName(item.src));
+        const name = baseName(nameMap[item.src] || item.src);
+        const reason = typeof item.failureReason === 'string' && item.failureReason.trim();
+        failed.push(reason ? name + ': ' + reason : name);
       }
     }
     if (failed.length > 0) {

@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38",
+  "payloadFingerprint": "sha256:25843bfaea6274cfeffb1ec0e7bd41682e21f322882e7221a7a14c7b718aef4b",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,15 +3122,15 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Diary job status and request coalescing are in-process; existing diary files, memory records and data epoch retain their formats.",
-    "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38"
+    "compatibilityReason": "Session pin and legacy metadata reconciliation reuse existing tables and preserve prior session, file and recovery records. Explicit unpin uses a backward-compatible key in the manifest state table.",
+    "payloadFingerprint": "sha256:25843bfaea6274cfeffb1ec0e7bd41682e21f322882e7221a7a14c7b718aef4b"
   },
   "schemas": [
     {
       "contract": "user profile, DM, experience index, and diary Markdown conventions",
       "kind": "directory-contract",
       "module": "packages/engine/lib/tools/experience.ts",
-      "sourceHash": "sha256:8b502782c72332b1ad90b6e38a1659e3ecffd3e683a33b7b02368c8b238d4400",
+      "sourceHash": "sha256:2a17d3e2bd5e77a57fad0bd790e3b7f4c8313eb36f123e8dc2f1953b0095db0c",
       "storeId": "agent-authored-records"
     },
     {
@@ -3397,7 +3397,7 @@
       "contract": "sessionless upload naming and age-based cleanup protocol",
       "kind": "directory-contract",
       "module": "apps/server/routes/upload.ts",
-      "sourceHash": "sha256:8d15933d9a4a63dd672365dfae6a452413d68ad2195e6750fa07b3297a72aa4d",
+      "sourceHash": "sha256:51c805712189f68464df0e3f65ddc668f0976e7f207d700fb539341c5423eb18",
       "storeId": "legacy-upload-cache"
     },
     {
@@ -3536,7 +3536,7 @@
       "contract": "SessionFile payload naming, v1 sidecar, ownership, and 72-hour cold-session cleanup protocol",
       "kind": "directory-contract",
       "module": "packages/engine/lib/session-files/session-file-registry.ts",
-      "sourceHash": "sha256:d4774438a8be7db61782406e6a57bdbecf4c038d2806f9bf79ecb0754fc1295c",
+      "sourceHash": "sha256:6da452b866b421e2768b5e252dd595c8c9028f60f7a0428c1d4604f174bd4d3f",
       "storeId": "session-files"
     },
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:591d5ceb1f872d0f2876f5efb9f8f6f424fa87ce263a5280749087daeef46b04"
+          "sourceHash": "sha256:927dafc4ebc6533d1f9d42c0beb982f547295711f132a1a5c87d21bff23e56ba"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",
@@ -3635,7 +3635,7 @@
         ],
         "userVersion": 5
       },
-      "sourceHash": "sha256:1581ca74c72d7de100ad6cd4b095c0a4ca523e37cf711989afa4c4a0b05fb936",
+      "sourceHash": "sha256:e05df6f153ccf422a8cb75f0cb6f8c6b52881d51c0cc541223058eace8b59581",
       "storeId": "session-manifest-sqlite"
     },
     {
@@ -8549,6 +8549,22 @@
     },
     {
       "exemptionId": "external-resource-io",
+      "kind": "copy-file",
+      "ordinal": 0,
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "storeId": null
+    },
+    {
+      "exemptionId": "external-resource-io",
+      "kind": "mkdir",
+      "ordinal": 0,
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "storeId": null
+    },
+    {
+      "exemptionId": "external-resource-io",
       "kind": "mkdir",
       "ordinal": 0,
       "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
@@ -8590,6 +8606,30 @@
     {
       "exemptionId": "external-resource-io",
       "kind": "remove-path",
+      "ordinal": 0,
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "storeId": null
+    },
+    {
+      "exemptionId": "external-resource-io",
+      "kind": "remove-path",
+      "ordinal": 0,
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "storeId": null
+    },
+    {
+      "exemptionId": "external-resource-io",
+      "kind": "remove-path",
+      "ordinal": 0,
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "storeId": null
+    },
+    {
+      "exemptionId": "external-resource-io",
+      "kind": "rename",
       "ordinal": 0,
       "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
       "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",

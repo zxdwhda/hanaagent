@@ -44,6 +44,22 @@ describe("SessionManifestStore", () => {
     fs.symlinkSync(target, linkPath, process.platform === "win32" ? "junction" : "dir");
   }
 
+  it("reuses the known missing result while resolving a missing file below a directory alias", () => {
+    const target = path.join(tmpDir, "real-dir");
+    const alias = path.join(tmpDir, "alias");
+    fs.mkdirSync(target);
+    linkDirectory(target, alias);
+    const missing = path.join(alias, "missing", "session.jsonl");
+    const expected = path.join(fs.realpathSync.native(target), "missing", "session.jsonl");
+    const exists = vi.spyOn(fs, "existsSync");
+    try {
+      expect(sessionLocatorKey(missing)).toBe(process.platform === "win32" ? expected.toLocaleLowerCase("en-US") : expected);
+      expect(exists).not.toHaveBeenCalledWith(missing);
+    } finally {
+      exists.mockRestore();
+    }
+  });
+
   it("creates one durable session identity for a session file path", () => {
     const sessionPath = createSessionFile("alpha");
 

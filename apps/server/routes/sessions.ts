@@ -2,6 +2,7 @@
  * Session 管理 REST 路由
  */
 import { appendFileSync } from "fs";
+import { createHash } from "node:crypto";
 import fs from "fs/promises";
 import path from "path";
 import { Hono } from "hono";
@@ -338,9 +339,70 @@ async function readSessionFileRevision(sessionPath) {
   }
 }
 
+const DETACHED_CREATE_RESULT_TTL_MS = 30 * 60 * 1000;
+const MAX_DETACHED_CREATE_RESULTS = 128;
+
+type DetachedCreateRequest = {
+  fingerprint: string;
+  created?: { sessionPath: string; agentId: string; sessionId: string | null; cwd: string | null };
+  response?: Record<string, any>;
+  inFlight?: Promise<Record<string, any>>;
+  finishedAt: number;
+};
+
 export function createSessionsRoute(engine, hub = null) {
   const route = new Hono();
   const lifecycleLocks = new Map();
+  const detachedCreateRequests = new Map<string, DetachedCreateRequest>();
+
+  function pruneDetachedCreates() {
+    const cutoff = Date.now() - DETACHED_CREATE_RESULT_TTL_MS;
+    const results: [string, number][] = [];
+    for (const [key, request] of detachedCreateRequests) {
+      if (request.inFlight) continue;
+      if (request.finishedAt < cutoff) detachedCreateRequests.delete(key);
+      else results.push([key, request.finishedAt]);
+    }
+    const excess = results.length - MAX_DETACHED_CREATE_RESULTS;
+    if (excess > 0) {
+      results.sort((a, b) => a[1] - b[1]);
+      for (const [key] of results.slice(0, excess)) detachedCreateRequests.delete(key);
+    }
+  }
+
+  async function createDetachedOnce(
+    requestContext: ReturnType<typeof createRequestContext>,
+    requestId: unknown,
+    payload: Record<string, unknown>,
+    create: (request?: DetachedCreateRequest) => Promise<Record<string, any>>,
+  ) {
+    if (requestId === undefined) return create();
+    if (typeof requestId !== "string" || !/^[a-f0-9]{32}$/u.test(requestId)) {
+      throw routeError("Invalid detached session request ID", "invalid_session_create_request_id", 400);
+    }
+    const key = JSON.stringify([requestContext.studioId, requestContext.principalId, requestId]);
+    pruneDetachedCreates();
+    const fingerprint = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+    let request = detachedCreateRequests.get(key);
+    if (request && request.fingerprint !== fingerprint) {
+      throw routeError("Detached session request ID already used", "session_create_request_conflict", 409);
+    }
+    if (request?.response) return request.response;
+    if (request?.inFlight) return request.inFlight;
+    request ??= { fingerprint, finishedAt: 0 };
+    const entry = request;
+    const inFlight = Promise.resolve().then(() => create(entry)).then((response) => {
+      entry.response = response;
+      return response;
+    }).finally(() => {
+      entry.inFlight = undefined;
+      entry.finishedAt = Date.now();
+      pruneDetachedCreates();
+    });
+    entry.inFlight = inFlight;
+    detachedCreateRequests.set(key, entry);
+    return inFlight;
+  }
 
   function resolveSessionCacheLocator(sessionPath) {
     if (!sessionPath) return { cacheKey: null, readPath: null, sessionId: null };
@@ -2109,87 +2171,100 @@ export function createSessionsRoute(engine, hub = null) {
         return c.json({ error: "detached session creation unavailable" }, 500);
       }
 
-      const body = await safeJson(c);
-      const { memoryEnabled, agentId, permissionMode, thinkingLevel } = body;
-      const workspaceSelection = resolveSessionWorkspaceSelection(engine, requestContext, body);
-      const cwd = workspaceSelection.cwd;
-      const workspaceFolders = Array.isArray(body.workspaceFolders)
-        ? body.workspaceFolders.filter(p => typeof p === "string" && p.trim())
-        : [];
-      const memFlag = memoryEnabled !== false;
-      const projectId = Object.prototype.hasOwnProperty.call(body, "projectId")
-        ? (
-            typeof engine.normalizeSessionProjectAssignmentId === "function"
-              ? engine.normalizeSessionProjectAssignmentId(body.projectId)
-              : (typeof body.projectId === "string" && body.projectId.trim() ? body.projectId.trim() : null)
-          )
-        : null;
+      const { requestId, ...body } = await safeJson(c);
+      const response = await createDetachedOnce(requestContext, requestId, body, async (request?: DetachedCreateRequest) => {
+        const { memoryEnabled, agentId, permissionMode, thinkingLevel } = body;
+        const workspaceSelection = resolveSessionWorkspaceSelection(engine, requestContext, body);
+        const cwd = workspaceSelection.cwd;
+        const workspaceFolders = Array.isArray(body.workspaceFolders)
+          ? body.workspaceFolders.filter(p => typeof p === "string" && p.trim())
+          : [];
+        const memFlag = memoryEnabled !== false;
+        const projectId = Object.prototype.hasOwnProperty.call(body, "projectId")
+          ? (
+              typeof engine.normalizeSessionProjectAssignmentId === "function"
+                ? engine.normalizeSessionProjectAssignmentId(body.projectId)
+                : (typeof body.projectId === "string" && body.projectId.trim() ? body.projectId.trim() : null)
+            )
+          : null;
 
-      const detachedOptions: {
-        cwd: any;
-        memoryEnabled: boolean;
-        agentId: string | null;
-        workspaceFolders: any;
-        visibleInSessionList: boolean;
-        permissionMode: any;
-        thinkingLevel?: any;
-        workspaceMountId?: string;
-        workspaceLabel?: string | null;
-      } = {
-        cwd: cwd || undefined,
-        memoryEnabled: memFlag,
-        agentId: typeof agentId === "string" && agentId.trim() ? agentId.trim() : null,
-        workspaceFolders,
-        visibleInSessionList: true,
-        permissionMode: permissionMode || null,
-      };
-      if (thinkingLevel !== undefined && thinkingLevel !== null) {
-        detachedOptions.thinkingLevel = thinkingLevel;
-      }
-      if (workspaceSelection.mount?.mountId) {
-        detachedOptions.workspaceMountId = workspaceSelection.mount.mountId;
-        detachedOptions.workspaceLabel = workspaceSelection.mount.label || null;
-      }
+        const detachedOptions: {
+          cwd: any;
+          memoryEnabled: boolean;
+          agentId: string | null;
+          workspaceFolders: any;
+          visibleInSessionList: boolean;
+          permissionMode: any;
+          thinkingLevel?: any;
+          workspaceMountId?: string;
+          workspaceLabel?: string | null;
+        } = {
+          cwd: cwd || undefined,
+          memoryEnabled: memFlag,
+          agentId: typeof agentId === "string" && agentId.trim() ? agentId.trim() : null,
+          workspaceFolders,
+          visibleInSessionList: true,
+          permissionMode: permissionMode || null,
+        };
+        if (thinkingLevel !== undefined && thinkingLevel !== null) {
+          detachedOptions.thinkingLevel = thinkingLevel;
+        }
+        if (workspaceSelection.mount?.mountId) {
+          detachedOptions.workspaceMountId = workspaceSelection.mount.mountId;
+          detachedOptions.workspaceLabel = workspaceSelection.mount.label || null;
+        }
 
-      const result = await engine.createDetachedSession(detachedOptions);
-      const newSessionPath = result.sessionPath;
-      const newAgentId = result.agentId;
-      const newSessionId = result.sessionId || engine.getSessionIdForPath?.(newSessionPath) || null;
-      engine.persistSessionMeta?.(newSessionPath);
-      if (projectId && typeof engine.setSessionProjectAssignment === "function") {
-        await engine.setSessionProjectAssignment({ sessionPath: newSessionPath, projectId });
-      }
-      if (cwd && body.recordWorkspaceHistory === true) {
-        const history = mergeWorkspaceHistory(engine.config?.cwd_history, [cwd]);
-        await engine.updateConfig?.({ last_cwd: cwd, cwd_history: history });
-      }
+        let created = request?.created;
+        if (!created) {
+          const result = await engine.createDetachedSession(detachedOptions);
+          created = {
+            sessionPath: result.sessionPath,
+            agentId: result.agentId,
+            sessionId: result.sessionId || null,
+            cwd: null,
+          };
+          if (request) request.created = created;
+          created.cwd = result.session?.sessionManager?.getCwd?.() || null;
+        }
+        const { sessionPath: newSessionPath, agentId: newAgentId } = created;
+        const newSessionId = created.sessionId || engine.getSessionIdForPath?.(newSessionPath) || null;
+        engine.persistSessionMeta?.(newSessionPath);
+        if (projectId && typeof engine.setSessionProjectAssignment === "function") {
+          await engine.setSessionProjectAssignment({ sessionPath: newSessionPath, projectId });
+        }
+        if (cwd && body.recordWorkspaceHistory === true) {
+          const history = mergeWorkspaceHistory(engine.config?.cwd_history, [cwd]);
+          await engine.updateConfig?.({ last_cwd: cwd, cwd_history: history });
+        }
 
-      const resolvedPermissionMode = engine.getSessionPermissionMode?.(newSessionPath)
-        || permissionMode
-        || engine.permissionMode
-        || "ask";
-      const response = {
-        ok: true,
-        path: newSessionPath,
-        sessionId: newSessionId,
-        cwd: result.session?.sessionManager?.getCwd?.() || cwd || engine.cwd || null,
-        workspaceFolders: engine.getSessionWorkspaceFolders?.(newSessionPath) || workspaceFolders,
-        authorizedFolders: engine.getSessionAuthorizedFolders?.(newSessionPath) || [],
-        agentId: newAgentId,
-        agentName: engine.getAgent?.(newAgentId)?.agentName || newAgentId || engine.agentName,
-        projectId,
-        currentSessionPath: engine.currentSessionPath || null,
-        planMode: resolvedPermissionMode === "read_only",
-        permissionMode: resolvedPermissionMode,
-        accessMode: resolvedPermissionMode === "read_only" ? "read_only" : "operate",
-        thinkingLevel: normalizeSessionThinkingLevel(engine.getSessionThinkingLevel?.(newSessionPath) || engine.getThinkingLevel?.()),
-        memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
-        ...sessionWorkspaceMountFields(engine, newSessionPath, workspaceSelection.mount),
-      };
-      hub?.eventBus?.emit?.({
-        type: "session_created",
-        session: response,
-      }, newSessionPath);
+        const resolvedPermissionMode = engine.getSessionPermissionMode?.(newSessionPath)
+          || permissionMode
+          || engine.permissionMode
+          || "ask";
+        const response = {
+          ok: true,
+          path: newSessionPath,
+          sessionId: newSessionId,
+          cwd: created.cwd || cwd || engine.cwd || null,
+          workspaceFolders: engine.getSessionWorkspaceFolders?.(newSessionPath) || workspaceFolders,
+          authorizedFolders: engine.getSessionAuthorizedFolders?.(newSessionPath) || [],
+          agentId: newAgentId,
+          agentName: engine.getAgent?.(newAgentId)?.agentName || newAgentId || engine.agentName,
+          projectId,
+          currentSessionPath: engine.currentSessionPath || null,
+          planMode: resolvedPermissionMode === "read_only",
+          permissionMode: resolvedPermissionMode,
+          accessMode: resolvedPermissionMode === "read_only" ? "read_only" : "operate",
+          thinkingLevel: normalizeSessionThinkingLevel(engine.getSessionThinkingLevel?.(newSessionPath) || engine.getThinkingLevel?.()),
+          memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
+          ...sessionWorkspaceMountFields(engine, newSessionPath, workspaceSelection.mount),
+        };
+        hub?.eventBus?.emit?.({
+          type: "session_created",
+          session: response,
+        }, newSessionPath);
+        return response;
+      });
       return c.json(response);
     } catch (err) {
       const classified = classifySessionCreationError(err);

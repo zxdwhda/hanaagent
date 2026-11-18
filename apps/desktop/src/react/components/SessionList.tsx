@@ -12,7 +12,7 @@ import { useStore } from '../stores';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
 import { formatSessionDate } from '../utils/format';
-import { switchSession, archiveSession, renameSession, pinSession, createNewSession, reorderPinnedSessions } from '../stores/session-actions';
+import { loadSessions, switchSession, archiveSession, renameSession, pinSession, createNewSession, reorderPinnedSessions } from '../stores/session-actions';
 import { locateSearchHit } from '../stores/chat-find-actions';
 import { setBrowserStateForPath } from '../stores/browser-slice';
 import { sessionScopedListIncludes } from '../stores/session-slice';
@@ -182,6 +182,7 @@ export function SessionList() {
 function SessionListInner() {
   const { t } = useI18n();
   const sessions = useStore(s => s.sessions);
+  const sessionListStatus = useStore(s => s.sessionListStatus);
   const currentSessionPath = useStore(s => s.currentSessionPath);
   const pendingSessionSwitchPath = useStore(s => s.pendingSessionSwitchPath);
   const pendingNewSession = useStore(s => s.pendingNewSession);
@@ -726,9 +727,12 @@ function SessionListInner() {
     ));
   }
   const content = showEmptyState ? (
-    <div className={styles.sessionEmpty}>
-      {metaRecovery?.degraded ? t('sidebar.metaRecoveryEmpty') : t('sidebar.empty')}
-    </div>
+    sessionListStatus === 'error' ? null : (
+      <div className={styles.sessionEmpty} role="status">
+        {sessionListStatus === 'loading' ? t('common.loading')
+          : metaRecovery?.degraded ? t('sidebar.metaRecoveryEmpty') : t('sidebar.empty')}
+      </div>
+    )
   ) : isSearching ? (
     <SessionSearchResults
       titleResults={titleResults}
@@ -776,6 +780,14 @@ function SessionListInner() {
         onClear={() => setSearchQuery('')}
       />
       <div className={styles.sessionListScroller}>
+        {sessionListStatus === 'error' && (
+          <div className={styles.sessionEmpty}>
+            <span role="status">{t('sidebar.sessionListFailed')}</span>{' '}
+            <button className={styles.sessionListRetry} type="button" onClick={() => void loadSessions()}>
+              {t('sidebar.sessionListRetry')}
+            </button>
+          </div>
+        )}
         {content}
       </div>
       {projectMenuPosition && (

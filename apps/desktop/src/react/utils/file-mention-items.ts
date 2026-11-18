@@ -80,7 +80,7 @@ export function buildFileMentionItems({
   }
 
   for (const file of sessionFiles) {
-    if (!file.path || file.status === 'expired') continue;
+    if (!file.path || file.status === 'expired' || file.status === 'missing') continue;
     if (!matchesQuery(query, file.name, file.path)) continue;
     pushUnique(items, seen, {
       id: `session:${file.id}`,
