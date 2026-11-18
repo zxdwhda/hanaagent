@@ -58,6 +58,7 @@ import { useStore } from '../../stores';
 
 function jsonResponse(data: unknown) {
   return {
+    ok: true,
     json: async () => data,
   };
 }
@@ -311,7 +312,7 @@ describe('SessionList context menu', () => {
     expect(archiveSessionMock).toHaveBeenCalledWith('/tmp/agents/deleted/sessions/pinned.jsonl');
   });
 
-  it('opens the session browser from a left click on the sidebar badge', async () => {
+  it.each([false, true])('honors a superseded browser badge request (superseded=%s)', async (superseded) => {
     const browserStates = {
       '/tmp/agents/hana/sessions/with-summary.jsonl': {
         url: 'https://example.com',
@@ -322,22 +323,29 @@ describe('SessionList context menu', () => {
     };
     hanaFetchMock.mockImplementation(async (url: string) => {
       if (url === '/api/browser/session-states') return jsonResponse(browserStates);
-      if (url === '/api/browser/open-session') return jsonResponse({ ok: true });
+      if (url === '/api/browser/open-session') {
+        return jsonResponse({ ok: true, resume: { status: superseded ? 'superseded' : 'resumed' } });
+      }
       return jsonResponse({});
     });
 
     render(<SessionList />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'browser.open' }));
+    const badge = await screen.findByRole('button', { name: 'browser.open' });
+    await act(async () => { fireEvent.click(badge); });
 
     await waitFor(() => {
       expect(hanaFetchMock).toHaveBeenCalledWith('/api/browser/open-session', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ sessionPath: '/tmp/agents/hana/sessions/with-summary.jsonl' }),
       }));
-      expect(openBrowserViewerMock).toHaveBeenCalledWith({
-        sessionPath: '/tmp/agents/hana/sessions/with-summary.jsonl',
-      });
+      if (superseded) {
+        expect(openBrowserViewerMock).not.toHaveBeenCalled();
+      } else {
+        expect(openBrowserViewerMock).toHaveBeenCalledWith({
+          sessionPath: '/tmp/agents/hana/sessions/with-summary.jsonl',
+        });
+      }
     });
     expect(hanaFetchMock).not.toHaveBeenCalledWith('/api/browser/close-session', expect.anything());
     expect(switchSessionMock).not.toHaveBeenCalled();

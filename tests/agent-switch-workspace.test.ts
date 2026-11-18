@@ -40,19 +40,20 @@ describe("AgentManager.switchAgent workspace selection", () => {
       },
     }));
     const savePrimaryAgent = vi.fn();
+    const models = {
+      availableModels: [
+        { id: "focus-model", provider: "openai" },
+        { id: "target-model", provider: "openai" },
+      ],
+      defaultModel: { id: "focus-model", provider: "openai" },
+    };
     const manager = new AgentManager({
       agentsDir: makeDir("agents"),
       productDir: makeDir("product"),
       userDir: makeDir("user"),
       channelsDir: makeDir("channels"),
       getPrefs: () => ({ savePrimaryAgent }),
-      getModels: () => ({
-        availableModels: [
-          { id: "focus-model", provider: "openai" },
-          { id: "target-model", provider: "openai" },
-        ],
-        defaultModel: null,
-      }),
+      getModels: () => models,
       getHub: () => ({
         pauseForAgentSwitch: vi.fn(async () => {}),
         resumeAfterAgentSwitch: vi.fn(),
@@ -67,7 +68,7 @@ describe("AgentManager.switchAgent workspace selection", () => {
     manager.agents.set("focus", focusAgent);
     manager.agents.set("target", targetAgent);
     manager.activeAgentId = "focus";
-    return { manager, createSession, savePrimaryAgent };
+    return { manager, createSession, savePrimaryAgent, models };
   }
 
   it("creates the new focus session in the target agent explicit workspace", async () => {
@@ -101,5 +102,20 @@ describe("AgentManager.switchAgent workspace selection", () => {
 
     expect(manager.activeAgentId).toBe("target");
     expect(savePrimaryAgent).not.toHaveBeenCalled();
+  });
+
+  it("keeps the previous assistant and model when creating the target's first session fails", async () => {
+    const { manager, createSession, models } = makeManager({
+      previousCwd: makeDir("previous-workspace"),
+      targetHome: makeDir("target-home"),
+    });
+    const originalModel = models.defaultModel;
+    createSession.mockRejectedValueOnce(new Error("target session setup failed"));
+    await expect(manager.switchAgent("target")).rejects.toThrow("target session setup failed");
+    expect(manager.activeAgentId).toBe("focus");
+    expect(models.defaultModel).toBe(originalModel);
+    await expect(manager.switchAgent("target")).resolves.toMatchObject({ agentId: "target" });
+    expect(manager.activeAgentId).toBe("target");
+    expect(models.defaultModel.id).toBe("target-model");
   });
 });

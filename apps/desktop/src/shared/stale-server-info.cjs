@@ -1,3 +1,5 @@
+const net = require("node:net");
+
 /**
  * stale-server-info.cjs — 启动期残留 server-info.json 的处置决策
  *
@@ -18,4 +20,16 @@ function resolveStaleServerInfoDisposition({ pidAlive, knownDead, portConflict }
   return { removeInfoFile: false, failFast: portConflict !== false };
 }
 
-module.exports = { resolveStaleServerInfoDisposition };
+function isLoopbackServerPortFree({ listenHost, listenPort }) {
+  if (!["127.0.0.1", "::1"].includes(listenHost)
+    || !Number.isInteger(listenPort) || listenPort < 1024 || listenPort > 65535) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const probe = net.createServer((socket) => socket.destroy());
+    probe.once("error", () => resolve(false));
+    probe.listen({ host: listenHost, port: listenPort, exclusive: true }, () => {
+      probe.close((error) => resolve(!error));
+    });
+  });
+}
+
+module.exports = { resolveStaleServerInfoDisposition, isLoopbackServerPortFree };

@@ -11,6 +11,7 @@ import crypto from "crypto";
 import fs from "fs";
 import { setMaxListeners } from "events";
 import path from "path";
+import { readProcessStartStamp } from "../../packages/shared/process-start-stamp.cjs";
 import { Hono } from "hono";
 import { createAdaptorServer } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -413,6 +414,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
     envPortPinned,
   });
   serverRuntimeState.configuredPort = bindResult.boundPort;
+  console.log("HANA_STARTUP_PHASE 1");
 
   // ── 首次运行播种 ──
   log.log("① ensureFirstRun...");
@@ -428,6 +430,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
   log.log("① ensureLocalIdentityRegistries...");
   ensureLocalIdentityRegistries(hanakoHome);
   log.log("① ensureLocalIdentityRegistries 完成");
+  console.log("HANA_STARTUP_PHASE 2");
 
   // ── 初始化 Debug 日志 ──
   const dlog = initDebugLog(path.join(hanakoHome, "logs"));
@@ -442,6 +445,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
   } as any);
   log.log("② HanaEngine 构造完成，开始 init...");
   await engine.init((msg: any) => log.log(msg));
+  console.log("HANA_STARTUP_PHASE 3");
   log.log("② engine.init 完成");
   dlog.log("server", "engine initialized");
 
@@ -547,6 +551,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
 
   // ── 初始化插件系统 ──
   await engine.initPlugins(hub.eventBus);
+  console.log("HANA_STARTUP_PHASE 4");
 
   // 启动 Hub 调度器（Scheduler + ChannelRouter）
   hub.initSchedulers();
@@ -1008,6 +1013,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
   });
 
   activeFetch = app.fetch.bind(app);
+  console.log("HANA_STARTUP_PHASE 5");
 
   // 前端日志上报（desktop 端把错误 POST 到 server 写进持久化日志）
   app.post("/api/log", async (c) => {
@@ -1233,6 +1239,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
       const runtimeContext = engine.getRuntimeContext?.() || {};
       fs.writeFileSync(serverInfoPath, JSON.stringify({
         pid: process.pid,
+        processStartStamp: readProcessStartStamp(process.pid),
         port: actualPort,
         host,
         configuredHost: serverRuntimeState.listenHost,

@@ -98,7 +98,7 @@ import {
   resolveSessionSkillsForRuntime,
   snapshotSkillsForSession,
 } from "../lib/skills/session-skill-snapshot.ts";
-import { SessionListProjectionCache } from "./session-list-projection-cache.ts";
+import { SESSION_PROJECTION_IDENTITY, SessionListProjectionCache } from "./session-list-projection-cache.ts";
 import { LEGACY_META_SOURCE_MAX_BYTES } from "./session-manifest/legacy-migration.ts";
 import {
   buildLlmContextCachePrefixContract,
@@ -1022,6 +1022,7 @@ export class SessionCoordinator {
   declare _sessionStarted: boolean;
   declare _sessions: Map<string, any>;
   declare _hibernatedSessionMeta: Map<string, any>;
+  declare _runtimeHibernations: Map<string, Promise<void>>;
   declare _runtimePressureTimers: Map<string, any>;
   declare _memoryPressure: any;
   declare _headlessOps: Set<string>;
@@ -1073,6 +1074,7 @@ export class SessionCoordinator {
     this._sessionStarted = false;
     this._sessions = new Map();
     this._hibernatedSessionMeta = new Map();
+    this._runtimeHibernations = new Map();
     this._runtimePressureTimers = new Map();
     this._memoryPressure = normalizeMemoryPressureOptions(deps.memoryPressure);
     this._headlessOps = new Set();
@@ -1324,8 +1326,11 @@ export class SessionCoordinator {
   }
 
   /** 列表/只读富化专用：manifest 查询失败降级 null，单条失败不清空整个列表（#414 拓扑加固） */
-  _resolveSessionManifestForPathQuiet(sessionPath: any) {
+  _resolveSessionManifestForPathQuiet(sessionPath: any, canonicalKey?: string) {
     try {
+      if (canonicalKey && this._sessionManifestStore) {
+        return this._sessionManifestStore.resolveByLocatorPath(sessionPath, canonicalKey);
+      }
       return this._resolveSessionManifestForPath(sessionPath);
     } catch (err) {
       log.warn(`session manifest lookup failed for ${path.basename(sessionPath || "")}: ${err?.message || err}`);
@@ -2212,11 +2217,6 @@ export class SessionCoordinator {
     sessionPathRef.current = sessionPath || sessionPathRef.current || null;
     targetModelRef.current = resolvedModel || targetModelRef.current || null;
     flushSessionManagerSnapshot(session.sessionManager);
-    if (focus) {
-      this._session = session;
-      this._currentSessionPath = sessionPath || null;
-      this._sessionStarted = false;
-    }
     if (restore && sessionPath && !restoredCapabilitySnapshot) {
       restoredCapabilitySnapshot = this._readSessionCapabilitySnapshot(sessionPath);
     }
@@ -2638,6 +2638,11 @@ export class SessionCoordinator {
       this._refreshAgentAppearanceSummaryAfterCreate(agent, resolvedModel || effectiveModel || null);
     }
 
+    if (focus) {
+      this._session = session;
+      this._currentSessionPath = sessionPath || null;
+      this._sessionStarted = false;
+    }
     return { session, sessionPath: sessionPath || mapKey, sessionId: manifest?.sessionId || null, agentId: creatingAgentId };
   }
 
@@ -5758,12 +5763,17 @@ export class SessionCoordinator {
       contextUsage: entry.session?.getContextUsage?.() || null,
       hibernatedAt: Date.now(),
     });
-    await this._teardownSessionEntry(entry, sessionPath, reason);
+    const locator = path.resolve(sessionPath);
+    const teardown = Promise.resolve()
+      .then(() => this._teardownSessionEntry(entry, sessionPath, reason))
+      .finally(() => this._runtimeHibernations.delete(locator));
+    this._runtimeHibernations.set(locator, teardown);
     this._deleteRuntimeValueForPath(this._sessions, sessionPath);
     this._clearRuntimePressureTimer(sessionPath);
     if (isFocus) {
       this._session = null;
     }
+    await teardown;
     log.log(`session runtime hibernated (${reason}): ${path.basename(sessionPath)}`);
     return true;
   }
@@ -5845,6 +5855,8 @@ export class SessionCoordinator {
 
   async discardSessionRuntime(sessionPath: any, reason = "discard", options: { skipMemory?: boolean } = {}) {
     if (!sessionPath) return false;
+    const hibernating = this._runtimeHibernations.get(path.resolve(sessionPath));
+    if (hibernating) await hibernating;
     this._clearRuntimePressureTimer(sessionPath);
     const hadHibernated = this._deleteRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath);
     const entry = this._getSessionEntryByPath(sessionPath);
@@ -5918,6 +5930,7 @@ export class SessionCoordinator {
       const sessionPath = this._sessionPathForEntry(timer, sessionKey) || sessionKey;
       this._clearRuntimePressureTimer(sessionPath);
     }
+    await Promise.allSettled(this._runtimeHibernations.values());
     // abort all streaming sessions + teardown（记忆收尾由 disposeAll 带超时处理）
     for (const [sessionKey, entry] of this._sessions) {
       const sessionPath = this._sessionPathForEntry(entry, sessionKey);
@@ -6251,17 +6264,18 @@ export class SessionCoordinator {
       throw new Error(`reloadSessionRuntime: agent "${targetAgentId}" not found`);
     }
 
+    const readyAgent = await this._ensureAgentRuntimeReady(targetAgentId, {
+      agent,
+      reason: "reloadSessionRuntime",
+    });
+    const hibernating = this._runtimeHibernations.get(path.resolve(sessionPath));
+    if (hibernating) await hibernating;
     const oldEntry = this._getSessionEntryByPath(sessionPath);
     if (oldEntry) {
       if (oldEntry.session?.isStreaming || oldEntry.session?.isCompacting || oldEntry._switching) {
         throw new Error("reloadSessionRuntime: session is busy");
       }
     }
-    const readyAgent = await this._ensureAgentRuntimeReady(targetAgentId, {
-      agent,
-      reason: "reloadSessionRuntime",
-    });
-
     const hibernatedEntry = this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath);
     const reminderState = oldEntry || hibernatedEntry || null;
     if (oldEntry) {
@@ -6311,6 +6325,8 @@ export class SessionCoordinator {
     this._assertCurrentActiveSessionLocator(sessionPath, "ensureSessionLoaded");
     // The locator key stays stable even if the load establishes a manifest.
     const loadKey = path.resolve(sessionPath);
+    const hibernating = this._runtimeHibernations.get(loadKey);
+    if (hibernating) await hibernating;
     const inFlight = this._ensureSessionLoadedInFlight.get(loadKey);
     if (inFlight) return inFlight;
     const existing = this._getSessionEntryByPath(sessionPath);
@@ -6415,7 +6431,7 @@ export class SessionCoordinator {
         ]);
         const visibleSessions = [];
         for (const s of sessions) {
-          const manifest = this._resolveSessionManifestForPathQuiet(s.path);
+          const manifest = this._resolveSessionManifestForPathQuiet(s.path, s[SESSION_PROJECTION_IDENTITY]?.locatorKey);
           if (manifest && (
             manifest.lifecycle !== "active"
             || manifest.domain !== "desktop"

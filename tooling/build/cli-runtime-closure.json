@@ -103164,7 +103164,17 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/tools/session-tool.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/session-coordinator.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "apps/server/routes/sessions.ts",
           "kind": "import-statement"
         },
         {
@@ -103173,7 +103183,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/session-coordinator.ts (import-statement); apps/server/routes/sessions.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/session-tool.ts (import-statement); packages/engine/core/session-coordinator.ts (import-statement); apps/server/routes/sessions.ts (import-statement); +1 more importer(s)."
     },
     {
       "path": "packages/engine/core/session-manifest/checkpoint.ts",
@@ -103482,12 +103492,12 @@
         },
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/lib/session-collab/transcript.ts",
+          "from": "packages/engine/core/session-list-projection-cache.ts",
           "kind": "import-statement"
         },
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/core/session-list-projection-cache.ts",
+          "from": "packages/engine/lib/session-collab/transcript.ts",
           "kind": "import-statement"
         },
         {
@@ -103521,7 +103531,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/migrations.ts (import-statement); packages/engine/core/message-utils.ts (import-statement); packages/engine/lib/session-collab/transcript.ts (import-statement); +7 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/migrations.ts (import-statement); packages/engine/core/message-utils.ts (import-statement); packages/engine/core/session-list-projection-cache.ts (import-statement); +7 more importer(s)."
     },
     {
       "path": "packages/engine/core/session-teardown.ts",
@@ -105327,6 +105337,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/session-list-projection-cache.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/compat/checks/facts-db.ts",
           "kind": "import-statement"
         },
@@ -105343,11 +105358,6 @@
         {
           "root": "server-bootstrap",
           "from": "packages/engine/core/agent-manager.ts",
-          "kind": "import-statement"
-        },
-        {
-          "root": "server-bootstrap",
-          "from": "packages/engine/core/session-list-projection-cache.ts",
           "kind": "import-statement"
         },
         {
@@ -111813,12 +111823,12 @@
         },
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/core/agent-manager.ts",
+          "from": "packages/engine/core/session-list-projection-cache.ts",
           "kind": "import-statement"
         },
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/core/session-list-projection-cache.ts",
+          "from": "packages/engine/core/agent-manager.ts",
           "kind": "import-statement"
         },
         {
@@ -112282,6 +112292,18 @@
         }
       ],
       "reason": "Reached via esbuild source module graph, imported by packages/shared/workspace-ui-state.ts (import-statement)."
+    },
+    {
+      "path": "packages/shared/process-start-stamp.cjs",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "apps/server/index.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by apps/server/index.ts (import-statement)."
     },
     {
       "path": "packages/shared/provider-auth.ts",
@@ -113227,9 +113249,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 9657,
+    "totalFiles": 9658,
     "byInputType": {
-      "source-graph": 676,
+      "source-graph": 677,
       "nft-runtime-trace": 8970,
       "runtime-asset": 11
     }

@@ -2840,6 +2840,57 @@ describe("chat route model switch guard", () => {
     handlers.onClose({}, ws);
   });
 
+  it("preserves a replacement stream when a previous Stop falls back after an asynchronous abort", async () => {
+    let createHandlers;
+    let subscriber;
+    let releaseAbort: (accepted: boolean) => void = () => {};
+    const upgradeWebSocket = vi.fn((factory) => {
+      createHandlers = factory;
+      return () => new Response(null);
+    });
+    const hub = {
+      subscribe: vi.fn((fn) => { subscriber = fn; }),
+      send: vi.fn(async () => {}),
+      abort: vi.fn(() => new Promise<boolean>((resolve) => { releaseAbort = resolve; })),
+    };
+    const sessionPath = "/tmp/replace-after-stop.jsonl";
+    const engine = {
+      agentName: "Hana",
+      abortAllStreaming: vi.fn(async () => {}),
+      getSessionByPath: vi.fn(() => ({ entries: [] })),
+      isSessionStreaming: vi.fn(() => true),
+      isSessionSwitching: vi.fn(() => false),
+      steerSession: vi.fn(() => false),
+      slashDispatcher: null,
+    };
+    createChatRoute(engine, hub, { upgradeWebSocket });
+    const handlers = createHandlers({});
+    const ws = { readyState: 1, send: vi.fn() };
+    handlers.onOpen({}, ws);
+    try {
+      subscriber?.({ type: "session_status", isStreaming: true, streamId: "old-stream" }, sessionPath);
+      handlers.onMessage({
+        data: JSON.stringify({ type: "abort", sessionPath, streamId: "old-stream" }),
+      }, ws);
+      await vi.waitFor(() => expect(hub.abort).toHaveBeenCalledTimes(1));
+      subscriber?.({ type: "session_status", isStreaming: false, streamId: "old-stream" }, sessionPath);
+      subscriber?.({ type: "session_status", isStreaming: true, streamId: "replacement" }, sessionPath);
+      ws.send.mockClear();
+      releaseAbort(false);
+      await vi.waitFor(() => expect(ws.send).toHaveBeenCalled());
+      const messages = ws.send.mock.calls.map(([raw]) => JSON.parse(raw));
+      expect(messages).not.toContainEqual(expect.objectContaining({
+        type: "status", isStreaming: false, streamId: "replacement",
+      }));
+      expect(messages).toContainEqual(expect.objectContaining({
+        type: "abort_result", status: "rejected", reason: "stale_stream", streamId: "replacement",
+      }));
+    } finally {
+      releaseAbort(false);
+      handlers.onClose({}, ws);
+    }
+  });
+
   it("does not render interludes directly from standalone deferred result notifications", () => {
     let createHandlers;
     let subscriber;

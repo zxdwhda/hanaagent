@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:25843bfaea6274cfeffb1ec0e7bd41682e21f322882e7221a7a14c7b718aef4b",
+  "payloadFingerprint": "sha256:afa1ad2a59117ba7702c2315681d18a68fd3ca60fd15f8943007f1218da3fdf6",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Session pin and legacy metadata reconciliation reuse existing tables and preserve prior session, file and recovery records. Explicit unpin uses a backward-compatible key in the manifest state table.",
-    "payloadFingerprint": "sha256:25843bfaea6274cfeffb1ec0e7bd41682e21f322882e7221a7a14c7b718aef4b"
+    "compatibilityReason": "Session projection and locator lookup preserve existing records and schemas. Session runtime lifecycle and file history watcher changes preserve the existing persisted formats.",
+    "payloadFingerprint": "sha256:afa1ad2a59117ba7702c2315681d18a68fd3ca60fd15f8943007f1218da3fdf6"
   },
   "schemas": [
     {
@@ -3205,7 +3205,7 @@
       "contract": "agent config and authored Markdown/image profile protocol",
       "kind": "directory-contract",
       "module": "packages/engine/core/agent-manager.ts",
-      "sourceHash": "sha256:58e13e095be9039d0995378a331875c2ccfd553c79fc48375935907310487e4a",
+      "sourceHash": "sha256:66ba8bb6b8a70ff9d9604e47664d13c5b341cfba69734966d79d7195ac944d65",
       "storeId": "agent-profile"
     },
     {
@@ -3320,7 +3320,7 @@
       "contract": "desktop window bounds, release announcement bookmark, and update cache version marker readers",
       "kind": "directory-contract",
       "module": "apps/desktop/main.cjs",
-      "sourceHash": "sha256:40acc28c650d735efd94078acab64722a801fcd9948dfd664f7c24395ba35972",
+      "sourceHash": "sha256:4bc556f5a8b45dcd208f62120aa0a4d24537403a8946376044a6e68f49589fb6",
       "storeId": "desktop-window-version-state"
     },
     {
@@ -3522,7 +3522,7 @@
       "contract": "server-info writer and desktop bootstrap reader",
       "kind": "runtime-contract",
       "module": "apps/server/index.ts",
-      "sourceHash": "sha256:d385a08ebb2d4333be7211cd7271998870dd5b249875f4c1dfda220cb7e2ac5e",
+      "sourceHash": "sha256:67b7baacf70474bc6f212119b088cf37ac6e50fb287d6658cb60a7049412f3fb",
       "storeId": "server-runtime-info"
     },
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:927dafc4ebc6533d1f9d42c0beb982f547295711f132a1a5c87d21bff23e56ba"
+          "sourceHash": "sha256:880b1c92bac35a237250b54fb1d223b10d3cc8522dcb94cc36a2158c76407a7c"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",
@@ -3635,7 +3635,7 @@
         ],
         "userVersion": 5
       },
-      "sourceHash": "sha256:e05df6f153ccf422a8cb75f0cb6f8c6b52881d51c0cc541223058eace8b59581",
+      "sourceHash": "sha256:0ff1d18113ab3fc59a3c4f5c890a704724742d5dae003b0bcdf33cbe7e76c806",
       "storeId": "session-manifest-sqlite"
     },
     {

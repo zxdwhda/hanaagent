@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createSessionTool } from "../packages/engine/lib/tools/session-tool.ts";
 import { SessionCollabDraftStore } from "../packages/engine/lib/session-collab/draft-store.ts";
 
@@ -65,6 +68,26 @@ describe("session tool read side", () => {
     const text = await run(makeTool(), { action: "list", query: "会话A" });
     expect(text).toContain("sid-a");
     expect(text).not.toContain("/tmp/a.jsonl");
+  });
+
+  it("searches later messages when the list projection omits chat bodies", async () => {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), "hana-tool-search-"));
+    const filePath = path.join(temp, "history.jsonl");
+    try {
+      fs.writeFileSync(filePath, [
+        { type: "session", id: "history" },
+        { type: "message", message: { role: "user", content: "initial question" } },
+        { type: "message", message: { role: "assistant", content: "body-only fixture" } },
+      ].map((entry) => JSON.stringify(entry)).join("\n"));
+      const engine = makeEngine({ listSessions: async () => [{
+        sessionId: "sess_history", path: filePath, title: "Earlier conversation",
+      }] });
+      const result = await run(makeTool(engine), { action: "list", query: "body-only" });
+      expect(result).toContain("sess_history");
+      expect(result).not.toContain(filePath);
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
   });
 
   it("read summary 档：有摘要直接给，零 LLM 动作", async () => {

@@ -790,6 +790,7 @@ export async function switchSession(path: string): Promise<void> {
           path,
           ...(targetSessionId ? { sessionId: targetSessionId } : {}),
           currentSessionPath: s.currentSessionPath,
+          deferBrowser: true,
         }),
         signal: abortController.signal,
       });
@@ -907,7 +908,7 @@ export async function switchSession(path: string): Promise<void> {
       workspaceLabel: data.workspaceLabel || null,
     });
     // 同步浏览器状态到 keyed store（服务端返回当前 session 的 browser 状态）
-    if (path) {
+    if (path && data.browserResume?.status !== 'pending') {
       setBrowserStateForPath(path, {
         running: !!data.browserRunning,
         url: data.browserUrl || null,

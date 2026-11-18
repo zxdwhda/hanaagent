@@ -81,7 +81,8 @@ import {
 import { replayLatestUserTurn, retrySessionTurn } from "../../../packages/engine/core/session-turn-actions.ts";
 import { createRequestContext } from "../http/boundary.ts";
 import { createModuleLogger } from "../../../packages/engine/lib/debug-log.ts";
-import { searchSessions } from "../../../packages/engine/lib/search/session-search.ts";
+import { searchSessionContent, searchSessions } from "../../../packages/engine/lib/search/session-search.ts";
+import { readProjectedSessionSearchText } from "../../../packages/engine/core/session-list-projection-cache.ts";
 import { findInSessionMessages } from "../../../packages/engine/lib/search/session-find.ts";
 import { SessionSearchTokenizerUnavailableError } from "../../../packages/engine/lib/search/session-search-tokenizer.ts";
 import { MountAwareFileError, MountAwareFileService } from "../../../packages/engine/core/mount-aware-file-service.ts";
@@ -353,6 +354,82 @@ type DetachedCreateRequest = {
 export function createSessionsRoute(engine, hub = null) {
   const route = new Hono();
   const lifecycleLocks = new Map();
+  let browserHandoff = Promise.resolve();
+  let browserHandoffVersion = 0;
+  let requestedBrowserSessionPath: string | null = null;
+  let lastBrowserSessionPath: string | null = null;
+  let inFlightBrowserSessionPath: string | null = null;
+
+  function queueBrowserChange<T>(change: () => Promise<T>): Promise<T> {
+    const result = browserHandoff.then(change);
+    browserHandoff = result.then(() => {}, () => {});
+    return result;
+  }
+
+  function scheduleBrowserHandoff(
+    bm: BrowserManager, previousPath: unknown, sessionPath: string, title: string | null, deferred: boolean,
+  ) {
+    const version = ++browserHandoffVersion;
+    requestedBrowserSessionPath = sessionPath;
+    const requestedPreviousPath = typeof previousPath === "string" ? previousPath : null;
+    lastBrowserSessionPath ??= requestedPreviousPath;
+    const sendBrowserStatus = (path: string, error?: string) => hub?.eventBus?.emit?.({
+      type: "browser_status",
+      running: bm.isRunning(path),
+      url: bm.currentUrl(path) || null,
+      ...(error ? { error } : {}),
+    }, path);
+    return queueBrowserChange(async () => {
+      if (version !== browserHandoffVersion) return { status: "superseded" };
+      try {
+        const suspendPath = lastBrowserSessionPath && bm.isRunning(lastBrowserSessionPath)
+          ? lastBrowserSessionPath
+          : requestedPreviousPath;
+        if (suspendPath && suspendPath !== sessionPath && bm.isRunning(suspendPath)) {
+          inFlightBrowserSessionPath = suspendPath;
+          await bm.suspendForSession(suspendPath, { keepViewerVisible: true });
+          sendBrowserStatus(suspendPath);
+        }
+        if (version !== browserHandoffVersion) return { status: "superseded" };
+        inFlightBrowserSessionPath = sessionPath;
+        lastBrowserSessionPath = sessionPath;
+        const result = await resumeBrowserForSessionSwitch(bm, sessionPath);
+        if (version === browserHandoffVersion) await bm.notifyViewerSession(sessionPath, title);
+        sendBrowserStatus(sessionPath);
+        return result;
+      } catch (error) {
+        if (!deferred) throw error;
+        switchLog.error(`browser handoff failed: ${error.message}`);
+        if (version === browserHandoffVersion) sendBrowserStatus(sessionPath, "browser_handoff_failed");
+        return { status: "failed" };
+      } finally {
+        inFlightBrowserSessionPath = null;
+      }
+    });
+  }
+
+  function closeSessionBrowser(bm: BrowserManager, sessionPath: unknown, emergency = false) {
+    if (typeof sessionPath !== "string") return Promise.resolve();
+    if (requestedBrowserSessionPath === sessionPath) {
+      requestedBrowserSessionPath = null;
+      ++browserHandoffVersion;
+    }
+    if (inFlightBrowserSessionPath !== sessionPath) return bm.closeBrowserForSession(sessionPath);
+    if (!emergency) return queueBrowserChange(() => bm.closeBrowserForSession(sessionPath));
+    // Close now and clean up again if a command already accepted by the host
+    // finishes after the emergency stop. The queued cleanup precedes later opens.
+    const closing = bm.closeBrowserForSession(sessionPath);
+    void queueBrowserChange(async () => {
+      try {
+        await closing.catch(() => {});
+        await bm.closeBrowserForSession(sessionPath);
+        hub?.eventBus?.emit?.({ type: "browser_status", running: false, url: null }, sessionPath);
+      } catch (error) {
+        switchLog.warn(`browser emergency cleanup failed: ${error.message}`);
+      }
+    });
+    return closing;
+  }
   const detachedCreateRequests = new Map<string, DetachedCreateRequest>();
 
   function pruneDetachedCreates() {
@@ -817,7 +894,7 @@ export function createSessionsRoute(engine, hub = null) {
         lifecycleLog.warn(`session runtime cleanup failed for ${sessionPath}: ${err.message}`);
       }
       try {
-        await bm.closeBrowserForSession(sessionPath);
+        await closeSessionBrowser(bm, sessionPath);
       } catch (err) {
         lifecycleLog.warn(`browser cleanup failed for ${sessionPath}: ${err.message}`);
       }
@@ -1030,7 +1107,11 @@ export function createSessionsRoute(engine, hub = null) {
       }
 
       const sessions = await engine.listSessions();
-      const results = searchSessions(sessions, trimmedQuery, { phase, limit }).map((s) => ({
+      const matches = phase === "content"
+        ? await searchSessionContent(sessions, trimmedQuery, readProjectedSessionSearchText,
+          { limit, signal: c.req.raw.signal })
+        : searchSessions(sessions, trimmedQuery, { phase, limit });
+      const results = matches.map((s) => ({
         path: s.path,
         sessionId: s.sessionId || engine.getSessionIdForPath?.(s.path) || null,
         title: s.title || null,
@@ -2337,7 +2418,7 @@ export function createSessionsRoute(engine, hub = null) {
   route.post("/sessions/switch", async (c) => {
     try {
       const body = await safeJson(c);
-      const { sessionId, path: legacySessionPath, currentSessionPath: oldSessionPath } = body;
+      const { sessionId, path: legacySessionPath, currentSessionPath: oldSessionPath, deferBrowser } = body;
       let sessionPath = typeof legacySessionPath === "string" ? legacySessionPath : null;
       if (typeof sessionId === "string" && sessionId.trim()) {
         const manifest = engine.getSessionManifest?.(sessionId.trim()) || null;
@@ -2356,25 +2437,11 @@ export function createSessionsRoute(engine, hub = null) {
       if (isDeletedAgentSessionPath(sessionPath)) {
         return rejectDeletedAgentSession(c);
       }
-      // 切换前挂起浏览器（保存当前 session 的浏览器状态）
-      const bm = BrowserManager.instance();
-      const suspendPath = oldSessionPath;
-      if (suspendPath && bm.isRunning(suspendPath)) {
-        // viewer 开着就让它跟着切，不再因为切换会话把窗口藏起来
-        await bm.suspendForSession(suspendPath, { keepViewerVisible: true });
-      }
-
       await engine.switchSession(sessionPath);
-
-      // 恢复目标 session 的浏览器（若有）。无 browser host 的 server/PWA 环境只记录 typed skip；
-      // 一旦判断为可恢复，resumeForSession 内的真实 browser 错误仍会向外抛出。
-      const browserResume = await resumeBrowserForSessionSwitch(bm, sessionPath);
-
       const session = engine.getSessionByPath(sessionPath);
-
-      // viewer 跟随：无论是否 resume 成功都告知 viewer 当前 session（没有标签页组就显示空态）。
-      // 不改变窗口可见性，viewer 没开着时这条通知只更新标题缓存。
-      void bm.notifyViewerSession(sessionPath, session?.title || null);
+      const bm = BrowserManager.instance();
+      const handoff = scheduleBrowserHandoff(bm, oldSessionPath, sessionPath, session?.title || null, deferBrowser === true);
+      const browserResume = deferBrowser === true ? { status: "pending" } : await handoff;
 
       // 从 manifest 归属解析 agentId，避免依赖 engine 焦点指针的时序。
       // switchSession 只接受 agents/{id}/sessions/*.jsonl 布局的路径，归属要么
@@ -2485,9 +2552,22 @@ export function createSessionsRoute(engine, hub = null) {
     const { sessionPath } = body;
     if (!sessionPath) return c.json({ error: "missing sessionPath" }, 400);
     const bm = BrowserManager.instance();
-    const resume = await bm.resumeForSessionIfAvailable(sessionPath);
-    const session = engine.getSessionByPath(sessionPath);
-    await bm.notifyViewerSession(sessionPath, session?.title || null);
+    const version = ++browserHandoffVersion;
+    requestedBrowserSessionPath = sessionPath;
+    const resume = await queueBrowserChange(async () => {
+      if (version !== browserHandoffVersion) return { status: "superseded" };
+      inFlightBrowserSessionPath = sessionPath;
+      lastBrowserSessionPath = sessionPath;
+      try {
+        const result = await bm.resumeForSessionIfAvailable(sessionPath);
+        if (version !== browserHandoffVersion) return { status: "superseded" };
+        const session = engine.getSessionByPath(sessionPath);
+        await bm.notifyViewerSession(sessionPath, session?.title || null);
+        return version === browserHandoffVersion ? result : { status: "superseded" };
+      } finally {
+        inFlightBrowserSessionPath = null;
+      }
+    });
     return c.json({ ok: true, resume });
   });
 
@@ -2499,7 +2579,7 @@ export function createSessionsRoute(engine, hub = null) {
     const bm = BrowserManager.instance();
     // 急停（revoke）不只是关窗，还要撤销该 session 的 agent 浏览器授权。
     if (revoke === true) bm.revokeBrowserAuthorization(sessionPath);
-    await bm.closeBrowserForSession(sessionPath);
+    await closeSessionBrowser(bm, sessionPath, revoke === true);
     hub?.eventBus?.emit?.({ type: "browser_status", running: false, url: null }, sessionPath);
     return c.json({ ok: true, sessions: bm.getBrowserSessionStates() });
   });

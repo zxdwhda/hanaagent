@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
+import fsp from "fs/promises";
 import os from "os";
 import path from "path";
 
 import {
   SessionListProjectionCache,
+  readSessionSearchText,
+  readProjectedSessionSearchText,
   sessionFileRevision,
 } from "../packages/engine/core/session-list-projection-cache.ts";
 
@@ -95,7 +98,8 @@ describe("session-list-projection-cache revision", () => {
 
     expect(projection.messageCount).toBe(0);
     expect(projection.firstMessage).toBe("");
-    expect(projection.allMessagesText).toBe("");
+    expect(projection).not.toHaveProperty("allMessagesText");
+    expect(await readSessionSearchText(projection.path)).toBe("");
   });
 
   it("does not expose reminder text in list previews or searchable projection text", async () => {
@@ -114,7 +118,8 @@ describe("session-list-projection-cache revision", () => {
     const [projection] = await cache.list(tmpDir);
 
     expect(projection.firstMessage).toBe("hello");
-    expect(projection.allMessagesText).toBe("hello");
+    expect(projection).not.toHaveProperty("allMessagesText");
+    expect(await readSessionSearchText(projection.path)).toBe("hello");
   });
 
   it("includes jsonl files that are reached through a filesystem link", async () => {
@@ -146,5 +151,56 @@ describe("session-list-projection-cache revision", () => {
 
     expect(projections).toHaveLength(1);
     expect(projections[0].path).toBe(filePath);
+  });
+
+  it("refreshes a retargeted link even when both targets have the same file revision", async () => {
+    const targets = path.join(tmpDir, "targets");
+    fs.mkdirSync(targets);
+    const oldTarget = writeSessionFile(targets, "old.jsonl", [HEADER, USER_MESSAGE]);
+    const newTarget = writeSessionFile(targets, "new.jsonl", [HEADER, {
+      ...USER_MESSAGE, message: { ...USER_MESSAGE.message, content: "other" },
+    }]);
+    fs.utimesSync(oldTarget, 100, 100);
+    fs.utimesSync(newTarget, 100, 100);
+    const link = path.join(tmpDir, "active.jsonl");
+    if (!tryLinkFile(oldTarget, link)) return;
+    const cache = new SessionListProjectionCache();
+    const [original] = await cache.list(tmpDir);
+    expect(original.firstMessage).toBe("hello");
+    fs.unlinkSync(link);
+    expect(tryLinkFile(newTarget, link)).toBe(true);
+    const [updated] = await cache.list(tmpDir);
+    expect(updated.revision).toBe(original.revision);
+    expect(updated.firstMessage).toBe("other");
+  });
+
+  it("reads the observed file identity if an alias changes between discovery and opening", async () => {
+    const targets = path.join(tmpDir, "targets");
+    fs.mkdirSync(targets);
+    const first = writeSessionFile(targets, "first.jsonl", [HEADER, USER_MESSAGE]);
+    const second = writeSessionFile(targets, "second.jsonl", [HEADER, {
+      ...USER_MESSAGE, message: { ...USER_MESSAGE.message, content: "different target" },
+    }]);
+    const link = path.join(tmpDir, "observed.jsonl");
+    if (!tryLinkFile(first, link)) return;
+    const firstCanonical = fs.realpathSync(first);
+    const stat = fsp.stat.bind(fsp);
+    const spy = vi.spyOn(fsp, "stat").mockImplementation(async (file, ...args) => {
+      if (file === firstCanonical) {
+        fs.unlinkSync(link);
+        expect(tryLinkFile(second, link)).toBe(true);
+      }
+      return (stat as any)(file, ...args);
+    });
+    try {
+      const [projection] = await new SessionListProjectionCache().list(tmpDir);
+      expect(projection.firstMessage).toBe("hello");
+      expect(await readProjectedSessionSearchText(projection)).toBe("hello");
+      fs.renameSync(first, first + ".backup");
+      expect(tryLinkFile(second, first)).toBe(true);
+      expect(await readProjectedSessionSearchText(projection)).toBe("");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -2839,6 +2839,7 @@
     "close": "关闭"
   },
   "browser": {
+    "handoffFailed": "当前会话的浏览器恢复失败",
     "using": "正在用浏览器",
     "close": "关闭浏览器",
     "open": "打开浏览器",

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -14,6 +14,7 @@ type FakeWatcher = {
   close: () => Promise<void>;
   emitChanged: (rel: string) => void;
   emitDeleted: (rel: string) => void;
+  emitError: (error: Error) => void;
 };
 
 function makeFixture() {
@@ -23,28 +24,108 @@ function makeFixture() {
   cleanups.push(() => fs.rmSync(historyRoot, { recursive: true, force: true }));
 
   const fakeWatchers = new Map<string, FakeWatcher>();
-  const createWatcher = ({ root, onChanged, onDeleted }: any): FakeWatcher => {
+  const createWatcher = ({ root, onChanged, onDeleted, onError }: any): FakeWatcher => {
     const watcher: FakeWatcher = {
       ready: Promise.resolve(),
       close: async () => {},
       emitChanged: onChanged,
       emitDeleted: onDeleted,
+      emitError: onError,
     };
     fakeWatchers.set(path.resolve(root), watcher);
     return watcher;
   };
 
+  const log = vi.fn();
   const service = new FileHistoryService({
     historyRoot,
+    log,
     createWatcher: createWatcher as any,
     debounceMs: 0,
     mergeWindowMs: 0,
   });
   cleanups.push(() => service.close());
-  return { workspace, historyRoot, service, fakeWatchers };
+  return { workspace, historyRoot, service, fakeWatchers, log };
 }
 
 describe("FileHistoryService", () => {
+  it("applies the latest workspace list after a detached workspace sweep drains", async () => {
+    const { workspace, service } = makeFixture();
+    const firstReplacement = path.join(workspace, "first");
+    const latestReplacement = path.join(workspace, "latest");
+    fs.mkdirSync(firstReplacement);
+    fs.mkdirSync(latestReplacement);
+    let release: () => void = () => {};
+    const sweep = vi.spyOn(service, "_sweep").mockImplementationOnce(
+      () => new Promise<void>((resolve) => { release = resolve; }),
+    );
+    try {
+      await service.syncWorkspaces([workspace]);
+      const olderRequest = service.syncWorkspaces([firstReplacement]);
+      await vi.waitFor(() => expect(service.hasWorkspace(workspace)).toBe(false));
+      const latestRequest = service.syncWorkspaces([latestReplacement]);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      release();
+      await Promise.all([olderRequest, latestRequest]);
+      expect(service.hasWorkspace(firstReplacement)).toBe(false);
+      expect(service.hasWorkspace(latestReplacement)).toBe(true);
+    } finally {
+      release();
+      sweep.mockRestore();
+    }
+  });
+
+  it("does not start history watchers or baseline sweeps at a filesystem root", async () => {
+    const { workspace, service, fakeWatchers, log } = makeFixture();
+    const volumeRoot = path.parse(workspace).root;
+    const sweep = vi.spyOn(service, "_sweep").mockResolvedValue(undefined);
+    try {
+      await service.syncWorkspaces([volumeRoot, workspace]);
+      expect(service.hasWorkspace(volumeRoot)).toBe(false);
+      expect(fakeWatchers.has(volumeRoot)).toBe(false);
+      expect(log.mock.calls.some(([message]) => message.includes("filesystem root"))).toBe(true);
+      expect(service.hasWorkspace(workspace)).toBe(true);
+      expect(sweep).toHaveBeenCalledTimes(1);
+    } finally {
+      sweep.mockRestore();
+    }
+  });
+
+  it("coalesces a watcher error burst and serializes a follow-up sweep without losing changes", async () => {
+    const { workspace, service, fakeWatchers, log } = makeFixture();
+    await service.syncWorkspaces([workspace]);
+    await service.waitForIdle();
+    const watcher = fakeWatchers.get(workspace)!;
+    const emitBurst = () => {
+      for (let i = 0; i < 20; i += 1) watcher.emitError(new Error("workspace watch event without filename"));
+    };
+    let release: () => void = () => {};
+    const originalSweep = service._sweep.bind(service);
+    const sweep = vi.spyOn(service, "_sweep");
+    sweep.mockImplementationOnce(async (entry) => {
+      await originalSweep(entry);
+      await new Promise<void>((resolve) => { release = resolve; });
+    });
+    try {
+      emitBurst();
+      await vi.waitFor(() => expect(sweep).toHaveBeenCalledTimes(1), { timeout: 2000 });
+      expect(log).toHaveBeenCalledTimes(1);
+      fs.writeFileSync(path.join(workspace, "missed.md"), "must be recovered");
+      emitBurst();
+      // Let the scheduled retry reach the already-running sweep.
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      expect(sweep).toHaveBeenCalledTimes(1);
+      release();
+      await service.waitForIdle();
+      expect(sweep).toHaveBeenCalledTimes(2);
+      expect(log).toHaveBeenCalledTimes(2);
+      expect(service.listFiles(workspace).map((file) => file.relPath)).toContain("missed.md");
+    } finally {
+      release();
+      sweep.mockRestore();
+    }
+  });
+
   it("sweeps existing text files into the store on workspace sync", async () => {
     const { workspace, service } = makeFixture();
     fs.mkdirSync(path.join(workspace, "notes"));
@@ -160,8 +241,8 @@ describe("FileHistoryService", () => {
   });
 
   it("workspaceHashForRoot is stable and path-separator-insensitive", () => {
-    const a = workspaceHashForRoot("/Users/x/space");
-    expect(a).toBe(workspaceHashForRoot("/Users/x/space"));
+    const a = workspaceHashForRoot("/example/worker/space");
+    expect(a).toBe(workspaceHashForRoot("/example/worker/space"));
     expect(a).toMatch(/^[0-9a-f]{16}$/);
   });
 });

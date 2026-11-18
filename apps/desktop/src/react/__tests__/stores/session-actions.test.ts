@@ -440,6 +440,7 @@ function mockPermissionDefault(mode = 'ask') {
   });
 
   it('clears unread output marker when switching into a normal session', async () => {
+    const liveBrowser = { running: true, url: 'https://active.example.com', thumbnail: null };
     Object.assign(mockState, {
       currentSessionPath: '/session/current.jsonl',
       unreadOutputSessionPaths: ['/session/next.jsonl', '/session/other.jsonl'],
@@ -447,6 +448,7 @@ function mockPermissionDefault(mode = 'ask') {
     });
     mockFetch.mockImplementation(async (url: string) => {
       if (url === '/api/sessions/switch') {
+        mockState.browserBySession = { '/session/next.jsonl': liveBrowser };
         return jsonResponse({
           ok: true,
           path: '/session/next.jsonl',
@@ -456,6 +458,8 @@ function mockPermissionDefault(mode = 'ask') {
           memoryEnabled: true,
           permissionMode: 'ask',
           accessMode: 'ask',
+          browserResume: { status: 'pending' },
+          browserRunning: false,
         });
       }
       if (String(url).startsWith('/api/sessions/messages')) {
@@ -472,10 +476,12 @@ function mockPermissionDefault(mode = 'ask') {
         path: '/session/next.jsonl',
         sessionId: 'sess_next',
         currentSessionPath: '/session/current.jsonl',
+        deferBrowser: true,
       }),
     }));
     expect(mockState.unreadOutputSessionPaths).toEqual(['/session/other.jsonl']);
     expect(mockState.currentSessionId).toBe('sess_next');
+    expect(mockState.browserBySession).toMatchObject({ '/session/next.jsonl': liveBrowser });
     expect(mockState.sessionLocatorsById).toMatchObject({ sess_next: { path: '/session/next.jsonl' } });
   });
 

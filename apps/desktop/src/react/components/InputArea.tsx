@@ -1623,12 +1623,14 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
       return;
     }
     if (item.type === 'server-command') {
+      if (slashBusy) return;
       void executeSlashViaWs(
         item.name,
         slashAgentId,
         setSlashBusy,
         () => { editor?.commands.clearContent(); },
         setSlashMenuOpen,
+        t,
       )(applySlashCompletion(slashText, item));
       return;
     }
@@ -1643,7 +1645,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
       .insertContent(' ')
       .run();
     setSlashMenuOpen(false);
-  }, [editor, inputLocked, inputText, slashAgentId]);
+  }, [editor, inputLocked, inputText, slashAgentId, slashBusy, t]);
 
   const handleFileMentionSelect = useCallback((item: FileMentionItem) => {
     if (inputLocked) return;

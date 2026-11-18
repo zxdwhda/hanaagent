@@ -22,6 +22,7 @@ import {
 } from "../../../shared/search-providers.ts";
 import {
   SearchRateLimitError,
+  SearchQueueTimeoutError,
   createSearchRateLimiter,
   retryAfterMsFromHeaders,
 } from "./search-rate-limiter.ts";
@@ -36,6 +37,8 @@ const ANYSEARCH_DEFAULT_RESULTS = 20;
 const ANYSEARCH_MAX_RESULTS = 100;
 const TAVILY_MAX_RESULTS = 20;
 const BROWSER_MAX_RESULTS = 10;
+const SEARCH_RUN_BUDGET_MS = 45_000;
+const AUTO_PROVIDER_QUEUE_WAIT_MS = 5_000;
 const defaultSearchRateLimiter = createSearchRateLimiter();
 
 /**
@@ -52,6 +55,11 @@ export function initWebSearch(configPath, opts: Record<string, any> = {}) {
 
 export function resetWebSearchRateLimiterForTests() {
   defaultSearchRateLimiter.reset();
+}
+
+function searchTransportSignal(signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(30_000);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
 function throwIfRateLimited(res, label) {
@@ -145,7 +153,7 @@ function throwIfAnySearchEnvelopeError(data) {
 // Provider: Tavily
 // ════════════════════════════════════════
 
-async function searchTavily(query, maxResults, apiKey) {
+async function searchTavily(query, maxResults, apiKey, _provider, signal?: AbortSignal) {
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -157,7 +165,7 @@ async function searchTavily(query, maxResults, apiKey) {
       max_results: maxResults,
       search_depth: "basic",
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: searchTransportSignal(signal),
   });
 
   throwIfRateLimited(res, "Tavily");
@@ -176,7 +184,7 @@ async function searchTavily(query, maxResults, apiKey) {
 // Provider: Serper (Google)
 // ════════════════════════════════════════
 
-async function searchSerper(query, maxResults, apiKey) {
+async function searchSerper(query, maxResults, apiKey, _provider, signal?: AbortSignal) {
   const res = await fetch("https://google.serper.dev/search", {
     method: "POST",
     headers: {
@@ -184,7 +192,7 @@ async function searchSerper(query, maxResults, apiKey) {
       "X-API-KEY": apiKey,
     },
     body: JSON.stringify({ q: query, num: maxResults }),
-    signal: AbortSignal.timeout(30_000),
+    signal: searchTransportSignal(signal),
   });
 
   throwIfRateLimited(res, "Serper");
@@ -203,7 +211,7 @@ async function searchSerper(query, maxResults, apiKey) {
 // Provider: Brave Search
 // ════════════════════════════════════════
 
-async function searchBrave(query, maxResults, apiKey) {
+async function searchBrave(query, maxResults, apiKey, _provider, signal?: AbortSignal) {
   const params = new URLSearchParams({ q: query, count: String(maxResults) });
   const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
     headers: {
@@ -211,7 +219,7 @@ async function searchBrave(query, maxResults, apiKey) {
       "Accept-Encoding": "gzip",
       "X-Subscription-Token": apiKey,
     },
-    signal: AbortSignal.timeout(30_000),
+    signal: searchTransportSignal(signal),
   });
 
   throwIfRateLimited(res, "Brave");
@@ -230,7 +238,7 @@ async function searchBrave(query, maxResults, apiKey) {
 // Provider: AnySearch paid API and anonymous free tier
 // ════════════════════════════════════════
 
-async function searchAnySearch(query, maxResults, apiKey, provider) {
+async function searchAnySearch(query, maxResults, apiKey, provider, signal?: AbortSignal) {
   const resultLimit = maxResultsForProvider(provider, maxResults);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -246,7 +254,7 @@ async function searchAnySearch(query, maxResults, apiKey, provider) {
       max_results: resultLimit,
       language: anySearchLanguage(getLocale()),
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: searchTransportSignal(signal),
   });
 
   throwIfRateLimited(res, "AnySearch");
@@ -284,8 +292,8 @@ async function searchAnySearch(query, maxResults, apiKey, provider) {
   };
 }
 
-async function searchAnySearchFree(query, maxResults) {
-  return searchAnySearch(query, maxResults, "", ANYSEARCH_FREE_PROVIDER);
+async function searchAnySearchFree(query, maxResults, _apiKey, _provider, signal?: AbortSignal) {
+  return searchAnySearch(query, maxResults, "", ANYSEARCH_FREE_PROVIDER, signal);
 }
 
 const PROVIDERS = {
@@ -381,16 +389,17 @@ function normalizeProviderPayload(query, provider, meta, payload) {
   };
 }
 
-async function runProviderSearch({ provider, query, maxResults, apiKey, rateLimiter }) {
+async function runProviderSearch({ provider, query, maxResults, apiKey, rateLimiter, signal, maxQueueWaitMs = undefined }) {
   const meta = providerMeta(provider);
   if (meta.requiresApiKey && !apiKey) {
     throw new Error(t("error.searchProviderMissingKey", { provider }));
   }
   const providerMaxResults = maxResultsForProvider(provider, maxResults);
   const limiter = rateLimiter || defaultSearchRateLimiter;
-  const payload = await limiter.run(provider, meta.sourceType, () => (
-    meta.search(query, providerMaxResults, apiKey, provider)
-  ));
+  const payload = await limiter.run(provider, meta.sourceType, () => {
+    signal?.throwIfAborted();
+    return meta.search(query, providerMaxResults, apiKey, provider, signal);
+  }, { signal, maxQueueWaitMs });
   return normalizeProviderPayload(query, provider, meta, payload);
 }
 
@@ -417,6 +426,7 @@ function buildSearchRuntimeConfig({ resolverFn, readConfig }) {
 }
 
 function classifySearchError(err) {
+  if (err instanceof SearchQueueTimeoutError) return "queue_timeout";
   if (err instanceof SearchRateLimitError || err?.status === 429) return "rate_limited";
   const message = String(err?.message || "");
   if (/402|quota|rate.?limit|too many/i.test(message)) return "rate_limited";
@@ -472,7 +482,7 @@ function attachAutoDiagnostics(payload, attempts, extra = {}) {
   };
 }
 
-async function doAutoSearch(query, maxResults, { apiKeys, rateLimiter }) {
+async function doAutoSearch(query, maxResults, { apiKeys, rateLimiter, signal }) {
   const attempts = [];
   const configuredApiProviders = SEARCH_API_PROVIDER_IDS.filter((provider) => !!apiKeys[provider]);
   const chain = [...configuredApiProviders, ANYSEARCH_FREE_PROVIDER, ...BROWSER_SEARCH_PROVIDER_IDS];
@@ -488,6 +498,8 @@ async function doAutoSearch(query, maxResults, { apiKeys, rateLimiter }) {
         maxResults,
         apiKey: apiKeys[provider] || "",
         rateLimiter,
+        signal,
+        maxQueueWaitMs: AUTO_PROVIDER_QUEUE_WAIT_MS,
       });
       attempt.result_count = payload.results.length;
       if (payload.results.length === 0) {
@@ -512,11 +524,18 @@ async function doAutoSearch(query, maxResults, { apiKeys, rateLimiter }) {
         attempt.retry_after_ms = err.retryAfterMs;
       }
       attempts.push(attempt);
+      if (signal?.aborted) {
+        if (signal.reason?.name !== "TimeoutError") throw signal.reason;
+        break;
+      }
     }
   }
 
   if (firstLowQualityPayload) {
-    return attachAutoDiagnostics(firstLowQualityPayload, attempts, { selected_status: "low_quality" });
+    return attachAutoDiagnostics(firstLowQualityPayload, attempts, {
+      selected_status: "low_quality",
+      ...(signal?.aborted ? { status: "timeout" } : {}),
+    });
   }
 
   return {
@@ -527,12 +546,12 @@ async function doAutoSearch(query, maxResults, { apiKeys, rateLimiter }) {
     diagnostics: {
       strategy: AUTO_SEARCH_PROVIDER,
       attempts,
-      status: "all_failed",
+      status: signal?.aborted ? "timeout" : "all_failed",
     },
   };
 }
 
-async function doSearch(query, maxResults, { configPath, searchConfigResolver, rateLimiter }: Record<string, any> = {}) {
+async function doSearch(query, maxResults, { configPath, searchConfigResolver, rateLimiter, signal }: Record<string, any> = {}) {
   // Use explicitly passed args; fall back to module globals for backward compat
   const resolverFn = searchConfigResolver ?? _searchConfigResolver;
   const cfgPath = configPath ?? _configPath;
@@ -551,7 +570,7 @@ async function doSearch(query, maxResults, { configPath, searchConfigResolver, r
   }
 
   if (provider === AUTO_SEARCH_PROVIDER) {
-    return doAutoSearch(query, maxResults, { apiKeys, rateLimiter });
+    return doAutoSearch(query, maxResults, { apiKeys, rateLimiter, signal });
   }
 
   let meta;
@@ -565,7 +584,7 @@ async function doSearch(query, maxResults, { configPath, searchConfigResolver, r
   }
 
   try {
-    return await runProviderSearch({ provider, query, maxResults, apiKey, rateLimiter });
+    return await runProviderSearch({ provider, query, maxResults, apiKey, rateLimiter, signal });
   } catch (err) {
     throw new Error(t("error.searchFailed", { msg: err.message }));
   }
@@ -595,7 +614,7 @@ export function createWebSearchTool({ configPath, searchConfigResolver, rateLimi
         Type.Number({ description: "Number of results to return, default 10", default: DEFAULT_DISPLAY_RESULTS })
       ),
     }),
-    execute: async (_toolCallId, params) => {
+    execute: async (_toolCallId, params, callerSignal?: AbortSignal) => {
       const query = params.query?.trim();
       if (!query) {
         return {
@@ -604,13 +623,18 @@ export function createWebSearchTool({ configPath, searchConfigResolver, rateLimi
         };
       }
 
+      const controller = new AbortController();
+      const signal = callerSignal ? AbortSignal.any([callerSignal, controller.signal]) : controller.signal;
+      const timer = setTimeout(() => controller.abort(new DOMException("Search took too long", "TimeoutError")), SEARCH_RUN_BUDGET_MS);
       try {
-        const searchPayload = await doSearch(query, params.maxResults, closureOpts);
+        const searchPayload = await doSearch(query, params.maxResults, { ...closureOpts, signal });
         const { results, provider } = searchPayload;
 
         if (results.length === 0) {
           return {
-            content: [{ type: "text", text: t("error.searchNoResults", { provider }) }],
+            content: [{ type: "text", text: searchPayload.diagnostics.status === "timeout"
+              ? t("error.searchFailed", { msg: signal.reason?.message })
+              : t("error.searchNoResults", { provider }) }],
             details: searchPayload,
           };
         }
@@ -630,6 +654,8 @@ export function createWebSearchTool({ configPath, searchConfigResolver, rateLimi
           content: [{ type: "text", text: t("error.searchError", { msg: err.message }) }],
           details: {},
         };
+      } finally {
+        clearTimeout(timer);
       }
     },
   };
