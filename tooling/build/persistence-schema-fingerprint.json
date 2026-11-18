@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:05baf1775bc8b8e9fd40d5c256bfcd6bc9b0d80c690b0da127fb68ce72702fb6",
+  "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Bounded session index recovery and atomic publication preserve readability of the existing index, opaque sidecar references and JSONL without a schema or data epoch change.",
-    "payloadFingerprint": "sha256:05baf1775bc8b8e9fd40d5c256bfcd6bc9b0d80c690b0da127fb68ce72702fb6"
+    "compatibilityReason": "Reject incomplete compiled output before existing memory writes while retaining file formats and watermarks without a schema or data epoch change.",
+    "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38"
   },
   "schemas": [
     {
@@ -3191,7 +3191,7 @@
       "contract": "compiled memory, rolling-summary, pinned-memory, and daily-state runtime readers",
       "kind": "directory-contract",
       "module": "packages/engine/lib/memory/compiled-memory-state.ts",
-      "sourceHash": "sha256:22a52170b401ce73e3caea4acd094ec8ef620c5b5a3f91d1ca91f281fd1e61cd",
+      "sourceHash": "sha256:47fcce6592bec1687216373c3445830e5eb2abbac6a6ec326af04ea48bf35f9d",
       "storeId": "agent-memory"
     },
     {

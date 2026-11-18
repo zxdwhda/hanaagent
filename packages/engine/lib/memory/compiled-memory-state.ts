@@ -75,6 +75,30 @@ export function normalizeCompiledLLMResult(value, source = "compiled memory") {
   return normalized;
 }
 
+const COMPILER_ADDRESSING_USER = [
+  /^(?:抱歉[，,。！!\s]*)?(?:目前|暂时)?我?(?:(?:没有|没|尚未)(?:收到|看到|拿到)|缺少)(?:任何|足够的)?[「『“"]?(?:上一版|先前|原有|摘要|时间线|原始资料|输入材料)/u,
+  /^(?:抱歉[，,。！!\s]*)?我(?:暂时)?(?:无法|不能)(?:为你|帮你)?(?:生成|编译|整理|总结)/u,
+  /^(?:为了[^，,。！？]{1,60}[，,]\s*)?(?:我需要你|请(?:你)?(?:先|再)?)\s*(?:提供|补充|贴出|发给我)/u,
+  /^(?:sorry[,!.\s]+)?I (?:(?:can['’]t|cannot|(?:am )?unable to) (?:generate|compile|summari[sz]e)|(?:don['’]t have|haven['’]t received|need) (?:enough |the |a )?(?:source material|information|context|previous draft))/iu,
+  /^(?:please|(?:could|can|would) you(?: please)?) (?:provide|share|send|paste|supply)\b/iu,
+];
+
+export function validateEditableMemoryCompileResult(value, source) {
+  const body = normalizeCompiledLLMResult(value, source);
+  if (!body) throw new Error(source + " returned no memory content");
+
+  // Match assistant-to-user replies at the start of a line, including lists.
+  // Ordinary narrative may include a question, a quote, or no final punctuation.
+  const lines = body.split(/\r?\n/);
+  if (lines.some((line) => {
+    const text = line.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, "");
+    return COMPILER_ADDRESSING_USER.some((pattern) => pattern.test(text));
+  })) {
+    throw new Error(source + " returned a conversational reply instead of memory content");
+  }
+  return body;
+}
+
 export function stripThinkTagBlocks(value) {
   return String(value || "")
     .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>\s*/gi, "")

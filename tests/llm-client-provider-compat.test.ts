@@ -27,6 +27,81 @@ describe("callText provider-compat routing", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([
+    {
+      api: "openai-completions",
+      reply: { choices: [{ finish_reason: "length", message: { content: "partial" } }] },
+      reason: "length",
+    },
+    {
+      api: "openai-completions",
+      reply: { choices: [{ finish_reason: "stop", message: { content: "partial", refusal: "declined" } }] },
+      reason: "refusal",
+    },
+    {
+      api: "anthropic-messages",
+      reply: { stop_reason: "max_tokens", content: [{ type: "text", text: "partial" }] },
+      reason: "max_tokens",
+    },
+    {
+      api: "openai-completions",
+      reply: { choices: [{ finish_reason: "tool_calls", message: { content: "partial" } }] },
+      reason: "tool_calls",
+    },
+    {
+      api: "anthropic-messages",
+      reply: { stop_reason: "pause_turn", content: [{ type: "text", text: "partial" }] },
+      reason: "pause_turn",
+    },
+    {
+      api: "openai-responses",
+      reply: { status: "incomplete", output_text: "partial" },
+      reason: "incomplete",
+    },
+    {
+      api: "openai-responses",
+      reply: {
+        status: "completed",
+        output: [{
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "partial" }, { type: "refusal", refusal: "declined" }],
+        }],
+      },
+      reason: "refusal",
+    },
+  ])("uses $api's $reason signal only when complete text is required", async ({ api, reply, reason }) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json(reply));
+    const options = { api, baseUrl: "https://example.test/v1", model: "test-model" };
+
+    await expect(callText({ ...options, requireCompleteText: true })).rejects.toThrow("(" + reason + ")");
+    await expect(callText(options)).resolves.toBe("partial");
+  });
+
+  it.each([
+    { tail: ["data: {\"type\":\"response.incomplete\",\"response\":{\"status\":\"incomplete\"}}\n\n"], reason: "(incomplete)" },
+    { tail: [], reason: "(stream_interrupted)" },
+    { tail: ["data: {\"type\":\"error\",\"message\":\"interrupted\"}\n\n", "data: [DONE]\n\n"], reason: "(error)" },
+    { tail: ["data: [DONE]\n\n"], reason: null },
+    { tail: ["data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n"], reason: null },
+  ])("respects Codex stream termination with tail=$tail", async ({ tail, reason }) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(makeSseBody([
+      "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n",
+      ...tail,
+    ])));
+    const options = {
+      api: "openai-codex-responses",
+      apiKey: makeCodexJwt("test-account"),
+      baseUrl: "https://example.test/v1",
+      model: "test-model",
+    };
+
+    const strict = callText({ ...options, requireCompleteText: true });
+    if (reason) await expect(strict).rejects.toThrow(reason);
+    else await expect(strict).resolves.toBe("partial");
+    await expect(callText(options)).resolves.toBe("partial");
+  });
+
   it("classifies response body read aborts from timeout as LLM_TIMEOUT", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,

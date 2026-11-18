@@ -93,6 +93,7 @@ describe("memory prompt boundaries", () => {
     const manager = makeFakeSummaryManager(summaries);
     const todayDraftPath = path.join(tmpDir, "today-draft.md");
     fs.writeFileSync(todayDraftPath, "用户在讨论记忆系统。", "utf-8");
+    vi.mocked(callText).mockResolvedValueOnce("上午：用户在讨论记忆系统。");
 
     await compileToday(manager, path.join(tmpDir, "today.md"), RESOLVED_MODEL);
     await compileDaily(manager, path.join(tmpDir, "daily"), "2026-07-03", RESOLVED_MODEL, { todayDraftPath });
@@ -122,6 +123,7 @@ describe("memory prompt boundaries", () => {
       ...RESOLVED_MODEL,
       model: { id: "reasoning-model", provider: "deepseek", reasoning: true, maxTokens: 8192 },
     };
+    vi.mocked(callText).mockResolvedValueOnce("上午：用户在讨论记忆系统。");
 
     await compileToday(manager, path.join(tmpDir, "today.md"), reasoningModel);
 
