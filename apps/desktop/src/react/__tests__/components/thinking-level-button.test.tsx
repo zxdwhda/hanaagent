@@ -16,7 +16,7 @@ vi.mock('../../hooks/use-config', () => ({
 
 import { createTestTranslator } from '../helpers/i18n-test-strings';
 
-const testT = createTestTranslator();
+const testT = createTestTranslator({ 'settings.saveFailed': '保存失败' });
 
 vi.mock('../../hooks/use-i18n', () => ({
   useI18n: () => ({ t: testT }),
@@ -44,6 +44,7 @@ describe('ThinkingLevelButton', () => {
     useStore.setState({
       currentSessionPath: null,
       pendingNewSession: true,
+      toasts: [],
     } as never);
   });
 
@@ -91,6 +92,30 @@ describe('ThinkingLevelButton', () => {
 
     expect(screen.queryByRole('option', { name: /auto/i })).toBeNull();
     expect(screen.getByRole('option', { name: /中等/ })).toBeTruthy();
+  });
+
+  it.each([
+    ['HTTP conflict', () => Promise.resolve(new Response(JSON.stringify({ ok: false, error: 'session not found' }), { status: 409 })), 'session not found'],
+    ['network failure', () => Promise.reject(new Error('network unavailable')), 'network unavailable'],
+  ] as const)('explains a %s without changing the previous level', async (_case, response, message) => {
+    vi.mocked(hanaFetch).mockImplementationOnce(async (_path, options) => {
+      const result = await response();
+      if (!result.ok && options?.throwOnHttpError !== false) {
+        throw new Error(`HTTP ${result.status}`);
+      }
+      return result;
+    });
+    useStore.setState({ currentSessionPath: '/session/a.jsonl', pendingNewSession: false });
+    const onChange = vi.fn();
+    const { container } = render(<ThinkingLevelButton level="medium" onChange={onChange} availableLevels={['medium', 'high']} />);
+
+    fireEvent.click(container.querySelector('button') as HTMLButtonElement);
+    fireEvent.click(optionForText('深度'));
+
+    await waitFor(() => expect(useStore.getState().toasts).toEqual([
+      expect.objectContaining({ type: 'error', text: expect.stringContaining(message) }),
+    ]));
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('hides the xhigh level when the model does not support it', () => {

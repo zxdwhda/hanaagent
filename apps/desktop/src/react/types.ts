@@ -256,6 +256,7 @@ export interface SessionStream {
 }
 
 export interface Model {
+  isDefault?: boolean;
   id: string;
   name: string;
   provider: string;

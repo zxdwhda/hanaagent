@@ -35,7 +35,7 @@ export function ProviderDetail({ providerId, summary, providerConfig, isPresetSe
         </div>
       )}
       {summary.supports_oauth ? (
-        <OAuthCredentials providerId={providerId} summary={summary} onRefresh={onRefresh} />
+        <OAuthCredentials key={providerId} providerId={providerId} summary={summary} onRefresh={onRefresh} />
       ) : (
         <ApiKeyCredentials
           providerId={providerId}

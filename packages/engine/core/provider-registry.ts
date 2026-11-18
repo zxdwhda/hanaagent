@@ -85,12 +85,19 @@ function normalizeModelDefaults(value) {
   return out;
 }
 
-function normalizeProviderUserConfig(value) {
+function normalizeProviderUserConfig(value, providerId = "") {
   if (!isPlainObject(value)) {
     return { _config_error: MALFORMED_PROVIDER_CONFIG };
   }
 
   const next = { ...value };
+  if (next.api === "deepseek") {
+    const endpoint = typeof next.base_url === "string" ? URL.parse(next.base_url) : null;
+    if ((!next.base_url && providerId === "deepseek") || endpoint?.hostname === "api.deepseek.com") {
+      // Historic catalogs sometimes stored the provider id in the protocol field.
+      next.api = "openai-completions";
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(next, "models") && !Array.isArray(next.models)) {
     delete next.models;
     next._config_error = next._config_error || INVALID_MODELS_CONFIG;
@@ -125,13 +132,13 @@ function normalizeProviderUserConfigMap(providers) {
   const normalized: any = {};
   for (const [providerId, config] of Object.entries(providers)) {
     if (!providerId) continue;
-    normalized[providerId] = normalizeProviderUserConfig(config);
+    normalized[providerId] = normalizeProviderUserConfig(config, providerId);
   }
   return normalized;
 }
 
-function stripProviderRuntimeMeta(config) {
-  const normalized = normalizeProviderUserConfig(config);
+function stripProviderRuntimeMeta(config, providerId = "") {
+  const normalized = normalizeProviderUserConfig(config, providerId);
   const clean: any = {};
   for (const [key, value] of Object.entries(normalized)) {
     if (PROVIDER_RUNTIME_META_KEYS.has(key)) continue;
@@ -144,7 +151,7 @@ function stripProviderRuntimeMetaMap(providers) {
   if (!isPlainObject(providers)) return {};
   const clean: any = {};
   for (const [providerId, config] of Object.entries(providers)) {
-    clean[providerId] = stripProviderRuntimeMeta(config);
+    clean[providerId] = stripProviderRuntimeMeta(config, providerId);
   }
   return clean;
 }

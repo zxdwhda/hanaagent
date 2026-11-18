@@ -335,12 +335,10 @@ function buildModelEntry(
   // 2. thinkingFormat 由 shared/model-capabilities.ts 统一派生，避免请求层按 provider 猜
   // 3. Gemini OpenAI 兼容层（/v1beta/openai）严格校验，不识别 store 字段会 400。
   //    Native google-generative-ai 不走 Chat Completions，不需要这组 OpenAI 字段兼容。
+  const explicitCompat = isObj ? normalizeModelProtocolCompat(modelEntry.compat) : null;
   if (provider !== "openai") {
     const piBuiltinCompat = normalizePiBuiltinCompat(piProtocolBaseline) || {};
     const knownCompat = normalizeModelProtocolCompat(known?.compat) || {};
-    const explicitCompat = isObj
-      ? (normalizeModelProtocolCompat(modelEntry.compat) || {})
-      : {};
     const compat: Record<string, unknown> = {
       ...piBuiltinCompat,
       ...knownCompat,
@@ -358,6 +356,8 @@ function buildModelEntry(
       compat.supportsReasoningEffort = false;
     }
     entry.compat = compat;
+  } else if (explicitCompat?.supportsTemperature === false) {
+    entry.compat = { ...entry.compat, supportsTemperature: false };
   }
 
   let mediaAwareEntry = video === true ? withHanaVideoInputCompat(entry, true) : entry;

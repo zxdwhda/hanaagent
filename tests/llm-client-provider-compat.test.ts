@@ -27,6 +27,42 @@ describe("callText provider-compat routing", () => {
     vi.restoreAllMocks();
   });
 
+  it("scopes Gemini name rewriting to the actual Utility endpoint", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({
+      choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
+    }));
+    const google = "https://generativelanguage.googleapis.com/v1beta/openai";
+    const override = "https://example.test/v1";
+    const id = "models/gemini-3.1-pro-preview";
+    const model = { id, provider: "test", api: "openai-completions", baseUrl: google };
+    await callText({ api: model.api, model, baseUrl: override });
+    expect(JSON.parse(String(fetch.mock.calls[0][1]?.body)).model).toBe(id);
+
+    await callText({ api: model.api, model: { ...model, baseUrl: override }, baseUrl: google });
+    expect(JSON.parse(String(fetch.mock.calls[1][1]?.body)).model).toBe("gemini-3.1-pro-preview");
+  });
+
+  it("lets a custom Utility model use its server default when it forbids temperature", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const request = JSON.parse(String(init?.body));
+      return "temperature" in request
+        ? Response.json({ error: { message: "temperature is not supported" } }, { status: 400 })
+        : Response.json({ choices: [{ message: { content: "Summary" }, finish_reason: "stop" }] });
+    });
+    const options = {
+      api: "openai-completions",
+      baseUrl: "https://example.test/v1",
+      temperature: 0.3,
+      model: { id: "strict-gateway", provider: "custom" },
+    };
+    await expect(callText(options)).rejects.toThrow("temperature is not supported");
+    await expect(callText({
+      ...options,
+      model: { ...options.model, compat: { supportsTemperature: false } },
+    })).resolves.toBe("Summary");
+    expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).not.toHaveProperty("temperature");
+  });
+
   it.each([
     {
       api: "openai-completions",
@@ -179,10 +215,11 @@ describe("callText provider-compat routing", () => {
   });
 
   it("uses the exact OpenCode Go DeepSeek buffered contract without exposing reasoning as text", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify({
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      if (!new Headers(init?.headers).has("x-opencode-session")) {
+        return Response.json({ error: { message: "MissingSessionID" } }, { status: 400 });
+      }
+      return Response.json({
         choices: [{
           finish_reason: "stop",
           message: {
@@ -191,8 +228,8 @@ describe("callText provider-compat routing", () => {
           },
         }],
         usage: { prompt_tokens: 20, completion_tokens: 8 },
-      }),
-    } as any);
+      });
+    });
 
     await expect(callText({
       api: "openai-completions",
@@ -212,11 +249,24 @@ describe("callText provider-compat routing", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://opencode.ai/zen/go/v1/chat/completions");
+    expect(new Headers(init?.headers).get("x-opencode-session")).toMatch(/^[0-9a-f-]{36}$/);
     expect(JSON.parse(init.body as string)).toMatchObject({
       model: "deepseek-v4-flash",
       max_tokens: 128,
       thinking: { type: "disabled" },
     });
+  });
+
+  it("preserves explicit OpenCode routing and does not add it to a proxy", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({
+      choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
+    }));
+    const model = { id: "test-open-code", provider: "opencode-go" };
+    const request = { model, api: "openai-completions", baseUrl: "https://opencode.ai/zen/go/v1" };
+    await callText({ ...request, headers: { "X-OpenCode-Session": "explicit-affinity" } });
+    await callText({ ...request, baseUrl: "https://opencode.ai.example.test/zen/go/v1" });
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).get("x-opencode-session")).toBe("explicit-affinity");
+    expect(new Headers(fetch.mock.calls[1][1]?.headers).get("x-opencode-session")).toBeNull();
   });
 
   it("keeps provider-default output unbounded at Hana's request layer", async () => {

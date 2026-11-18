@@ -1688,6 +1688,7 @@
       "logout": "ログアウト",
       "loggedIn": "ログイン済み",
       "codePlaceholder": "認証コードを貼り付け",
+      "callbackPlaceholder": "コールバック URL または認証コードを貼り付け",
       "submit": "送信",
       "success": "ログインに成功しました",
       "loggedOut": "ログアウトしました",

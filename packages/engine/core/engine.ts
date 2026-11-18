@@ -514,7 +514,7 @@ export class HanaEngine {
       emitDevLog: (t, l) => this.emitDevLog(t, l),
       getHomeCwd: (agentId) => this.getHomeCwd(agentId),
       agentIdFromSessionPath: (p) => this.agentIdFromSessionPath(p),
-      switchAgentOnly: (id) => this._agentMgr.switchAgentOnly(id),
+      switchAgentOnly: (id, options) => this._agentMgr.switchAgentOnly(id, options),
       getConfig: () => this.config,
       getPrefs: () => this._prefs,
       getAgents: () => this._agentMgr.agents,
@@ -1753,6 +1753,7 @@ export class HanaEngine {
     return this._sessionCoord.pendingModel
       ?? this._models.currentModel;
   }
+  get defaultChatModel() { return this._models.currentModel; }
   /** 当前活跃 session 实际使用的模型（已创建的对话不随选择器变） */
   get activeSessionModel() {
     return this._sessionCoord.session?.model ?? null;
@@ -1957,7 +1958,7 @@ export class HanaEngine {
   getThinkingLevel() { return this._configCoord.getThinkingLevel(); }
   setThinkingLevel(l) { return this._configCoord.setThinkingLevel(l); }
   getDefaultThinkingLevel() { return this._sessionCoord.getDefaultThinkingLevel(); }
-  setDefaultThinkingLevel(l) { return this._sessionCoord.setDefaultThinkingLevel(l); }
+  setDefaultThinkingLevel(l, modelRef?) { return this._sessionCoord.setDefaultThinkingLevel(l, modelRef); }
   getSessionThinkingLevel(sessionPath) { return this._sessionCoord.getSessionThinkingLevel(sessionPath); }
   setSessionThinkingLevel(sessionPath, level) { return this._sessionCoord.setSessionThinkingLevel(sessionPath, level); }
   getSandbox() { return this._prefs.getSandbox(); }

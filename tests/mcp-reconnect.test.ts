@@ -575,10 +575,19 @@ describe("MCP runtime needs-auth handling during reconnect", () => {
   // off ~8 times re-hammering the token endpoint with a dead refresh token.
   it("short-circuits to needs-auth when a reconnect attempt fails with invalid_grant (status 400)", async () => {
     const factory = makeFakeClientFactory();
-    const runtime = makeRuntime({ enabled: true, connectors: [STDIO_CONNECTOR] }, factory);
+    const connector = {
+      id: "local",
+      name: "Example",
+      transport: "http",
+      url: "https://mcp.example",
+      authType: "oauth",
+      oauth: { accessToken: "fixture-token" },
+    };
+    const runtime = makeRuntime({ enabled: true, connectors: [connector] }, factory);
 
     await runtime.startConnector("local");
     const first = factory.instances[0];
+    expect(runtime.getState().connectors[0].authStatus).toBe("connected");
 
     // The reconnect's pre-request refresh dies because the refresh token is dead.
     factory.failNextStart(new McpHttpError("OAuth token refresh failed: refresh token expired", {
@@ -589,7 +598,12 @@ describe("MCP runtime needs-auth handling during reconnect", () => {
 
     await vi.advanceTimersByTimeAsync(1000); // attempt #1 fires and hits invalid_grant
 
-    expect(runtime.getState().connectors[0].status).toBe("needs-auth");
+    expect(runtime.getState().connectors[0]).toMatchObject({
+      status: "needs-auth",
+      authStatus: "disconnected",
+      oauth: { connected: false },
+    });
+    expect(runtime.getConfig().connectors[0].oauth?.accessToken).toBe("fixture-token");
 
     const countAfterAuthDeath = factory.instances.length;
     // Drive well past the whole backoff budget: NOT a single extra attempt.

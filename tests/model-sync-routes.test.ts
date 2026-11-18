@@ -601,6 +601,24 @@ describe("model sync related routes", () => {
     expect(JSON.stringify(data)).not.toContain("dashscope.example");
   });
 
+  it.each([
+    ["MODEL_NOT_FOUND", "model_not_found"],
+    ["MODEL_CREDENTIALS_MISSING", "model_credentials_missing"],
+  ])("auxiliary vision keeps the configured reference with error %s", async (code, reason) => {
+    const { createModelsRoute } = await import("../apps/server/routes/models.ts");
+    const app = new Hono();
+    const model = { id: "old-id", provider: "gateway" };
+    const engine = {
+      getSharedModels: () => ({ vision_enabled: true, vision: model }),
+      resolveModelWithCredentials: () => { throw Object.assign(new Error("details"), { code }); },
+    };
+    app.route("/api", createModelsRoute(engine));
+    const response = await app.request("/api/models/auxiliary-vision");
+    expect(await response.json()).toEqual({ auxiliaryVision: {
+      enabled: true, configured: true, available: false, unavailableReason: reason, model,
+    } });
+  });
+
   it("auxiliary vision route reports text-only configured models as unavailable", async () => {
     const { createModelsRoute } = await import("../apps/server/routes/models.ts");
     const app = new Hono();

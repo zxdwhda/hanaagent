@@ -77,7 +77,7 @@ export const InputControlBar = memo(function InputControlBar(props: Props) {
       <div className={styles['input-controls']}>
         {showThinking ? (
           <div className={styles['model-split-control']}>
-            <ThinkingLevelButton level={thinkingLevel} onChange={onThinkingChange} availableLevels={availableThinkingLevels} />
+            <ThinkingLevelButton level={thinkingLevel} onChange={onThinkingChange} availableLevels={availableThinkingLevels} draftModel={sessionModel} />
             <ModelSelector models={models} sessionModel={sessionModel} isStreaming={isStreaming} />
           </div>
         ) : (

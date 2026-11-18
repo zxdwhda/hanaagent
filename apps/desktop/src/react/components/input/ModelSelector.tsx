@@ -46,7 +46,16 @@ export function ModelSelector({ models, sessionModel, isStreaming = false }: {
   const switchModel = useCallback(async (modelId: string, provider?: string) => {
     try {
       const state = useStore.getState();
-      const { currentSessionPath, pendingNewSession, chatSessions, sessionModelsByPath } = state;
+      const { currentSessionPath, pendingNewSession, pendingDraftId, chatSessions, sessionModelsByPath } = state;
+      if (pendingNewSession && pendingDraftId && provider) {
+        const model = models.find(entry => entry.id === modelId && entry.provider === provider);
+        useStore.setState({
+          pendingDraftModel: { draftId: pendingDraftId, agentId: state.selectedAgentId || state.currentAgentId || null, id: modelId, provider },
+          pendingNewSessionThinkingLevel: null,
+        });
+        if (model?.defaultThinkingLevel) state.setThinkingLevel(model.defaultThinkingLevel);
+        return;
+      }
       const sessionHasMessages = !!(currentSessionPath && sessionScopedValue(state, chatSessions, currentSessionPath)?.items?.length);
 
       if (sessionHasMessages && currentSessionPath) {
@@ -94,6 +103,13 @@ export function ModelSelector({ models, sessionModel, isStreaming = false }: {
         setLoading(false);
         useStore.getState().setModelSwitching(false);
       } else {
+        if (currentSessionPath && !pendingNewSession && provider) {
+          const { createNewSession } = await import('../../stores/session-actions');
+          const latest = useStore.getState();
+          if (latest.currentSessionPath !== currentSessionPath || latest.pendingNewSession) return;
+          await createNewSession({ draftModelRef: { id: modelId, provider } });
+          return;
+        }
         // New session path: persist the model selection and mirror its thinking default into the draft.
         const setRes = await hanaFetch('/api/models/set', {
           method: 'POST',
@@ -104,10 +120,6 @@ export function ModelSelector({ models, sessionModel, isStreaming = false }: {
         if (setData.thinkingLevel) {
           useStore.getState().setThinkingLevel(setData.thinkingLevel);
           useStore.getState().setPendingNewSessionThinkingLevel(setData.thinkingLevel);
-        }
-        if (currentSessionPath && !pendingNewSession) {
-          const { createNewSession } = await import('../../stores/session-actions');
-          await createNewSession();
         }
         const res = await hanaFetch('/api/models');
         const data = await res.json();

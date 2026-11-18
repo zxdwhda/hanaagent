@@ -18,6 +18,7 @@
 
 import { t } from "../lib/i18n.ts";
 import { isLocalBaseUrl } from "../../shared/net-utils.ts";
+import { parseModelRef } from "../../shared/model-ref.ts";
 import { composeResolvedModelExecution } from "./model-execution-config.ts";
 
 // 角色名称 -> preferences 字段名（SHARED_MODEL_KEYS 兼容）
@@ -25,6 +26,14 @@ const ROLE_TO_PREF_KEY = {
   utility: "utility_model",
   utility_large: "utility_large_model",
 };
+
+export function unavailableModelReference(ref) {
+  const parsed = parseModelRef(ref);
+  const id = parsed?.id
+    ? (parsed.provider ? `${parsed.provider}/${parsed.id}` : parsed.id)
+    : "";
+  return Object.assign(new Error(t("error.modelNotFound", { id })), { code: "MODEL_NOT_FOUND" });
+}
 
 function withCredentialMetadata(model: any, cred: any) {
   const stripsModelCredentials = cred?.credentialSource === "auth-storage"
@@ -100,9 +109,9 @@ export class ExecutionRouter {
     if (requireUtilityLarge && !largeModelRef) throw new Error(t("error.noUtilityLargeModel"));
 
     const utilModel = this._resolveModel(utilityModelRef);
-    if (!utilModel) throw new Error(t("error.modelNotFound", { id: utilityModelRef }));
+    if (!utilModel) throw unavailableModelReference(utilityModelRef);
     const largeModel = largeModelRef ? this._resolveModel(largeModelRef) : null;
-    if (largeModelRef && !largeModel) throw new Error(t("error.modelNotFound", { id: largeModelRef }));
+    if (largeModelRef && !largeModel) throw unavailableModelReference(largeModelRef);
     return { utilityModelRef, largeModelRef, utilModel, largeModel };
   }
 
@@ -133,7 +142,7 @@ export class ExecutionRouter {
 
     const model = this._resolveModel(modelRef);
     if (!model) {
-      throw new Error(t("error.modelNotFound", { id: modelRef }));
+      throw unavailableModelReference(modelRef);
     }
 
     // utility API 覆盖：只在 utility/utility_large 角色时生效

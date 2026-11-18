@@ -54,8 +54,8 @@ function nextPendingDraftId(): string {
  * 要求 pendingDraftId 非空才认这是一个有效的待建草稿；裸设会让身份残缺，
  * submitEditorMessage 的 ensureSession 门槛就此失效，发送静默无响应（#2101）。
  */
-export function pendingNewSessionIdentityPatch(): { pendingNewSession: true; pendingDraftId: string } {
-  return { pendingNewSession: true, pendingDraftId: nextPendingDraftId() };
+export function pendingNewSessionIdentityPatch(): { pendingNewSession: true; pendingDraftId: string; pendingDraftModel: null } {
+  return { pendingNewSession: true, pendingDraftId: nextPendingDraftId(), pendingDraftModel: null };
 }
 
 function invalidateSessionSwitches(): void {
@@ -868,6 +868,7 @@ export async function switchSession(path: string): Promise<void> {
       pendingSessionSwitchPath: null,
       pendingNewSession: false,
       pendingDraftId: null,
+      pendingDraftModel: null,
       pendingProjectId: null,
       pendingNewSessionThinkingLevel: null,
       pendingNewSessionPermissionMode: null,
@@ -1010,6 +1011,7 @@ async function switchDeletedAgentSession(path: string): Promise<void> {
     pendingSessionSwitchPath: null,
     pendingNewSession: false,
     pendingDraftId: null,
+    pendingDraftModel: null,
     pendingProjectId: null,
     selectedFolder: null,
     selectedWorkspaceMountId: null,
@@ -1054,6 +1056,7 @@ async function switchDeletedAgentSession(path: string): Promise<void> {
 interface CreateNewSessionOptions {
   projectId?: string | null;
   cwd?: string | null;
+  draftModelRef?: { id: string; provider: string };
 }
 
 type PendingSessionCreateBody = Record<string, any>;
@@ -1082,9 +1085,12 @@ function buildPendingSessionCreateBody(state: Record<string, any>): PendingSessi
   if (state.pendingNewSessionPermissionMode) {
     body.permissionMode = state.pendingNewSessionPermissionMode;
   }
-  if (state.selectedAgentId && state.selectedAgentId !== state.currentAgentId) {
-    body.agentId = state.selectedAgentId;
-  }
+  const agentId = state.selectedAgentId || state.currentAgentId || null;
+  if (agentId) body.agentId = agentId;
+  const draftModel = state.pendingDraftModel;
+  body.draftModelRef = draftModel?.draftId === state.pendingDraftId && draftModel?.agentId === agentId
+    ? { id: draftModel.id, provider: draftModel.provider }
+    : null;
   body.currentSessionPath = state.currentSessionPath;
   return body;
 }
@@ -1243,6 +1249,13 @@ export async function createNewSession(options: CreateNewSessionOptions = {}): P
     workspaceFolders: [],
     selectedAgentId: selectedPrimaryAgentId,
     ...identity,
+    ...(options.draftModelRef ? {
+      pendingDraftModel: {
+        ...options.draftModelRef,
+        draftId: identity.pendingDraftId,
+        agentId: selectedPrimaryAgentId || s.currentAgentId || null,
+      },
+    } : {}),
     pendingProjectId,
     pendingNewSessionThinkingLevel: null,
     pendingNewSessionPermissionMode: null,
@@ -1271,9 +1284,10 @@ export async function createNewSession(options: CreateNewSessionOptions = {}): P
   ]);
   const latest = useStore.getState();
   if (!isPendingNewSessionDraftView() || latest.pendingDraftId !== identity.pendingDraftId) return;
-  if (data?.thinkingLevel && attemptedPendingSessionDraftId !== identity.pendingDraftId && !latest.pendingNewSessionThinkingLevel) {
+  const draftAgent = latest.agents.find(agent => agent.id === (latest.selectedAgentId || latest.currentAgentId));
+  const hasDraftDefault = !!latest.pendingDraftModel || !!draftAgent?.chatModel?.provider || latest.models.some(model => model.isDefault);
+  if (!hasDraftDefault && data?.thinkingLevel && attemptedPendingSessionDraftId !== identity.pendingDraftId && !latest.pendingNewSessionThinkingLevel) {
     latest.setThinkingLevel(data.thinkingLevel);
-    latest.setPendingNewSessionThinkingLevel(data.thinkingLevel);
   }
 
   // pending 状态下刷新 model 列表，让 ModelSelector 显示 agent Chat 默认 model
@@ -1318,7 +1332,9 @@ export async function ensureSession(expectedPendingDraftId?: string | null): Pro
       activated.clearDraft?.(HOME_DRAFT_KEY);
       activated.clearDraft?.(ref.sessionId);
       activated.clearDraft?.(ref.sessionPath);
-      useStore.setState({ pendingDraftId: null });
+      useStore.setState({ pendingDraftId: null, pendingDraftModel: null });
+    } else if (activated.pendingDraftId === draftId) {
+      return null;
     }
     return ref;
   } catch (err) {

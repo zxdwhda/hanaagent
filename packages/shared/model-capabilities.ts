@@ -178,6 +178,7 @@ export function normalizeModelProtocolCompat(value: any): Record<string, any> | 
 
   if (value.hanaVideoInput === true) out.hanaVideoInput = true;
   if (value.hanaAudioInput === true) out.hanaAudioInput = true;
+  if (value.supportsTemperature === false) out.supportsTemperature = false;
   if (value.outputCapRequired === true) out.outputCapRequired = true;
   if (typeof value.outputCapField === "string" && OUTPUT_CAP_FIELDS.has(value.outputCapField)) {
     out.outputCapField = value.outputCapField;

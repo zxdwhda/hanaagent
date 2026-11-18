@@ -1063,10 +1063,10 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
   });
 
   app.post("/api/session-thinking-level", async (c) => {
-    const { sessionPath, level } = await safeJson(c);
+    const { sessionPath, level, modelRef } = await safeJson(c);
     const result = sessionPath
       ? await engine.setSessionThinkingLevel(sessionPath, level)
-      : await engine.setDefaultThinkingLevel(level);
+      : await engine.setDefaultThinkingLevel(level, modelRef);
     if (result?.ok === false) {
       return c.json({
         ok: false,
@@ -1077,6 +1077,7 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
     return c.json({
       ok: true,
       ...resolveSessionThinkingLevelState(engine, { sessionPath, pendingNewSession: !sessionPath }),
+      ...(modelRef && !sessionPath ? { thinkingLevel: result?.thinkingLevel } : {}),
     });
   });
 

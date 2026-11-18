@@ -148,6 +148,26 @@ describe("模型选择无 fallback", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
+  it("uses the target agent's model or the explicit draft model instead of a process-wide pending selection", async () => {
+    const globalModel = { id: "shared-id", provider: "default-provider" };
+    const agentModel = { id: "shared-id", provider: "agent-provider" };
+    const selectedModel = { id: "shared-id", provider: "selected-provider" };
+    const models = { ...makeModels([globalModel, agentModel, selectedModel]), currentModel: globalModel };
+    const coord = makeCoordinator(tempDir, { models, agentConfig: { models: { chat: agentModel } } });
+    coord.setPendingModel(globalModel);
+    createAgentSessionMock.mockRejectedValue(new Error("stop after model selection"));
+
+    await expect(coord.createDetachedSession({ agentId: "test", draftModelRef: null }))
+      .rejects.toThrow("stop after model selection");
+    expect(createAgentSessionMock.mock.calls.at(-1)?.[0].model).toEqual(agentModel);
+    await expect(coord.createDetachedSession({ agentId: "test", draftModelRef: selectedModel }))
+      .rejects.toThrow("stop after model selection");
+    expect(createAgentSessionMock.mock.calls.at(-1)?.[0].model).toEqual(selectedModel);
+    await expect(coord.createDetachedSession({ agentId: "test", draftModelRef: { id: "shared-id", provider: "missing" } }))
+      .rejects.toMatchObject({ code: "MODEL_NOT_FOUND", status: 404 });
+    expect(createAgentSessionMock).toHaveBeenCalledTimes(2);
+  });
+
   // ────── resolveModel (createSessionContext) ──────
 
   describe("resolveModel", () => {

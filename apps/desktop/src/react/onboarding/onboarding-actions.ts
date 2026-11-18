@@ -4,6 +4,7 @@
 
 import { isValidAgentId } from '../../../../../packages/shared/agent-id.ts';
 import { DEFAULT_HEARTBEAT_INTERVAL_MINUTES } from '../../../../../packages/shared/default-workspace-constants.ts';
+import { CODEX_ONBOARDING_PROVIDER, CODEX_RUNTIME_PROVIDER_ID } from './constants';
 
 export type HanaFetch = (path: string, opts?: RequestInit) => Promise<Response>;
 
@@ -321,7 +322,8 @@ export interface LoadModelsResult {
 }
 
 export async function loadModels({ hanaFetch, providerName, providerUrl, providerApi, apiKey }: LoadModelsParams): Promise<LoadModelsResult> {
-  const res = await hanaFetch('/api/providers/fetch-models', {
+  const isCodex = providerName === CODEX_ONBOARDING_PROVIDER.value;
+  const res = isCodex ? await hanaFetch('/api/models') : await hanaFetch('/api/providers/fetch-models', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -341,7 +343,13 @@ export async function loadModels({ hanaFetch, providerName, providerUrl, provide
   if (typeof data.error === 'string' && data.error) {
     return { models: [], error: data.error };
   }
-  return { models: Array.isArray(data.models) ? data.models as DiscoveredModel[] : [] };
+  if (!Array.isArray(data.models)) return { models: [] };
+  if (isCodex) {
+    return { models: data.models.filter(model => (
+      isObject(model) && model.provider === CODEX_RUNTIME_PROVIDER_ID && typeof model.id === 'string' && model.id.length > 0
+    )) };
+  }
+  return { models: data.models as DiscoveredModel[] };
 }
 
 // ── Save model + utility models ──
@@ -394,8 +402,10 @@ export async function saveModel({
   selectedUtilityLarge,
   verificationPlan,
 }: SaveModelParams): Promise<void> {
+  const isCodex = providerName === CODEX_ONBOARDING_PROVIDER.value;
+  const modelProvider = isCodex ? CODEX_RUNTIME_PROVIDER_ID : providerName;
   // Save chat model
-  const chatModelPatch = { models: { chat: { id: selectedModel, provider: providerName } } };
+  const chatModelPatch = { models: { chat: { id: selectedModel, provider: modelProvider } } };
   const chatModelRes = await hanaFetch(agentConfigPath(agentId), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -404,22 +414,24 @@ export async function saveModel({
   await requireMutation(chatModelRes, 'Saving chat model');
   recordAgentConfig(verificationPlan, chatModelPatch);
 
-  // Save only the user's explicit Added Models selection to provider.
-  const modelEntries = addedModels.map(compactModelEntry);
-  const providerModelsPatch = { providers: { [providerName]: { models: modelEntries } } };
-  const providerModelsRes = await hanaFetch(agentConfigPath(agentId), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(providerModelsPatch),
-  });
-  await requireMutation(providerModelsRes, 'Saving provider models');
-  recordAgentConfig(verificationPlan, providerModelsPatch);
+  if (!isCodex) {
+    // OAuth models belong to Provider Catalog. API key setup saves the user's new allowlist.
+    const modelEntries = addedModels.map(compactModelEntry);
+    const providerModelsPatch = { providers: { [providerName]: { models: modelEntries } } };
+    const providerModelsRes = await hanaFetch(agentConfigPath(agentId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(providerModelsPatch),
+    });
+    await requireMutation(providerModelsRes, 'Saving provider models');
+    recordAgentConfig(verificationPlan, providerModelsPatch);
+  }
 
   // Save utility models to global preferences
   if (selectedUtility || selectedUtilityLarge) {
     const utilityModels: Record<string, { id: string; provider: string }> = {};
-    if (selectedUtility) utilityModels.utility = { id: selectedUtility, provider: providerName };
-    if (selectedUtilityLarge) utilityModels.utility_large = { id: selectedUtilityLarge, provider: providerName };
+    if (selectedUtility) utilityModels.utility = { id: selectedUtility, provider: modelProvider };
+    if (selectedUtilityLarge) utilityModels.utility_large = { id: selectedUtilityLarge, provider: modelProvider };
     const preferencesPatch = { models: utilityModels };
     const preferencesRes = await hanaFetch('/api/preferences/models', {
       method: 'PUT',

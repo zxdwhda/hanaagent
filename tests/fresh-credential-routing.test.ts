@@ -30,6 +30,18 @@ function createRouter(models, freshResolver = null) {
 }
 
 describe("ExecutionRouter fresh credential routing", () => {
+  it("identifies an outdated Utility reference before looking up credentials", async () => {
+    const fresh = vi.fn();
+    const { router, providerRegistry } = createRouter({}, fresh);
+    await expect(router.resolveUtilityConfigFresh({}, {
+      utility: { id: "renamed-model", provider: "gateway" },
+    }, {}, { requireUtilityLarge: false })).rejects.toMatchObject({
+      code: "MODEL_NOT_FOUND",
+      message: expect.stringContaining("gateway/renamed-model"),
+    });
+    expect(fresh).not.toHaveBeenCalled();
+    expect(providerRegistry.getCredentials).not.toHaveBeenCalled();
+  });
   it("refreshes once for same-provider utility models while preserving each model API", async () => {
     const models = {
       utility: {

@@ -18,6 +18,7 @@ import {
   installMidRunCompaction,
 } from "../core/session-compaction-runtime.ts";
 import { SESSION_PERMISSION_MODES } from "../core/session-permission-mode.ts";
+import { normalizePiSdkThinkingLevel, resolveThinkingLevelForModel } from "../core/session-thinking-level.ts";
 import { teardownSessionResources } from "../core/session-teardown.ts";
 import {
   applyConversationScopedMemorySearch,
@@ -287,7 +288,7 @@ export async function runAgentSession(agentId, rounds, { engine, signal, session
       authStorage: ctx.authStorage,
       modelRegistry: ctx.modelRegistry,
       model,
-      thinkingLevel: "medium",
+      thinkingLevel: resolveThinkingLevelForModel("medium", model, normalizePiSdkThinkingLevel),
       resourceLoader: tempResourceLoader,
       tools,
       customTools,
@@ -516,7 +517,7 @@ export async function runAgentPhoneSession(agentId, rounds, {
     authStorage: ctx.authStorage,
     modelRegistry: ctx.modelRegistry,
     model,
-    thinkingLevel: "medium",
+    thinkingLevel: resolveThinkingLevelForModel("medium", model, normalizePiSdkThinkingLevel),
     resourceLoader: tempResourceLoader,
     tools,
     customTools: sessionCustomTools,

@@ -1758,6 +1758,7 @@
       "logout": "Logout",
       "loggedIn": "Logged in",
       "codePlaceholder": "Paste authorization code",
+      "callbackPlaceholder": "Paste callback URL or authorization code",
       "submit": "Submit",
       "success": "Login successful",
       "loggedOut": "Logged out",

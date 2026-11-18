@@ -145,12 +145,15 @@ function buildAuxiliaryVisionStatus(engine) {
   let resolved = null;
   try {
     resolved = engine.resolveModelWithCredentials?.(shared.vision) || null;
-  } catch {
+  } catch (error) {
+    const reason = error?.code === "MODEL_NOT_FOUND"
+      ? "model_not_found"
+      : error?.code === "MODEL_CREDENTIALS_MISSING" ? "model_credentials_missing" : "model_unavailable";
     return {
       enabled: true,
       configured: true,
       available: false,
-      unavailableReason: "model_not_found",
+      unavailableReason: reason,
       model: configuredModel,
     };
   }
@@ -194,7 +197,11 @@ export function createModelsRoute(engine) {
       const overrides = engine.config?.models?.overrides;
       const cur = engine.currentModel;
       const activeModel = engine.activeSessionModel;
-      const models = engine.availableModels.map(m => serializeModelInfo(m, { current: cur, overrides }));
+      const defaultModel = engine.defaultChatModel ?? cur;
+      const models = engine.availableModels.map(m => ({
+        ...serializeModelInfo(m, { current: cur, overrides }),
+        isDefault: modelRefEquals(m, defaultModel),
+      }));
       return c.json({
         models,
         current: cur?.id || null,

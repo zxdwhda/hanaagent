@@ -16,6 +16,46 @@ afterEach(() => {
 });
 
 describe("ProviderRegistry chat projection plans", () => {
+  it("loads legacy official DeepSeek protocol aliases as Chat Completions", () => {
+    fs.writeFileSync(path.join(tmpHome, "provider-catalog.json"), JSON.stringify({
+      catalogVersion: 2,
+      providers: {
+        deepseek: { api: "deepseek", models: ["deepseek-v4-flash"] },
+        "deepseek-import": { api: "deepseek", base_url: "https://api.deepseek.com/v1", models: ["deepseek-v4-pro"] },
+        "deepseek-mirror": { api: "deepseek", base_url: "https://api.deepseek.com.example.com", models: ["mirror"] },
+        "deepseek-responses": { api: "openai-responses", models: ["deepseek-v4-pro"] },
+      },
+      capabilities: {},
+      meta: {},
+    }));
+    const registry = new ProviderRegistry(tmpHome);
+    registry.reload();
+
+    expect(registry.getEffectiveChatProviderConfig("deepseek")?.api).toBe("openai-completions");
+    expect(registry.getEffectiveChatProviderConfig("deepseek-import")?.api).toBe("openai-completions");
+    expect(registry.getEffectiveChatProviderConfig("deepseek-mirror")?.api).toBe("deepseek");
+    expect(registry.getEffectiveChatProviderConfig("deepseek-responses")?.api).toBe("openai-responses");
+  });
+
+  it("loads a pre-catalog DeepSeek entry from added-models.yaml", () => {
+    fs.writeFileSync(path.join(tmpHome, "added-models.yaml"), [
+      "providers:",
+      "  deepseek:",
+      "    api: deepseek",
+      "    base_url: https://api.deepseek.com/v1",
+      "    models: [deepseek-v4-flash]",
+      "",
+    ].join("\n"));
+    const registry = new ProviderRegistry(tmpHome);
+    registry.reload();
+
+    expect(registry.getEffectiveChatProviderConfig("deepseek")).toMatchObject({
+      api: "openai-completions",
+      base_url: "https://api.deepseek.com/v1",
+      models: ["deepseek-v4-flash"],
+    });
+  });
+
   it("centralizes missing, empty, and non-empty model selection semantics", () => {
     const registry = new ProviderRegistry(tmpHome);
     registry.reload();
@@ -124,7 +164,7 @@ describe("ProviderRegistry chat projection plans", () => {
     ]));
     expect(plan?.config.headers).toEqual({
       "x-xai-token-auth": "xai-grok-cli",
-      "x-grok-client-version": "0.2.95",
+      "x-grok-client-version": "1.0.89",
       "x-grok-client-identifier": "hana",
     });
     expect(plan?.modelExecutionHeaders).toEqual({
@@ -149,7 +189,7 @@ describe("ProviderRegistry chat projection plans", () => {
           api: "openai-responses",
           headers: {
             "x-xai-token-auth": "xai-grok-cli",
-            "x-grok-client-version": "0.2.95",
+            "x-grok-client-version": "1.0.89",
             "x-grok-client-identifier": "hana",
           },
           oauth: expect.objectContaining({ name: "xAI Grok (OAuth)" }),

@@ -33,6 +33,7 @@ interface OAuthStartResponse {
   url: string;
   instructions?: string;
   polling?: true;
+  manualCodeSupported?: true;
 }
 
 interface PendingOAuthFlow {
@@ -42,6 +43,7 @@ interface PendingOAuthFlow {
   rejectCode: (reason?: unknown) => void;
   rejectUrl: (reason?: unknown) => void;
   loginPromise: Promise<void> | null;
+  modelSync: Promise<void> | null;
   result: OAuthFlowResult | null;
   response: OAuthStartResponse | null;
   timeoutTimer: ReturnType<typeof setTimeout> | null;
@@ -109,7 +111,10 @@ export function createAuthRoute(engine) {
   ): OAuthStartResponse {
     const resp: OAuthStartResponse = { sessionId, url };
     if (authInstructions) resp.instructions = authInstructions;
-    if (usesCallbackServer) resp.polling = true;
+    if (usesCallbackServer) {
+      resp.polling = true;
+      if (!authInstructions) resp.manualCodeSupported = true;
+    }
     return resp;
   }
 
@@ -200,6 +205,7 @@ export function createAuthRoute(engine) {
       rejectCode,
       rejectUrl,
       loginPromise: null,
+      modelSync: null,
       result: null,
       response: null,
       timeoutTimer: null,
@@ -251,8 +257,15 @@ export function createAuthRoute(engine) {
     });
     flow.loginPromise = loginPromise;
 
-    // 追踪 loginPromise 的结果（供 poll 端点使用）
+    // Browser completion also refreshes the registry if the client has stopped polling.
     loginPromise.then(() => {
+      flow.modelSync = (async () => {
+        try {
+          await engine.onProviderChanged();
+        } catch (err) {
+          log.error(`post-login model sync failed: ${err.message}`);
+        }
+      })();
       flow.result = { ok: true };
       clearFlowTimer(flow);
     }).catch(err => {
@@ -300,17 +313,9 @@ export function createAuthRoute(engine) {
 
     try {
       await flow.loginPromise;
-      deletePendingFlow(sessionId);
-
-      try {
-        await engine.onProviderChanged();
-      } catch (err) {
-        log.error(`post-login model sync failed: ${err.message}`);
-      }
-
+      await flow.modelSync;
       return c.json({ ok: true });
     } catch (err) {
-      deletePendingFlow(sessionId);
       return c.json({ error: err.message }, 500);
     }
   });
@@ -323,24 +328,18 @@ export function createAuthRoute(engine) {
     const sessionId = c.req.param("sessionId");
     const flow = pendingFlows.get(sessionId);
     if (!flow) {
-      return c.json({ status: "error", error: "No pending login flow" }, 400);
+      return c.json({ status: "error", error: "No pending login flow", code: "OAUTH_FLOW_EXPIRED" }, 400);
     }
 
     if (!flow.result) {
       return c.json({ status: "pending" });
     }
 
-    deletePendingFlow(sessionId);
-
     if ("error" in flow.result) {
       return c.json({ status: "error", error: flow.result.error });
     }
 
-    try {
-      await engine.onProviderChanged();
-    } catch (err) {
-      log.error(`post-login model sync failed: ${err.message}`);
-    }
+    await flow.modelSync;
     return c.json({ status: "done" });
   });
 

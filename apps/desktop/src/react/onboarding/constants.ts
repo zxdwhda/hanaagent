@@ -17,7 +17,16 @@ export const LOCALES = [
   { value: 'en',    label: 'English' },
 ] as const;
 
+export const CODEX_ONBOARDING_PROVIDER: ProviderPreset = {
+  value: 'openai-codex-oauth',
+  label: 'OpenAI Codex (OAuth)',
+  url: '',
+  api: 'openai-codex-responses',
+};
+export const CODEX_RUNTIME_PROVIDER_ID = 'openai-codex';
+
 export const PROVIDER_PRESETS: ProviderPreset[] = [
+  CODEX_ONBOARDING_PROVIDER,
   ...API_PROVIDER_PRESETS,
   { value: '_custom',     label: '',                     url: '',  api: 'openai-completions', custom: true },
 ];

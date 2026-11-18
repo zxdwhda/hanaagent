@@ -104,6 +104,20 @@ describe("AgentManager.switchAgent workspace selection", () => {
     expect(savePrimaryAgent).not.toHaveBeenCalled();
   });
 
+  it("can focus an existing session even if the assistant's default model disappeared", async () => {
+    const { manager, createSession, models } = makeManager({
+      previousCwd: makeDir("previous-workspace"),
+      targetHome: null,
+    });
+    const originalModel = models.defaultModel;
+    models.availableModels = [originalModel];
+    await expect(manager.switchAgentOnly("target")).rejects.toMatchObject({ code: "agent_model_not_available" });
+    await manager.switchAgentOnly("target", { existingSession: true });
+    expect(manager.activeAgentId).toBe("target");
+    expect(models.defaultModel).toBe(originalModel);
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
   it("keeps the previous assistant and model when creating the target's first session fails", async () => {
     const { manager, createSession, models } = makeManager({
       previousCwd: makeDir("previous-workspace"),

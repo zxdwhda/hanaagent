@@ -10,6 +10,7 @@ import { lookupReferenceModelMeta } from '../../utils/model-metadata';
 import { describeOnboardingError, loadModels as loadModelsAction, saveModel as saveModelAction } from '../onboarding-actions';
 import type { AddedModelEntry, AddedModelObject, DiscoveredModel, HanaFetch, OnboardingVerificationPlan } from '../onboarding-actions';
 import { StepContainer } from '../onboarding-ui';
+import { CODEX_ONBOARDING_PROVIDER } from '../constants';
 
 interface ModelStepProps {
   preview: boolean;
@@ -105,6 +106,7 @@ export function ModelStep({
   const [editImage, setEditImage] = useState<boolean | undefined>(undefined);
   const [editAudio, setEditAudio] = useState<boolean | undefined>(undefined);
   const [editReasoning, setEditReasoning] = useState<boolean | undefined>(undefined);
+  const isCodex = providerName === CODEX_ONBOARDING_PROVIDER.value;
 
   const modelsLoadedFor = useRef('');
 
@@ -317,12 +319,12 @@ export function ModelStep({
                       {t('onboarding.model.setMainModel')}
                     </button>
                   )}
-                  <button type="button" className="ob-model-icon-btn" title={t('onboarding.model.editModel')} onClick={() => startEditing(model)}>
+                  {!isCodex && <button type="button" className="ob-model-icon-btn" title={t('onboarding.model.editModel')} onClick={() => startEditing(model)}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
-                  </button>
+                  </button>}
                   <button type="button" className="ob-model-icon-btn" title={t('onboarding.model.removeModel')} onClick={() => removeModel(model.id)}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -402,7 +404,7 @@ export function ModelStep({
                 </button>
               ))}
             </div>
-            <div className="ob-add-model-manual">
+            {!isCodex && <div className="ob-add-model-manual">
               <input
                 className="ob-input ob-add-model-manual-input"
                 type="text"
@@ -422,7 +424,7 @@ export function ModelStep({
               >
                 {t('onboarding.model.addManualModel')}
               </button>
-            </div>
+            </div>}
           </div>
         )}
       </div>

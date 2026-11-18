@@ -307,10 +307,7 @@ describe('WelcomeScreen workspace picker', () => {
     expect(useStore.getState().selectedAgentId).toBe('mio');
     expect(useStore.getState().selectedFolder).toBe('/workspace/Mio');
     expect(useStore.getState().workspaceFolders).toEqual([]);
-    expect(mocks.hanaFetch).toHaveBeenCalledWith('/api/models/set', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ modelId: 'gpt-5.2', provider: 'openai' }),
-    }));
+    expect(mocks.hanaFetch.mock.calls.some(([url]) => url === '/api/models/set')).toBe(false);
   });
 
   it('uses the target agent effective default workspace when no explicit home folder is configured', async () => {

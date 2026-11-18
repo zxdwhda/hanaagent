@@ -1688,6 +1688,7 @@
       "logout": "로그아웃",
       "loggedIn": "로그인됨",
       "codePlaceholder": "인증 코드를 붙여넣으세요",
+      "callbackPlaceholder": "콜백 URL 또는 인증 코드를 붙여넣으세요",
       "submit": "제출",
       "success": "로그인 성공",
       "loggedOut": "로그아웃됨",
