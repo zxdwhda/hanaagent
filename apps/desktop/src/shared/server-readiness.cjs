@@ -37,6 +37,26 @@ const SERVER_INFO_FIRST_WAIT_MS = 90_000;
 // 出信号，180s 是稳健的安全网。
 const SERVER_INFO_PROGRESS_GRACE_MS = 180_000;
 const SERVER_INFO_MAX_WAIT_MS = 5 * 60_000;
+const SERVER_INFO_MAX_PHASE_WAIT_MS = 10 * 60_000;
+
+function createServerStartupProgress() {
+  let pendingLine = "";
+  let lastPhase = 0;
+  let lastPhaseAtMs = null;
+  return {
+    get lastPhaseAtMs() { return lastPhaseAtMs; },
+    observe(chunk, nowMs) {
+      const lines = (pendingLine + chunk).split(/\r?\n/);
+      pendingLine = lines.pop().slice(0, 128);
+      for (const line of lines) {
+        const match = /^HANA_STARTUP_PHASE ([1-5])$/.exec(line);
+        if (!match || Number(match[1]) <= lastPhase) continue;
+        lastPhase = Number(match[1]);
+        lastPhaseAtMs = nowMs;
+      }
+    },
+  };
+}
 
 /**
  * 校验打包模式下 server/node_modules/ 中关键 external 包是否齐全。
@@ -197,7 +217,8 @@ function normalizeListenStartupPayload(value) {
 /**
  * Server readiness has two clocks:
  * - firstDeadlineMs: the normal fast-path deadline.
- * - maxWaitMs/progressGraceMs: the slow-start guard for Windows update/cold-start cases.
+ * - maxWaitMs/progressGraceMs: the ordinary slow-start budget.
+ * - maxPhaseWaitMs: an extension for completed phases, independent of keepalive output.
  *
  * After the first deadline, a live child may keep initializing only if it has
  * produced recent output. This keeps slow imports from being misreported as a
@@ -208,16 +229,23 @@ function shouldKeepWaitingForServerInfo({
   startedAtMs,
   firstDeadlineMs,
   lastProgressAtMs,
+  lastPhaseAtMs,
   childAlive,
   progressGraceMs = SERVER_INFO_PROGRESS_GRACE_MS,
   maxWaitMs = SERVER_INFO_MAX_WAIT_MS,
+  maxPhaseWaitMs = SERVER_INFO_MAX_PHASE_WAIT_MS,
 }) {
   if (!Number.isFinite(nowMs) || !Number.isFinite(startedAtMs) || !Number.isFinite(firstDeadlineMs)) {
     return false;
   }
   if (nowMs <= firstDeadlineMs) return true;
   if (!childAlive) return false;
-  if (nowMs - startedAtMs >= maxWaitMs) return false;
+  const elapsed = nowMs - startedAtMs;
+  if (elapsed >= maxWaitMs) {
+    return elapsed < maxPhaseWaitMs
+      && Number.isFinite(lastPhaseAtMs)
+      && nowMs - lastPhaseAtMs <= progressGraceMs;
+  }
   if (!Number.isFinite(lastProgressAtMs)) return false;
   return nowMs - lastProgressAtMs <= progressGraceMs;
 }
@@ -233,4 +261,5 @@ module.exports = {
   parsePortInUseStartupError,
   extractRootServerStartupError,
   shouldKeepWaitingForServerInfo,
+  createServerStartupProgress,
 };

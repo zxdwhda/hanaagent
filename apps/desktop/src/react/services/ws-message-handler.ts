@@ -655,6 +655,10 @@ export function handleServerMessage(msg: any): void {
     case 'browser_status': {
       const bsp = msg.sessionPath;
       if (!bsp) { console.warn('[ws] event missing sessionPath:', msg.type); break; }
+      if (msg.error === 'browser_handoff_failed'
+        && (bsp === state.currentSessionPath || bsp === state.pendingSessionSwitchPath)) {
+        state.addToast(t('browser.handoffFailed'), 'error', 6000, { dedupeKey: `browser-handoff:${bsp}` });
+      }
       const bRunning = !!msg.running;
       const bUrl = msg.url || null;
       const prev = browserStateForPath(state, bsp);

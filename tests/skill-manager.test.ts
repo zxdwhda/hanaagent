@@ -1,4 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import { once } from "node:events";
 import path from "path";
 import { SkillManager, __test } from "../packages/engine/core/skill-manager.ts";
 
@@ -359,4 +362,46 @@ describe("SKILL_WATCH_DEPTH", () => {
     expect(__test.SKILL_WATCH_DEPTH).toBeGreaterThanOrEqual(2);
     expect(__test.SKILL_WATCH_DEPTH).toBeLessThanOrEqual(5);
   });
+});
+
+describe("external skill watchers", () => {
+  it("ignores ancillary files and reloads when an external manifest appears, changes or is removed", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-external-skill-watch-"));
+    const external = path.join(root, "external");
+    const managed = path.join(root, "managed");
+    const skill = path.join(external, "sample");
+    const ancillary = path.join(skill, "references", "notes.json");
+    fs.mkdirSync(managed);
+    fs.mkdirSync(path.dirname(ancillary), { recursive: true });
+    fs.writeFileSync(ancillary, "[]");
+    const manifest = path.join(skill, fs.existsSync(path.join(skill, "REFERENCES")) ? "skill.md" : "SKILL.md");
+    const sm = new SkillManager({ skillsDir: managed, externalPaths: [{ dirPath: external, label: "fixture" }] });
+    class Loader {
+      getSkills() { return { skills: [] }; }
+      async reload() {}
+    }
+    const reloaded = vi.fn();
+    sm.watch(new Loader(), new Map(), reloaded);
+    const watcher = sm._externalWatchers.get(external);
+    try {
+      await once(watcher, "ready");
+      expect(watcher.getWatched()[skill] ?? []).not.toContain("references");
+
+      fs.writeFileSync(manifest, "---\nname: sample\ndescription: original\n---\n");
+      await vi.waitFor(() => expect(sm.allSkills[0]?.description).toBe("original"), { timeout: 3000 });
+      fs.writeFileSync(ancillary, '["changed"]');
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      expect(reloaded).toHaveBeenCalledTimes(1);
+      fs.writeFileSync(manifest, "---\nname: sample\ndescription: edited\n---\n");
+      await vi.waitFor(() => expect(sm.allSkills[0]?.description).toBe("edited"), { timeout: 3000 });
+      fs.unlinkSync(manifest);
+      await vi.waitFor(() => expect(sm.allSkills).toHaveLength(0), { timeout: 3000 });
+      expect(reloaded).toHaveBeenCalledTimes(3);
+    } finally {
+      const watchers = [sm._watcher, watcher];
+      sm.unwatch();
+      await Promise.all(watchers.map((entry) => entry.close()));
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }, 12000);
 });

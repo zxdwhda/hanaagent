@@ -2839,6 +2839,7 @@
     "close": "Close"
   },
   "browser": {
+    "handoffFailed": "Could not restore the browser for this session",
     "using": "Using browser",
     "close": "Close browser",
     "open": "Open browser",

@@ -1759,17 +1759,15 @@ export function createChatRoute(engine: any, hub: any, {
               const requestedStreamId = typeof msg.streamId === "string" && msg.streamId.trim()
                 ? msg.streamId.trim()
                 : null;
-              const activeStreamId = typeof abortSs?.streamId === "string" && abortSs.streamId.trim()
-                ? abortSs.streamId.trim()
-                : null;
-              if (requestedStreamId && (!activeStreamId || requestedStreamId !== activeStreamId)) {
+              const activeStreamId = textOrNull(abortSs?.streamId);
+              const rejectStaleStop = (streamId: string | null) => {
                 wsSend(ws, {
                   type: "abort_result",
                   status: "rejected",
                   reason: "stale_stream",
                   sessionId: abortTarget.sessionId,
                   sessionPath: abortPath,
-                  streamId: activeStreamId,
+                  streamId,
                 });
                 // Keep the legacy rejection event while older clients migrate to abort_result.
                 wsSend(ws, {
@@ -1777,8 +1775,15 @@ export function createChatRoute(engine: any, hub: any, {
                   reason: "stale_stream",
                   sessionId: abortTarget.sessionId,
                   sessionPath: abortPath,
-                  streamId: activeStreamId,
+                  streamId,
                 });
+              };
+              const replacementStreamId = () => {
+                const current = textOrNull(getState(abortPath)?.streamId);
+                return current && current !== activeStreamId ? current : null;
+              };
+              if (requestedStreamId && requestedStreamId !== activeStreamId) {
+                rejectStaleStop(activeStreamId);
                 return;
               }
               const abortReason = typeof msg.reason === "string" && msg.reason.trim()
@@ -1788,9 +1793,21 @@ export function createChatRoute(engine: any, hub: any, {
               let abortAccepted = false;
               try {
                 abortAccepted = !!(await agentReviewTurns.cancelByParent(abortTarget.sessionId, abortReason));
-                if (!abortAccepted) abortAccepted = !!(await hub.abort(abortPath, { reason: abortReason }));
+                if (!abortAccepted) {
+                  const replacement = replacementStreamId();
+                  if (replacement) {
+                    rejectStaleStop(replacement);
+                    return;
+                  }
+                  abortAccepted = !!(await hub.abort(abortPath, { reason: abortReason }));
+                }
               } catch {}
               if (!abortAccepted) {
+                const replacement = replacementStreamId();
+                if (replacement) {
+                  rejectStaleStop(replacement);
+                  return;
+                }
                 const abortStreamId = abortSs?.streamId || null;
                 finishStreamingState(abortSs, abortPath);
                 broadcast({

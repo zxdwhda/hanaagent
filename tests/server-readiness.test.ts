@@ -18,6 +18,7 @@ import {
   SERVER_INFO_PROGRESS_GRACE_MS,
   SERVER_INFO_MAX_WAIT_MS,
   shouldKeepWaitingForServerInfo,
+  createServerStartupProgress,
   parsePortInUseStartupError,
   extractRootServerStartupError,
 } from "../apps/desktop/src/shared/server-readiness.cjs";
@@ -282,6 +283,22 @@ describe("startup root error extraction", () => {
 });
 
 describe("shouldKeepWaitingForServerInfo", () => {
+  it("extends the standard cap for a newly completed phase without extending it indefinitely", () => {
+    const progress = createServerStartupProgress();
+    progress.observe("[server-bootstrap] keepalive\nHANA_STARTUP_PHASE ", 290_000);
+    progress.observe("3\n", 291_000);
+    progress.observe("HANA_STARTUP_PHASE 3\nHANA_STARTUP_PHASE 2\n", 399_000);
+    expect(progress.lastPhaseAtMs).toBe(291_000);
+    const timing = {
+      startedAtMs: 0, firstDeadlineMs: 90_000, lastProgressAtMs: 399_000,
+      lastPhaseAtMs: progress.lastPhaseAtMs, childAlive: true,
+    };
+    expect(shouldKeepWaitingForServerInfo({ ...timing, nowMs: 400_000 })).toBe(true);
+    expect(shouldKeepWaitingForServerInfo({ ...timing, nowMs: 471_001 })).toBe(false);
+    expect(shouldKeepWaitingForServerInfo({ ...timing, nowMs: 400_000, childAlive: false })).toBe(false);
+    expect(shouldKeepWaitingForServerInfo({ ...timing, nowMs: 600_000, lastPhaseAtMs: 599_000 })).toBe(false);
+  });
+
   it("continues past the first deadline when a live child is still producing startup output", () => {
     expect(shouldKeepWaitingForServerInfo({
       nowMs: 61_000,

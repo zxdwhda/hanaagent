@@ -32,27 +32,25 @@ describe("desktop foreign-server guard (same-HANA_HOME mutual exclusion, desktop
   it("probes the residual server before falling through to the port-not-conflicting spawn branch, and throws FOREIGN_SERVER_RUNNING when it blocks", () => {
     // Locate the disposition branch this guard was inserted into: the
     // "!disposition.removeInfoFile" block, after the STALE_SERVER_UNCLEANED
-    // failFast throw, before the "继续 spawn 新 server" comment.
+    // failFast throw, before resolving the packaged artifact and spawning.
     const dispositionBlockStart = mainSource.indexOf("if (!disposition.removeInfoFile) {");
     expect(dispositionBlockStart).toBeGreaterThan(-1);
 
     const staleThrowIndex = mainSource.indexOf('err.code = "STALE_SERVER_UNCLEANED";', dispositionBlockStart);
     const probeCallIndex = mainSource.indexOf("await probeServerInfo({ info: existingInfo })", dispositionBlockStart);
     const foreignThrowIndex = mainSource.indexOf('err.code = "FOREIGN_SERVER_RUNNING";', dispositionBlockStart);
-    const continueSpawnCommentIndex = mainSource.indexOf("继续 spawn 新 server", dispositionBlockStart);
+    const artifactBootIndex = mainSource.indexOf("await resolvePackagedArtifactBoot()", dispositionBlockStart);
 
     expect(staleThrowIndex).toBeGreaterThan(-1);
     expect(probeCallIndex).toBeGreaterThan(-1);
     expect(foreignThrowIndex).toBeGreaterThan(-1);
-    expect(continueSpawnCommentIndex).toBeGreaterThan(-1);
+    expect(artifactBootIndex).toBeGreaterThan(-1);
 
     // Ordering: STALE_SERVER_UNCLEANED throw (existing, untouched) -> probe
-    // call (new) -> FOREIGN_SERVER_RUNNING throw (new) -> comment marking
-    // the original fallthrough spawn path (now only reached when the probe
-    // did NOT block).
+    // call -> FOREIGN_SERVER_RUNNING throw -> packaged artifact resolution.
     expect(staleThrowIndex).toBeLessThan(probeCallIndex);
     expect(probeCallIndex).toBeLessThan(foreignThrowIndex);
-    expect(foreignThrowIndex).toBeLessThan(continueSpawnCommentIndex);
+    expect(foreignThrowIndex).toBeLessThan(artifactBootIndex);
 
     expect(mainSource).toContain("isForeignServerBlocking(foreignProbe.status)");
   });

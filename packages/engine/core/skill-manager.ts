@@ -53,6 +53,19 @@ function createSkillWatchIgnore(rootDir) {
 // 误打入的 node_modules 或源码 vendor 目录）不该被监控。
 const SKILL_WATCH_DEPTH = 3;
 
+function createExternalSkillWatchIgnore(rootDir) {
+  const ignore = createSkillWatchIgnore(rootDir);
+  return (filePath, stats?) => {
+    if (ignore(filePath)) return true;
+    const relative = path.relative(rootDir, filePath);
+    if (!relative) return false;
+    const parts = relative.split(path.sep);
+    // scanExternalSkills reads only direct child directories and their SKILL.md.
+    if (parts.length === 1) return stats ? !stats.isDirectory() : false;
+    return parts.length !== 2 || parts[1].toUpperCase() !== "SKILL.MD" || Boolean(stats?.isDirectory());
+  };
+}
+
 // 内部测试用：暴露 ignore/depth 工厂，方便 unit test 验证规则行为。
 export const __test = { createSkillWatchIgnore, HEAVY_DIR_NAMES, SKILL_WATCH_DEPTH };
 
@@ -418,14 +431,19 @@ export class SkillManager {
       try {
         const w = chokidar.watch(dirPath, {
           ignoreInitial: true,
-          ignored: createSkillWatchIgnore(dirPath),
-          depth: SKILL_WATCH_DEPTH,
+          ignored: createExternalSkillWatchIgnore(dirPath),
+          depth: 1,
           persistent: true,
         });
-        w.on("all", () => {
+        const scheduleReload = () => {
+          if (this._externalWatchers.get(dirPath) !== w) return;
           if (this._reloadTimer) clearTimeout(this._reloadTimer);
           this._reloadTimer = setTimeout(() => this._autoReload(), 1000);
-        });
+        };
+        w.on("all", scheduleReload);
+        // On macOS the native watcher may miss writes just after ready.
+        // Reconcile once after attachment using the same debounce as live changes.
+        w.once("ready", scheduleReload);
         w.on("error", (err: any) => {
           log.error(`external watcher error (${dirPath}): ${err.message}`);
         });

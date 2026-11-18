@@ -8,7 +8,31 @@
  * fail-fast」的决策抽成纯函数，独立验证。
  */
 import { describe, it, expect } from "vitest";
-import { resolveStaleServerInfoDisposition } from "../apps/desktop/src/shared/stale-server-info.cjs";
+import { createServer } from "node:net";
+import { once } from "node:events";
+import { isLoopbackServerPortFree, resolveStaleServerInfoDisposition } from "../apps/desktop/src/shared/stale-server-info.cjs";
+import { readProcessStartStamp } from "../packages/shared/process-start-stamp.cjs";
+
+it.skipIf(process.platform === "win32")("reads a stable process start stamp on a running POSIX process", () => {
+  const stamp = readProcessStartStamp(process.pid);
+  expect(stamp).toMatch(/\d{2}:\d{2}:\d{2} \d{4}$/u);
+  expect(readProcessStartStamp(process.pid)).toBe(stamp);
+  expect(readProcessStartStamp(-1)).toBeNull();
+});
+
+it("distinguishes a real loopback listener from a free port", async () => {
+  const server = createServer().listen({ host: "127.0.0.1", port: 0 });
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Missing TCP test address");
+  const config = { listenHost: address.address, listenPort: address.port };
+  try {
+    await expect(isLoopbackServerPortFree(config)).resolves.toBe(false);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+  await expect(isLoopbackServerPortFree(config)).resolves.toBe(true);
+});
 
 describe("resolveStaleServerInfoDisposition", () => {
   it("活着且占目标端口：保留文件、快速失败", () => {

@@ -4,6 +4,10 @@ import path from "path";
 import os from "os";
 import { spawnSync } from "child_process";
 import vm from "vm";
+import { EventEmitter } from "node:events";
+import { shouldKeepWaitingForServerInfo } from "../apps/desktop/src/shared/server-readiness.cjs";
+import { resolveStaleServerInfoDisposition } from "../apps/desktop/src/shared/stale-server-info.cjs";
+import { isForeignServerBlocking, describeForeignServerBlock } from "../packages/shared/server-info-probe.cjs";
 import { readDataEpochStamp, writeDataEpochStamp } from "../packages/shared/data-epoch.cjs";
 import { DATA_EPOCH } from "../packages/shared/contract-versions.cjs";
 import { createDataEpochCheckpointProvider } from "../packages/engine/core/data-epoch-checkpoint-provider.ts";
@@ -488,6 +492,37 @@ describe("server startup diagnostics contract", () => {
     expect(mainSource).not.toContain('timeout = 60000');
   });
 
+  it("accepts a live readiness receipt on the final poll before reporting startup timeout", async () => {
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
+    const pollSource = mainSource.slice(
+      mainSource.indexOf("function pollServerInfo("),
+      mainSource.indexOf("const DEFAULT_SERVER_NETWORK_CONFIG"),
+    );
+    const receipt = { pid: process.pid, port: 14500, token: "test-token" };
+    let hasReceipt = true;
+    let now = 0;
+    const clock = { now: () => { const before = now; now = 301_000; return before; } };
+    const readFile = async () => {
+      if (!hasReceipt) throw new Error("missing");
+      return JSON.stringify(receipt);
+    };
+    const poll = vm.runInNewContext(`${pollSource}\npollServerInfo`, {
+      Date: clock, clearTimeout, setTimeout, process,
+      SERVER_INFO_FIRST_WAIT_MS: 90_000,
+      shouldKeepWaitingForServerInfo,
+      fs: { promises: { readFile } },
+      hasChildExitObserved: () => false, isPidAliveForDiagnostics: () => true,
+      mt: () => "Server start timed out",
+    });
+    const child = Object.assign(new EventEmitter(), { pid: process.pid });
+    expect(await poll("server-info.json", { process: child })).toEqual(receipt);
+    expect(child.listenerCount("exit")).toBe(0);
+    now = 0;
+    hasReceipt = false;
+    await expect(poll("server-info.json", { process: child })).rejects.toMatchObject({ code: "SERVER_START_TIMEOUT" });
+    expect(child.listenerCount("exit")).toBe(0);
+  });
+
   it("keeps bridge platform dependencies out of the server readiness path", () => {
     const serverSource = fs.readFileSync(path.join(root, "apps/server", "index.ts"), "utf-8");
     const bridgeRouteSource = fs.readFileSync(path.join(root, "apps/server", "routes", "bridge.ts"), "utf-8");
@@ -527,6 +562,54 @@ describe("server startup diagnostics contract", () => {
     expect(mainSource).toContain("terminate: isDesktopOwnedServerInfo(existingInfo)");
     expect(serverSource).toContain("configuredPort: serverRuntimeState.configuredPort");
     expect(serverSource).toContain("network: createServerRuntimeNetworkSummary()");
+  });
+
+  it("does not let a reused PID and matching recorded port block regular startup", async () => {
+    const mainSource = fs.readFileSync(path.join(root, "apps/desktop", "main.cjs"), "utf-8");
+    const info = { pid: 54321, port: 14500, token: "fixture-token", processStartStamp: "prior-start" };
+    let probeStatus = "dead";
+    let portFree = true;
+    let startStamp: string | null = "different-start";
+    let starts = 0;
+    const context = vm.createContext({
+      path, hanakoHome: "/tmp/hana-fixture",
+      fs: { readFileSync: () => JSON.stringify(info), unlinkSync: () => { throw new Error("old record handling belongs to the spawn path"); } },
+      process: { platform: "darwin", kill: (_pid: number, signal: number) => {
+        expect(signal).toBe(0);
+      } },
+      console: { log() {}, warn() {} },
+      verifyReusableServerInfo: async () => ({
+        reusable: false, trusted: false, terminate: false, reason: "health failed",
+      }),
+      waitForProcessExit: async () => false,
+      STALE_SERVER_EXIT_GRACE_MS: 1,
+      resolveStaleServerInfoDisposition,
+      readDesiredServerNetworkConfig: () => ({
+        config: { mode: "loopback", listenHost: "127.0.0.1", listenPort: info.port },
+      }),
+      isLoopbackServerPortFree: async () => portFree,
+      readProcessStartStamp: () => startStamp,
+      probeServerInfo: async () => ({ status: probeStatus }),
+      isForeignServerBlocking, describeForeignServerBlock,
+      resolvePackagedArtifactBoot: async () => null,
+      _spawnServerOnce: async () => { starts += 1; },
+    });
+    vm.runInContext(extractFunctionSource(mainSource, "startServer"), context);
+    await expect(context.startServer()).resolves.toBeUndefined();
+    expect(starts).toBe(1);
+    probeStatus = "alive-unauthorized";
+    await expect(context.startServer()).rejects.toMatchObject({ code: "FOREIGN_SERVER_RUNNING" });
+    expect(starts).toBe(1);
+    portFree = false;
+    probeStatus = "dead"; // A timeout from a listening process cannot clear its receipt.
+    await expect(context.startServer()).rejects.toMatchObject({ code: "STALE_SERVER_UNCLEANED" });
+    expect(starts).toBe(1);
+    portFree = true;
+    startStamp = info.processStartStamp;
+    await expect(context.startServer()).rejects.toMatchObject({ code: "STALE_SERVER_UNCLEANED" });
+    startStamp = null;
+    await expect(context.startServer()).rejects.toMatchObject({ code: "STALE_SERVER_UNCLEANED" });
+    expect(starts).toBe(1);
   });
 
   it("does not terminate standalone servers that desktop only attached to", () => {

@@ -1641,15 +1641,18 @@ const SessionItem = memo(function SessionItem({ session: s, isActive, isPending,
     e.preventDefault();
     e.stopPropagation();
     try {
-      await hanaFetch('/api/browser/open-session', {
+      const response = await hanaFetch('/api/browser/open-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionPath: s.path }),
       });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.resume?.status === 'superseded') return;
+      window.platform?.openBrowserViewer?.({ sessionPath: s.path });
     } catch (err) {
       console.warn('[browser] open session failed:', err);
     }
-    window.platform?.openBrowserViewer?.({ sessionPath: s.path });
   }, [s.path]);
 
   const handleBrowserKeyDown = useCallback((e: React.KeyboardEvent) => {

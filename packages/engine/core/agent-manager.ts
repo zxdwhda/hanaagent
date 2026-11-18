@@ -887,6 +887,9 @@ export class AgentManager {
   async _doSwitchAgent(agentId) {
     const hub = this._d.getHub();
     const engine = this._d.getEngine?.();
+    const previousAgentId = this._activeAgentId;
+    const models = this._d.getModels();
+    const previousDefaultModel = models.defaultModel;
     const previousCwd = engine?.cwd || null;
     // pause/resume 严格配对：try/finally 保证 resume 一定调到，
     // 包括 _doSwitchAgentOnly / syncAgentSkills / createSession 任一抛错的路径。
@@ -904,6 +907,10 @@ export class AgentManager {
         cwd,
         homeFolder,
       };
+    } catch (error) {
+      this._activeAgentId = previousAgentId;
+      models.defaultModel = previousDefaultModel;
+      throw error;
     } finally {
       hub?.resumeAfterAgentSwitch();
     }

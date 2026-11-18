@@ -1,6 +1,7 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { promisify } from "node:util";
 
 export function canonicalFilesystemPathSync(filePath) {
   const resolved = path.resolve(filePath);
@@ -16,7 +17,10 @@ export function canonicalFilesystemPathSync(filePath) {
 }
 
 export function filesystemIdentityKeySync(filePath) {
-  const canonical = canonicalFilesystemPathSync(filePath);
+  return filesystemIdentityKey(canonicalFilesystemPathSync(filePath));
+}
+
+function filesystemIdentityKey(canonical) {
   return process.platform === "win32" ? canonical.toLocaleLowerCase("en-US") : canonical;
 }
 
@@ -101,18 +105,30 @@ export async function readFileLikePaths(directory, opts: any = {}) {
   const extension = typeof opts.extension === "string" ? opts.extension : null;
   const dedupeRealpath = opts.dedupeRealpath !== false;
   const seen = new Set();
+  const realpathNative = dedupeRealpath ? promisify(fs.realpath.native) : null;
   const entries = await fsp.readdir(directory, { withFileTypes: true });
   const out = [];
-  for (const entry of entries) {
-    if (extension && !entry.name.endsWith(extension)) continue;
-    if ((await direntTargetKind(directory, entry)) !== "file") continue;
-    const filePath = direntPath(directory, entry);
-    if (dedupeRealpath) {
-      const key = filesystemIdentityKeySync(filePath);
-      if (seen.has(key)) continue;
-      seen.add(key);
+  // Preserve directory order when deduplicating aliases, while keeping
+  // filesystem work off the event loop and the in-flight batch bounded.
+  for (let index = 0; index < entries.length; index += 16) {
+    const candidates = await Promise.all(entries.slice(index, index + 16).map(async (entry) => {
+      if (extension && !entry.name.endsWith(extension)) return null;
+      if ((await direntTargetKind(directory, entry)) !== "file") return null;
+      const filePath = direntPath(directory, entry);
+      const canonical = realpathNative ? await realpathNative(filePath).catch(() => null) : null;
+      return { filePath, canonical };
+    }));
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      const { filePath, canonical } = candidate;
+      if (dedupeRealpath) {
+        const key = filesystemIdentityKey(canonical ?? path.resolve(filePath));
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (canonical) opts.onRealpathKey?.(filePath, key, canonical);
+      }
+      out.push(filePath);
     }
-    out.push(filePath);
   }
   return out;
 }

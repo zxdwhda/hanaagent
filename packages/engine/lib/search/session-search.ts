@@ -8,22 +8,48 @@ const MAX_LIMIT = 50;
 
 export function searchSessions(sessions, query, options: { phase?: string; limit?: number } = {}) {
   const phase = options.phase === "content" ? "content" : "title";
-  const limit = normalizeLimit(options.limit);
-  const normalizedQuery = normalizeSessionSearchText(query);
-  if (!normalizedQuery) return [];
-
-  const tokens = tokenizeSessionSearchQuery(normalizedQuery);
+  const projectMatch = prepareSearch(query, phase);
+  if (!projectMatch) return [];
   const results = [];
-
   for (const session of Array.isArray(sessions) ? sessions : []) {
     const fieldText = phase === "content"
       ? session?.allMessagesText
       : [session?.title, session?.firstMessage].filter(Boolean).join(" ");
-    const match = scoreText(fieldText, normalizedQuery, tokens, phase);
-    if (!match.matched) continue;
+    const result = projectMatch(session, fieldText);
+    if (result) results.push(result);
+  }
+  return results.sort(compareResults).slice(0, normalizeLimit(options.limit));
+}
 
-    results.push({
+export async function searchSessionContent(
+  sessions, query, readText: (session) => Promise<string>, options: { limit?: number; signal?: AbortSignal } = {},
+) {
+  const projectMatch = prepareSearch(query, "content");
+  if (!projectMatch) return [];
+  const results = [];
+  for (const session of Array.isArray(sessions) ? sessions : []) {
+    options.signal?.throwIfAborted();
+    const text = typeof session?.allMessagesText === "string"
+      ? session.allMessagesText
+      : await readText(session);
+    const result = projectMatch(session, text);
+    if (result) results.push(result);
+  }
+  return results.sort(compareResults).slice(0, normalizeLimit(options.limit));
+}
+
+function prepareSearch(query, phase: "content" | "title") {
+  const normalizedQuery = normalizeSessionSearchText(query);
+  if (!normalizedQuery) return null;
+
+  const tokens = tokenizeSessionSearchQuery(normalizedQuery);
+  return (session, fieldText) => {
+    const match = scoreText(fieldText, normalizedQuery, tokens, phase);
+    if (!match.matched) return null;
+
+    return {
       path: session.path,
+      sessionId: session.sessionId || null,
       title: session.title || null,
       firstMessage: session.firstMessage || "",
       modified: session.modified || null,
@@ -31,19 +57,18 @@ export function searchSessions(sessions, query, options: { phase?: string; limit
       cwd: session.cwd || null,
       agentId: session.agentId || null,
       agentName: session.agentName || null,
+      projectId: session.projectId || null,
       modelId: session.modelId || null,
       modelProvider: session.modelProvider || null,
+      workspaceMountId: session.workspaceMountId || null,
+      workspaceLabel: session.workspaceLabel || null,
       pinnedAt: session.pinnedAt || null,
       pinOrder: Number.isFinite(session.pinOrder) ? session.pinOrder : null,
       matchKind: phase,
       snippet: buildSnippet(fieldText, normalizedQuery, match.token),
       score: match.score,
-    });
-  }
-
-  return results
-    .sort((a, b) => compareResults(a, b))
-    .slice(0, limit);
+    };
+  };
 }
 
 function normalizeLimit(value) {

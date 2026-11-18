@@ -8,6 +8,8 @@ import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { resolveServerConnection } from '../../services/server-connection';
 import { getWebSocket } from '../../services/websocket';
 import { useStore } from '../../stores';
+import { ensureSession } from '../../stores/session-actions';
+import { sessionScopedValue } from '../../stores/session-slice';
 
 // ── Xing Prompt ──
 
@@ -288,11 +290,8 @@ export function executeCompact(
  * 以及用户直接敲出的同名 slash 文本；桌面已有 GUI 的 core 命令不从这里走。
  * 后端在 server/routes/chat.ts 接收 {type:'slash'}，走 engine.slashDispatcher.tryDispatch。
  *
- * agentId 由调用方显式传入，不在这里从任何全局指针推导：命令要在哪个助手身上执行，
- * 只有渲染这个输入框的会话说了算。服务端认的是会话清单里记着的归属，跟这个会话有没有
- * 被加载进内存无关；这个字段覆盖的是另一种情况——服务端根本不认识的草稿会话，它还没
- * 落进清单，归属只有前端知道。身份确实未知时传 null，让"不知道"显式出现在协议上，
- * 而不是悄悄少一个字段。
+ * 普通命令使用输入框的会话与助手。草稿中的 /loop 启动请求先走普通首发的会话创建，
+ * 再使用返回的固定会话标识；查看或控制循环不会创建新会话。
  *
  * 执行结果由服务端通过 WS {type:'slash_result'} 回来，ws-message-handler 的同名分支
  * 把它送进 inline notice 显示给用户。这里的 800ms setBusy(null) 与结果无关，只是给按钮
@@ -304,24 +303,68 @@ export function executeSlashViaWs(
   setBusy: (name: string | null) => void,
   setInput: (text: string) => void,
   setMenuOpen: (open: boolean) => void,
+  t: (key: string) => string = (key) => key,
 ): (inputText?: string) => Promise<void> {
   return async (inputText?: string) => {
-    setBusy(cmd);
-    setInput('');
-    setMenuOpen(false);
     const rawText = typeof inputText === 'string' && inputText.trim().startsWith('/')
       ? inputText.trim()
       : `/${cmd}`;
+    const state = useStore.getState();
+    const connectedSocket = () => {
+      const socket = getWebSocket();
+      if (socket?.readyState === WebSocket.OPEN) return socket;
+      state.addToast(t('status.disconnected'), 'error', 6000);
+      return null;
+    };
+    let ws = connectedSocket();
+    if (!ws) return;
+    let sessionPath = state.currentSessionPath;
+    let sessionId = state.currentSessionId;
+    let targetAgentId = agentId;
+    let draftActivated = false;
+    const restoreDraftAfterDisconnect = () => {
+      const latest = useStore.getState();
+      if (draftActivated && sessionPath
+        && !sessionScopedValue(latest, latest.drafts, sessionPath)
+        && !sessionScopedValue(latest, latest.draftDocs, sessionPath)) {
+        latest.setDraft(sessionPath, rawText);
+      }
+    };
+    setBusy(cmd);
     try {
-      const ws = getWebSocket();
-      if (ws?.readyState === WebSocket.OPEN) {
+      if (cmd === 'loop' && !sessionPath) {
+        const [, task] = rawText.split(/\s+/, 2);
+        if (!state.pendingNewSession || !task || /^(stop|pause|resume|status)$/i.test(task)) {
+          state.addToast(t('error.noActiveSession'), 'error', 6000);
+          return;
+        }
+        const ref = await ensureSession(state.pendingDraftId);
+        if (!ref) return;
+        const latest = useStore.getState();
+        if (latest.currentSessionId !== ref.sessionId || latest.currentSessionPath !== ref.sessionPath) return;
+        ({ sessionPath, sessionId, agentId: targetAgentId } = ref);
+        draftActivated = true;
+        ws = connectedSocket();
+        if (!ws) {
+          restoreDraftAfterDisconnect();
+          return;
+        }
+      }
+      try {
         ws.send(JSON.stringify({
           type: 'slash',
           text: rawText,
-          sessionPath: useStore.getState().currentSessionPath,
-          agentId: agentId || null,
+          sessionPath,
+          ...(sessionId ? { sessionId } : {}),
+          agentId: targetAgentId || null,
         }));
+      } catch {
+        restoreDraftAfterDisconnect();
+        state.addToast(t('status.disconnected'), 'error', 6000);
+        return;
       }
+      setInput('');
+      setMenuOpen(false);
     } finally {
       setTimeout(() => setBusy(null), 800);
     }

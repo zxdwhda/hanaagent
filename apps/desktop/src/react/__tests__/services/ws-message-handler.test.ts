@@ -1644,6 +1644,32 @@ describe('ws-message-handler turn_end side effects', () => {
     });
   });
 
+  it('shows a browser handoff error for the pending chat switch', () => {
+    vi.stubGlobal('window', { platform: {} });
+    vi.stubGlobal('t', (key: string) => key);
+    useStore.setState({
+      currentSessionPath: '/session/current.jsonl',
+      pendingSessionSwitchPath: '/session/next.jsonl',
+      toasts: [],
+    });
+    handleServerMessage({
+      type: 'browser_status',
+      sessionPath: '/session/older.jsonl',
+      running: false,
+      error: 'browser_handoff_failed',
+    });
+    expect(useStore.getState().toasts).toHaveLength(0);
+    handleServerMessage({
+      type: 'browser_status',
+      sessionPath: '/session/next.jsonl',
+      running: false,
+      error: 'browser_handoff_failed',
+    });
+    expect(useStore.getState().toasts).toEqual([
+      expect.objectContaining({ text: 'browser.handoffFailed', type: 'error' }),
+    ]);
+  });
+
   it('keys browser status by sessionId when the locator is known', () => {
     vi.stubGlobal('window', { platform: {} });
     useStore.setState({

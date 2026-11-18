@@ -6,6 +6,14 @@ import { createModuleLogger } from "../lib/debug-log.ts";
 import { stripSessionReminderBlocks } from "./session-reminders.ts";
 
 const log = createModuleLogger("session-list-cache");
+export const SESSION_PROJECTION_IDENTITY = Symbol("session projection file identity");
+
+type SessionFileIdentity = {
+  readPath: string;
+  locatorKey?: string;
+  dev: number;
+  ino: number;
+};
 
 /**
  * Session 文件修订点：`${size}:${mtimeMs}` stat 签名。
@@ -29,8 +37,12 @@ export class SessionListProjectionCache {
 
   async list(sessionDir) {
     let files;
+    const resolvedPaths = new Map<string, { locatorKey: string; readPath: string }>();
     try {
-      files = (await readFileLikePaths(sessionDir, { extension: ".jsonl" }))
+      files = (await readFileLikePaths(sessionDir, {
+        extension: ".jsonl",
+        onRealpathKey: (filePath, locatorKey, readPath) => resolvedPaths.set(filePath, { locatorKey, readPath }),
+      }))
         .filter((filePath) => isSessionJsonlFilename(path.basename(filePath)));
     } catch (err) {
       if (err?.code === "ENOENT") return [];
@@ -40,10 +52,12 @@ export class SessionListProjectionCache {
     const previous = this._dirs.get(sessionDir) || new Map();
     const next = new Map();
 
-    const projections = await Promise.all(files.map(async (filePath) => {
+    const project = async (filePath: string) => {
+      const resolved = resolvedPaths.get(filePath);
+      const readPath = resolved?.readPath ?? filePath;
       let stat;
       try {
-        stat = await fs.stat(filePath);
+        stat = await fs.stat(readPath);
       } catch (err) {
         if (err?.code !== "ENOENT") {
           // 单文件隔离（#414 同族拓扑加固）：EPERM/EIO 等非 ENOENT 错误
@@ -54,16 +68,23 @@ export class SessionListProjectionCache {
       }
 
       const signature = sessionFileRevision(stat);
+      const identity: SessionFileIdentity = { readPath, locatorKey: resolved?.locatorKey, dev: stat.dev, ino: stat.ino };
       const cached = previous.get(filePath);
-      if (cached?.signature === signature) {
+      if (cached?.signature === signature && cached?.identity.readPath === identity.readPath
+        && cached.identity.dev === identity.dev && cached.identity.ino === identity.ino) {
         next.set(filePath, cached);
         return cloneProjection(cached.projection);
       }
 
-      const projection = await buildSessionProjection(filePath, stat);
-      next.set(filePath, { signature, projection });
+      const projection = await buildSessionProjection(filePath, stat, identity);
+      next.set(filePath, { signature, projection, identity });
       return cloneProjection(projection);
-    }));
+    };
+    const projections = [];
+    // Bound simultaneous JSONL reads during a cold refresh of a large archive.
+    for (let index = 0; index < files.length; index += 8) {
+      projections.push(...await Promise.all(files.slice(index, index + 8).map(project)));
+    }
 
     this._dirs.set(sessionDir, next);
     return projections
@@ -77,57 +98,94 @@ export class SessionListProjectionCache {
   }
 }
 
-async function buildSessionProjection(filePath, stat) {
+async function* readSessionEntries(filePath: string, identity?: SessionFileIdentity) {
+  const source = await fs.open(identity?.readPath ?? filePath, "r");
   try {
-    const content = await fs.readFile(filePath, "utf8");
-    const entries = [];
-    for (const line of content.trim().split("\n")) {
+    if (identity) {
+      const stat = await source.stat();
+      if (stat.dev !== identity.dev || stat.ino !== identity.ino) return;
+    }
+    for await (const line of source.readLines({ autoClose: false })) {
       if (!line.trim()) continue;
+      let entry;
       try {
-        entries.push(JSON.parse(line));
+        entry = JSON.parse(line);
       } catch {
         // Skip malformed lines, matching the Pi SDK listing behavior.
+        continue;
       }
+      yield entry;
     }
+  } finally {
+    await source.close();
+  }
+}
 
-    if (!entries.length) return null;
-    const header = entries[0];
-    if (header?.type !== "session") return null;
+export async function readSessionSearchText(filePath: string, identity?: SessionFileIdentity): Promise<string> {
+  try {
+    const messages = [];
+    let hasHeader = false;
+    for await (const entry of readSessionEntries(filePath, identity)) {
+      if (!hasHeader) {
+        if (entry?.type !== "session") return "";
+        hasHeader = true;
+      }
+      const message = entry?.type === "message" ? entry.message : null;
+      if (!isVisibleTextMessage(message)) continue;
+      const content = stripSessionReminderBlocks(extractTextContent(message));
+      if (content) messages.push(content);
+    }
+    return messages.join(" ");
+  } catch {
+    return "";
+  }
+}
 
+export function readProjectedSessionSearchText(session: { path: string; [SESSION_PROJECTION_IDENTITY]?: SessionFileIdentity }) {
+  return readSessionSearchText(session.path, session[SESSION_PROJECTION_IDENTITY]);
+}
+
+async function buildSessionProjection(filePath, stat, identity: SessionFileIdentity) {
+  try {
+    let header = null;
     let messageCount = 0;
     let firstMessage = "";
     let name;
-    const allMessages = [];
+    let lastActivityTime = 0;
 
-    for (const entry of entries) {
+    for await (const entry of readSessionEntries(filePath, identity)) {
+      if (!header) {
+        if (entry?.type !== "session") return null;
+        header = entry;
+        continue;
+      }
       if (entry?.type === "session_info") {
         name = entry.name?.trim() || undefined;
       }
       if (entry?.type !== "message") continue;
       messageCount += 1;
       const message = entry.message;
-      if (!isMessageWithContent(message)) continue;
-      if (message.role !== "user" && message.role !== "assistant") continue;
-      const textContent = stripSessionReminderBlocks(extractTextContent(message));
-      if (!textContent) continue;
-      allMessages.push(textContent);
+      if (!isVisibleTextMessage(message)) continue;
+      const activityTime = parseTimestamp(message.timestamp) ?? parseTimestamp(entry.timestamp);
+      if (activityTime != null) lastActivityTime = Math.max(lastActivityTime, activityTime);
       if (!firstMessage && message.role === "user") {
-        firstMessage = textContent;
+        firstMessage = stripSessionReminderBlocks(extractTextContent(message));
       }
     }
+    if (!header) return null;
 
     return {
       path: filePath,
+      [SESSION_PROJECTION_IDENTITY]: identity,
       id: header.id,
       cwd: typeof header.cwd === "string" ? header.cwd : "",
       name,
       parentSessionPath: header.parentSession,
       created: parseDate(header.timestamp) || new Date(stat.birthtimeMs || stat.ctimeMs || stat.mtimeMs),
-      modified: getSessionModifiedDate(entries, header, stat.mtime),
+      modified: lastActivityTime > 0 ? new Date(lastActivityTime) : parseDate(header.timestamp) || stat.mtime,
       revision: sessionFileRevision(stat),
       messageCount,
       firstMessage,
-      allMessagesText: allMessages.join(" "),
     };
   } catch {
     return null;
@@ -143,8 +201,9 @@ function cloneProjection(projection) {
   };
 }
 
-function isMessageWithContent(message) {
-  return !!message && typeof message === "object" && typeof message.role === "string" && "content" in message;
+function isVisibleTextMessage(message) {
+  return !!message && typeof message === "object"
+    && (message.role === "user" || message.role === "assistant") && "content" in message;
 }
 
 function extractTextContent(message) {
@@ -155,36 +214,6 @@ function extractTextContent(message) {
     .filter((block) => block?.type === "text" && typeof block.text === "string")
     .map((block) => block.text)
     .join(" ");
-}
-
-function getSessionModifiedDate(entries, header, statsMtime) {
-  const lastActivityTime = getLastActivityTime(entries);
-  if (typeof lastActivityTime === "number" && lastActivityTime > 0) {
-    return new Date(lastActivityTime);
-  }
-  return parseDate(header?.timestamp) || statsMtime;
-}
-
-function getLastActivityTime(entries) {
-  let lastActivityTime;
-  for (const entry of entries) {
-    if (entry?.type !== "message") continue;
-    const message = entry.message;
-    if (!isMessageWithContent(message)) continue;
-    if (message.role !== "user" && message.role !== "assistant") continue;
-
-    const messageTime = parseTimestamp(message.timestamp);
-    if (typeof messageTime === "number") {
-      lastActivityTime = Math.max(lastActivityTime ?? 0, messageTime);
-      continue;
-    }
-
-    const entryTime = parseTimestamp(entry.timestamp);
-    if (typeof entryTime === "number") {
-      lastActivityTime = Math.max(lastActivityTime ?? 0, entryTime);
-    }
-  }
-  return lastActivityTime;
 }
 
 function parseDate(value) {

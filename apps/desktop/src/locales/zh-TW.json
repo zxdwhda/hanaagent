@@ -2840,6 +2840,7 @@
     "close": "關閉"
   },
   "browser": {
+    "handoffFailed": "目前會話的瀏覽器恢復失敗",
     "using": "正在用瀏覽器",
     "close": "關閉瀏覽器",
     "open": "開啟瀏覽器",

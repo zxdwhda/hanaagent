@@ -200,6 +200,22 @@ describe("SearchRateLimiter", () => {
     ]);
   });
 
+  it("cancels queued searches without starting them after provider cooldown", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const limiter = createSearchRateLimiter({ random: () => 0 });
+    await expect(limiter.run("anysearch_free", "api", async () => {
+      throw new SearchRateLimitError("rate limit", { retryAfterMs: 60_000 });
+    })).rejects.toThrow("rate limit");
+    const controller = new AbortController();
+    const operation = vi.fn(async () => "unexpected");
+    const queued = limiter.run("anysearch_free", "api", operation, { signal: controller.signal });
+    const failed = expect(queued).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+    await failed;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(operation).not.toHaveBeenCalled();
+  });
+
   it("parses Retry-After as seconds or an HTTP date", () => {
     expect(retryAfterMsFromHeaders(new Headers({ "retry-after": "3" }))).toBe(3_000);
 

@@ -16,6 +16,12 @@ import {
   searchProviderRequiresApiKey,
   verifySearchKey,
 } from "../packages/engine/lib/tools/web-search.ts";
+import { createSearchRateLimiter } from "../packages/engine/lib/tools/search-rate-limiter.ts";
+
+const autoQueueOptions = expect.objectContaining({
+  maxQueueWaitMs: 5000,
+  signal: expect.any(AbortSignal),
+});
 
 describe("web_search browser providers", () => {
   beforeEach(() => {
@@ -25,6 +31,7 @@ describe("web_search browser providers", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("does not require API keys for browser-backed providers", async () => {
@@ -126,6 +133,7 @@ describe("web_search browser providers", () => {
       "bing_browser",
       "browser",
       expect.any(Function),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -155,12 +163,49 @@ describe("web_search browser providers", () => {
     });
     await tool.execute("call-429", { query: "hana limited", maxResults: 1 });
 
-    expect(rateLimiter.run).toHaveBeenCalledWith("brave", "api", expect.any(Function));
+    expect(rateLimiter.run).toHaveBeenCalledWith("brave", "api", expect.any(Function),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(capturedError).toMatchObject({
       name: "SearchRateLimitError",
       status: 429,
       retryAfterMs: 3_000,
     });
+  });
+
+  it("finishes eight concurrent automatic searches without waiting out successive provider cooldowns", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const fetchMock = vi.fn(async () => new Response("{}", {
+      status: 429, headers: { "Retry-After": "300" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    searchWebMock.mockResolvedValue({
+      results: [{ title: "Fallback", url: "https://example.com", content: "fixture" }],
+    });
+    const tool = createWebSearchTool({
+      searchConfigResolver: () => ({ provider: "auto", api_keys: {} }),
+      rateLimiter: createSearchRateLimiter({ random: () => 0 }),
+    });
+    const calls = Array.from({ length: 8 }, (_, index) =>
+      tool.execute(`parallel-${index}`, { query: `fixture ${index}` }));
+    await vi.advanceTimersByTimeAsync(45_000);
+    const results = await Promise.all(calls);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(results.some(({ details }) => details.diagnostics?.attempts?.some(
+      (attempt) => attempt.provider === "anysearch_free" && attempt.error_type === "queue_timeout",
+    ))).toBe(true);
+    expect(results.every(({ details }) => details.results?.length === 1)).toBe(true);
+  });
+
+  it("bounds an automatic search with a stalled browser fallback and leaves later sources unused", async () => {
+    vi.useFakeTimers({ now: 0 });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 402 })));
+    searchWebMock.mockImplementation(() => new Promise(() => {}));
+    const tool = createWebSearchTool({ searchConfigResolver: () => ({ provider: "auto", api_keys: {} }) });
+    const call = tool.execute("budget", { query: "fixture query" });
+    await vi.advanceTimersByTimeAsync(45_000);
+    const result = await call;
+    expect(result.details.diagnostics).toMatchObject({ status: "timeout" });
+    expect(searchWebMock).toHaveBeenCalledTimes(1);
   });
 
   it("fetches a broader AnySearch candidate set by default while formatting ten results", async () => {
@@ -417,7 +462,7 @@ describe("web_search browser providers", () => {
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
       "Authorization": "Bearer anysearch-secret",
     });
-    expect(rateLimiter.run).toHaveBeenCalledWith("anysearch", "api", expect.any(Function));
+    expect(rateLimiter.run).toHaveBeenCalledWith("anysearch", "api", expect.any(Function), autoQueueOptions);
     expect(searchWebMock).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       provider: "anysearch",
@@ -465,8 +510,8 @@ describe("web_search browser providers", () => {
       maxResults: 1,
     });
 
-    expect(rateLimiter.run).toHaveBeenNthCalledWith(1, "anysearch", "api", expect.any(Function));
-    expect(rateLimiter.run).toHaveBeenNthCalledWith(2, "tavily", "api", expect.any(Function));
+    expect(rateLimiter.run).toHaveBeenNthCalledWith(1, "anysearch", "api", expect.any(Function), autoQueueOptions);
+    expect(rateLimiter.run).toHaveBeenNthCalledWith(2, "tavily", "api", expect.any(Function), autoQueueOptions);
     expect(result.details).toMatchObject({
       provider: "tavily",
       diagnostics: {
@@ -571,7 +616,7 @@ describe("web_search browser providers", () => {
     const result = await tool.execute("call-auto-api", { query: "hana api", maxResults: 2 });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(rateLimiter.run).toHaveBeenCalledWith("tavily", "api", expect.any(Function));
+    expect(rateLimiter.run).toHaveBeenCalledWith("tavily", "api", expect.any(Function), autoQueueOptions);
     expect(searchWebMock).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       provider: "tavily",
@@ -628,8 +673,8 @@ describe("web_search browser providers", () => {
     });
     const result = await tool.execute("call-auto-fallback", { query: "hana fallback", maxResults: 1 });
 
-    expect(rateLimiter.run).toHaveBeenNthCalledWith(1, "tavily", "api", expect.any(Function));
-    expect(rateLimiter.run).toHaveBeenNthCalledWith(2, "brave", "api", expect.any(Function));
+    expect(rateLimiter.run).toHaveBeenNthCalledWith(1, "tavily", "api", expect.any(Function), autoQueueOptions);
+    expect(rateLimiter.run).toHaveBeenNthCalledWith(2, "brave", "api", expect.any(Function), autoQueueOptions);
     expect(result.details).toMatchObject({
       provider: "brave",
       source_type: "api",

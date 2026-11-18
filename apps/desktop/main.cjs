@@ -937,6 +937,7 @@ const {
   extractRootServerStartupError,
   SERVER_INFO_FIRST_WAIT_MS,
   shouldKeepWaitingForServerInfo,
+  createServerStartupProgress,
 } = require("./src/shared/server-readiness.cjs");
 // 打包模式 server 的版本化启动：安装包携带签名 seed 归档，
 // 首启验签解压到 HANA_HOME/artifacts 后从版本化目录 spawn。dev 模式不经过它。
@@ -955,7 +956,8 @@ const artifactRepair = require("./src/shared/artifact-repair.cjs");
 // pinned keyset 随主进程 bundle 内联（config/vite.config.main.js 负责
 // HANA_SIGN_KEYSET 的构建期替换），运行时没有旁路。
 const { loadPinnedKeyset } = require("../../packages/shared/artifact-core/keyset.cjs");
-const { resolveStaleServerInfoDisposition } = require("./src/shared/stale-server-info.cjs");
+const { resolveStaleServerInfoDisposition, isLoopbackServerPortFree } = require("./src/shared/stale-server-info.cjs");
+const { readProcessStartStamp } = require("../../packages/shared/process-start-stamp.cjs");
 const { probeServerInfo, isForeignServerBlocking, describeForeignServerBlock } = require("../../packages/shared/server-info-probe.cjs");
 // 数据 epoch 拒启对话框：识别 server 打到 stderr 的机读标记
 // （HANA_DATA_EPOCH_BLOCKED / HANA_DATA_EPOCH_TRANSITION_INCOMPLETE），
@@ -976,29 +978,49 @@ function pollServerInfo(infoPath, {
   interval = 200,
   process: proc,
   getLastProgressAtMs = () => null,
+  getLastPhaseAtMs = () => null,
 } = {}) {
   return new Promise((resolve, reject) => {
     const startedAtMs = Date.now();
     const deadline = startedAtMs + timeout;
-    let exited = false;
-
-    if (proc) {
-      proc.on("exit", (code, signal) => {
-        exited = true;
-        const err = new Error(
-          signal
-            ? mt("dialog.serverKilledBySignal", { signal })
-            : mt("dialog.serverExitedWithCode", { code })
-        );
-        // 把 exit code/signal 挂在 error 上，给上层判定 retryable 用
-        err.exitCode = code;
-        err.exitSignal = signal;
-        reject(err);
-      });
-    }
+    let settled = false;
+    let timer;
+    const finish = (err, info) => {
+      settled = true;
+      clearTimeout(timer);
+      proc?.off("exit", onExit);
+      if (err) reject(err);
+      else resolve(info);
+    };
+    const onExit = (code, signal) => {
+      const err = new Error(
+        signal
+          ? mt("dialog.serverKilledBySignal", { signal })
+          : mt("dialog.serverExitedWithCode", { code })
+      );
+      err.exitCode = code;
+      err.exitSignal = signal;
+      finish(err);
+    };
+    proc?.once("exit", onExit);
 
     const check = async () => {
-      if (exited) return;
+      if (settled) return;
+      // Read readiness before applying the deadline. The child may have
+      // published it between polls while the desktop was suspended.
+      try {
+        const raw = await fs.promises.readFile(infoPath, "utf-8");
+        if (settled) return;
+        const info = JSON.parse(raw);
+        if (Number.isInteger(info?.pid) && info.pid > 0
+          && Number.isInteger(info.port) && info.port > 0 && info.port <= 65535
+          && typeof info.token === "string" && info.token) {
+          process.kill(info.pid, 0);
+          finish(null, info);
+          return;
+        }
+      } catch {}
+      if (settled) return;
       const nowMs = Date.now();
       const childAlive = proc
         ? !hasChildExitObserved(proc) && isPidAliveForDiagnostics(proc.pid)
@@ -1008,20 +1030,15 @@ function pollServerInfo(infoPath, {
         startedAtMs,
         firstDeadlineMs: deadline,
         lastProgressAtMs: getLastProgressAtMs(),
+        lastPhaseAtMs: getLastPhaseAtMs(),
         childAlive,
       })) {
-        reject(new Error(mt("dialog.serverStartTimeout", null, "Server start timed out")));
+        const err = new Error(mt("dialog.serverStartTimeout", null, "Server start timed out"));
+        err.code = "SERVER_START_TIMEOUT";
+        finish(err);
         return;
       }
-      try {
-        const raw = await fs.promises.readFile(infoPath, "utf-8");
-        const info = JSON.parse(raw);
-        // 确认 PID 存活
-        try { process.kill(info.pid, 0); } catch { setTimeout(check, interval); return; }
-        resolve(info);
-      } catch {
-        setTimeout(check, interval);
-      }
+      timer = setTimeout(check, interval);
     };
     check();
   });
@@ -1227,18 +1244,29 @@ async function startServer() {
 
       const desiredNetwork = readDesiredServerNetworkConfig();
       const stalePort = Number(existingInfo.port);
-      const portConflict = desiredNetwork.config
-        ? (Number.isInteger(stalePort) && stalePort === desiredNetwork.config.listenPort)
+      let portConflict = desiredNetwork.config
+        ? stalePort === desiredNetwork.config.listenPort
         : null;
+      const recordedHost = existingInfo.configuredHost || existingInfo.host || "127.0.0.1";
+      if (!knownDead && portConflict === true && !verification.trusted
+        && typeof existingInfo.processStartStamp === "string" && existingInfo.processStartStamp
+        && desiredNetwork.config.mode === "loopback" && desiredNetwork.config.listenHost === recordedHost) {
+        // A live kernel in graceful shutdown can have a free port while it
+        // still owns the data directory. First establish that this PID was reused.
+        const actualStart = readProcessStartStamp(existingInfo.pid);
+        if (actualStart && actualStart !== existingInfo.processStartStamp) {
+          portConflict = !(await isLoopbackServerPortFree(desiredNetwork.config));
+        }
+      }
       const disposition = resolveStaleServerInfoDisposition({ pidAlive: true, knownDead, portConflict });
 
       if (!disposition.removeInfoFile) {
         // 残留进程还活着：server-info.json 是下次启动定位它的唯一线索，保留
-        console.warn(`[desktop] 残留 server PID ${existingInfo.pid} 仍存活，保留 server-info.json 供下次启动识别`);
+        console.warn(`[desktop] 记录中的 PID ${existingInfo.pid} 仍存活，继续核对 server-info.json`);
         if (disposition.failFast) {
           const err = new Error(
-            `STALE_SERVER_UNCLEANED: residual HanaAgent server (PID ${existingInfo.pid}) is still running and holds port ${Number.isInteger(stalePort) ? stalePort : "unknown"} (${verification.reason}). ` +
-            `Quit it from Task Manager (look for hana-server.exe) or restart the computer, then launch HanaAgent again.`
+            `STALE_SERVER_UNCLEANED: PID recorded in server-info (${existingInfo.pid}) has not exited and the desired port cannot be confirmed free (${verification.reason}). ` +
+            `Check the recorded server and network settings before restarting HanaAgent.`
           );
           err.code = "STALE_SERVER_UNCLEANED";
           throw err;
@@ -1255,9 +1283,7 @@ async function startServer() {
           err.code = "FOREIGN_SERVER_RUNNING";
           throw err;
         }
-        // 端口不冲突且探测确认不是仍存活的同宅内核：继续 spawn 新 server。
-        // _spawnServerOnce 会按 poll 契约删除旧文件，新 server 就绪后重写；
-        // 残留进程仍可通过任务管理器发现
+        // 单凭旧记录无法判断端口是否被占用。新 server 的 bind 结果会给出真实冲突。
       } else {
         try { fs.unlinkSync(serverInfoPath); } catch {}
       }
@@ -1829,6 +1855,7 @@ async function _spawnServerOnce(serverInfoPath, artifactBootContext) {
     stdio: ["pipe", "pipe", "pipe"],
   });
   const spawnedProcess = serverProcess;
+  const startupProgress = createServerStartupProgress();
   _lastServerSpawn.pid = spawnedProcess.pid || null;
 
   spawnedProcess.on("exit", (code, signal) => {
@@ -1846,8 +1873,10 @@ async function _spawnServerOnce(serverInfoPath, artifactBootContext) {
 
   // 捕获 stdout/stderr 到 buffer（打包后 console 不可见，崩溃时需要这些信息）
   serverProcess.stdout?.on("data", (chunk) => {
-    const text = redactMainLogText(chunk.toString());
+    const raw = chunk.toString();
+    const text = redactMainLogText(raw);
     _lastServerProgressAtMs = Date.now();
+    startupProgress.observe(raw, _lastServerProgressAtMs);
     try { process.stdout.write(text); } catch {}
     _serverLogs.push(text);
     if (_serverLogs.length > 500) _serverLogs.splice(0, _serverLogs.length - 500);
@@ -1861,10 +1890,19 @@ async function _spawnServerOnce(serverInfoPath, artifactBootContext) {
   });
 
   // 等待 server ready（通过轮询 server-info.json）
-  const info = await pollServerInfo(serverInfoPath, {
-    process: serverProcess,
-    getLastProgressAtMs: () => _lastServerProgressAtMs,
-  });
+  let info;
+  try {
+    info = await pollServerInfo(serverInfoPath, {
+      process: spawnedProcess,
+      getLastProgressAtMs: () => _lastServerProgressAtMs,
+      getLastPhaseAtMs: () => startupProgress.lastPhaseAtMs,
+    });
+  } catch (err) {
+    if (err.code === "SERVER_START_TIMEOUT" && serverProcess === spawnedProcess && !isQuitting) {
+      await shutdownServer();
+    }
+    throw err;
+  }
   if (_lastServerSpawn?.pid === spawnedProcess.pid) {
     _lastServerSpawn.serverPid = info.pid || null;
   }

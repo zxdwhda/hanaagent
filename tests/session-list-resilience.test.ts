@@ -116,8 +116,8 @@ describe("T1: listSessions manifest query guard (session-coordinator)", () => {
         { path: sessionPath, sessionId: manifest.sessionId, permissionMode: "read_only" },
       ]);
       expect(resolveByLocator).toHaveBeenCalledTimes(1);
-      // One lookup for filesystem deduplication, one for manifest identity.
-      expect(native.mock.calls.filter(([filePath]) => filePath === sessionPath)).toHaveLength(2);
+      expect(resolveByLocator).toHaveBeenCalledWith(sessionPath, expect.any(String));
+      expect(native.mock.calls.filter(([filePath]) => filePath === sessionPath)).toHaveLength(0);
     } finally {
       native.mockRestore();
       store.close();
@@ -186,10 +186,11 @@ describe("T2: projection cache single-file stat isolation", () => {
   it("returns the healthy session when another file's stat fails with a non-ENOENT error", async () => {
     writeSessionFile(tmpDir, "ok.jsonl", [HEADER, USER_MESSAGE]);
     const brokenPath = writeSessionFile(tmpDir, "broken.jsonl", [HEADER, USER_MESSAGE]);
+    const brokenTarget = fs.realpathSync.native(brokenPath);
 
     const originalStat = fsp.stat.bind(fsp);
     const statSpy = vi.spyOn(fsp, "stat").mockImplementation(async (target: any, ...rest: any[]) => {
-      if (target === brokenPath) {
+      if (target === brokenTarget) {
         const err: any = new Error("Operation not permitted");
         err.code = "EPERM";
         throw err;

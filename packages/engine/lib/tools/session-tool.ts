@@ -4,7 +4,8 @@
 import { Type, StringEnum } from "../pi-sdk/index.ts";
 import { getToolSessionPath } from "./tool-session.ts";
 import { loadSessionHistoryMessages } from "../../core/message-utils.ts";
-import { searchSessions } from "../search/session-search.ts";
+import { searchSessionContent, searchSessions } from "../search/session-search.ts";
+import { readProjectedSessionSearchText } from "../../core/session-list-projection-cache.ts";
 import { buildCompactTranscript } from "../session-collab/transcript.ts";
 import { sessionToolHandbook, sessionToolUsageError } from "../session-collab/handbook.ts";
 import { deliverAgentMessage } from "../session-collab/delivery.ts";
@@ -121,7 +122,9 @@ export function createSessionTool(deps: {
         const query = typeof params.query === "string" ? params.query.trim() : "";
         if (query) {
           let hits = searchSessions(sessions, query, { phase: "title" });
-          if (!hits.length) hits = searchSessions(sessions, query, { phase: "content" });
+          if (!hits.length) {
+            hits = await searchSessionContent(sessions, query, readProjectedSessionSearchText, { signal: _signal });
+          }
           const byPath = new Map(sessions.map((s: any) => [s.path, s]));
           sessions = hits.map((h: any) => byPath.get(h.path)).filter(Boolean);
         }

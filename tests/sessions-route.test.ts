@@ -34,6 +34,7 @@ const browserManagerMock = {
   })),
   notifyViewerSession: vi.fn(async (_sp: string, _title?: string | null) => {}),
   closeBrowserForSession: vi.fn(),
+  revokeBrowserAuthorization: vi.fn(),
   getBrowserSessions: vi.fn(() => ({})),
   getBrowserSessionStates: vi.fn(() => ({})),
 };
@@ -81,6 +82,7 @@ describe("sessions route", () => {
     browserManagerMock.resumeForSession.mockClear();
     browserManagerMock.resumeForSessionIfAvailable.mockClear();
     browserManagerMock.closeBrowserForSession.mockClear();
+    browserManagerMock.revokeBrowserAuthorization.mockClear();
     browserManagerMock.getBrowserSessions.mockReset();
     browserManagerMock.getBrowserSessions.mockReturnValue({});
     browserManagerMock.getBrowserSessionStates.mockReset();
@@ -170,6 +172,105 @@ describe("sessions route", () => {
     expect(data.currentModelAudio).toBe(true);
     expect(data.currentModelAudioTransport).toBe("mimo-input-audio");
     expect(data.currentModelAudioTransportSupported).toBe(true);
+  });
+
+  it("switches between streaming chats while the old browser is still suspending", async () => {
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const app = new Hono();
+    const oldPath = "/tmp/agents/a/sessions/old.jsonl";
+    const intermediatePath = "/tmp/agents/a/sessions/intermediate.jsonl";
+    const finalPath = "/tmp/agents/a/sessions/final.jsonl";
+    const { promise: suspended, resolve: releaseBrowser } = Promise.withResolvers<void>();
+    const emit = vi.fn();
+    browserManagerMock.suspendForSession.mockImplementationOnce(async (sp) => {
+      await suspended;
+      browserManagerMock._sessions.delete(sp);
+    });
+    const engine = {
+      agentsDir: "/tmp/agents",
+      switchSession: vi.fn(async () => {}),
+      getSessionByPath: vi.fn(() => ({ messages: [] })),
+      resolveSessionOwnership: vi.fn(() => ({ agentId: "a" })),
+      getAgent: vi.fn(() => ({ agentName: "Agent A" })),
+      isSessionStreaming: vi.fn(() => true),
+    };
+    app.route("/api", createSessionsRoute(engine, { eventBus: { emit } }));
+    const switchTo = (path, currentSessionPath) => app.request("/api/sessions/switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, currentSessionPath, deferBrowser: true }),
+    });
+    try {
+      const first = await switchTo(intermediatePath, oldPath);
+      expect(first.status).toBe(200);
+      expect(await first.json()).toMatchObject({ isStreaming: true, browserResume: { status: "pending" } });
+      expect(browserManagerMock.suspendForSession).toHaveBeenCalledWith(oldPath, { keepViewerVisible: true });
+      const second = await switchTo(finalPath, intermediatePath);
+      expect(second.status).toBe(200);
+      expect(await second.json()).toMatchObject({ isStreaming: true, browserResume: { status: "pending" } });
+      expect(browserManagerMock.resumeForSessionIfAvailable).not.toHaveBeenCalled();
+    } finally {
+      releaseBrowser();
+    }
+    await vi.waitFor(() => expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "browser_status" }), finalPath,
+    ));
+    expect(browserManagerMock.resumeForSessionIfAvailable.mock.calls).toEqual([[finalPath]]);
+    expect(browserManagerMock.notifyViewerSession.mock.calls).toEqual([[finalPath, null]]);
+    expect(emit).toHaveBeenCalledWith({ type: "browser_status", running: false, url: null }, oldPath);
+  });
+
+  it.each([false, true])("orders close against a deferred resume (emergency=%s)", async (revoke) => {
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const app = new Hono();
+    const sessionPath = "/tmp/agents/a/sessions/resuming.jsonl";
+    const { promise: resumed, resolve: releaseBrowser } = Promise.withResolvers<void>();
+    const resume = browserManagerMock.resumeForSessionIfAvailable.getMockImplementation();
+    browserManagerMock.resumeForSessionIfAvailable.mockImplementationOnce(async (sp) => {
+      await resumed;
+      await browserManagerMock.resumeForSession(sp);
+      return resume!(sp);
+    });
+    const closeBrowser = async (sp) => {
+      browserManagerMock._sessions.delete(sp);
+    };
+    browserManagerMock.closeBrowserForSession.mockImplementationOnce(closeBrowser);
+    if (revoke) browserManagerMock.closeBrowserForSession.mockImplementationOnce(closeBrowser);
+    app.route("/api", createSessionsRoute({
+      agentsDir: "/tmp/agents",
+      switchSession: vi.fn(async () => {}),
+      getSessionByPath: vi.fn(() => ({ messages: [] })),
+      resolveSessionOwnership: vi.fn(() => ({ agentId: "a" })),
+      getAgent: vi.fn(() => ({ agentName: "Agent A" })),
+      isSessionStreaming: vi.fn(() => false),
+    }));
+    const post = (url, body) => app.request(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let close;
+    try {
+      const switched = await post("/api/sessions/switch", { path: sessionPath, deferBrowser: true });
+      expect(switched.status).toBe(200);
+      expect(browserManagerMock.resumeForSessionIfAvailable).toHaveBeenCalledWith(sessionPath);
+      close = post("/api/browser/close-session", { sessionPath, revoke });
+      if (revoke) {
+        expect((await close).status).toBe(200);
+        expect(browserManagerMock.revokeBrowserAuthorization).toHaveBeenCalledWith(sessionPath);
+        expect(browserManagerMock.closeBrowserForSession).toHaveBeenCalledTimes(1);
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(browserManagerMock.closeBrowserForSession).not.toHaveBeenCalled();
+      }
+    } finally {
+      releaseBrowser();
+    }
+    expect((await close).status).toBe(200);
+    await vi.waitFor(() => {
+      expect(browserManagerMock.closeBrowserForSession).toHaveBeenCalledTimes(revoke ? 2 : 1);
+      expect(browserManagerMock.isRunning(sessionPath)).toBe(false);
+    });
   });
 
   it("returns historical model availability without failing the session switch", async () => {
@@ -402,7 +503,7 @@ describe("sessions route", () => {
     });
   });
 
-  it("keeps real browser resume failures visible during session switch", async () => {
+  it.each([false, true])("keeps browser resume failures visible (deferred=%s)", async (deferBrowser) => {
     const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const app = new Hono();
     const targetPath = "/tmp/agents/a/sessions/browser-error.jsonl";
@@ -429,17 +530,26 @@ describe("sessions route", () => {
       agentIdFromSessionPath: vi.fn(() => "a"),
     };
 
-    app.route("/api", createSessionsRoute(engine));
+    const emit = vi.fn();
+    app.route("/api", createSessionsRoute(engine, { eventBus: { emit } }));
 
     const res = await app.request("/api/sessions/switch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: targetPath, currentSessionPath: "/tmp/agents/a/sessions/old.jsonl" }),
+      body: JSON.stringify({ path: targetPath, currentSessionPath: "/tmp/agents/a/sessions/old.jsonl", deferBrowser }),
     });
     const data = await res.json();
 
-    expect(res.status).toBe(500);
-    expect(data.error).toBe("browser resume exploded");
+    if (deferBrowser) {
+      expect(res.status).toBe(200);
+      expect(data.browserResume).toEqual({ status: "pending" });
+      await vi.waitFor(() => expect(emit).toHaveBeenCalledWith(
+        { type: "browser_status", running: false, url: null, error: "browser_handoff_failed" }, targetPath,
+      ));
+    } else {
+      expect(res.status).toBe(500);
+      expect(data.error).toBe("browser resume exploded");
+    }
     expect(engine.switchSession).toHaveBeenCalledWith(targetPath);
   });
 
@@ -1006,6 +1116,37 @@ describe("sessions route", () => {
       maxLength: 512,
     });
     expect(listSessions).not.toHaveBeenCalled();
+  });
+
+  it("finds later messages on disk while keeping ordinary session projections lightweight", async () => {
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const { SessionListProjectionCache } = await import("../packages/engine/core/session-list-projection-cache.ts");
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), "hana-search-route-"));
+    const filePath = path.join(temp, "disk-session.jsonl");
+    try {
+      fs.writeFileSync(filePath, [
+        { type: "session", id: "disk-session", cwd: temp },
+        { type: "message", message: { role: "user", content: "Initial message" } },
+        { type: "message", message: { role: "assistant", content: "Searching for the disk-fixture token" } },
+      ].map((entry) => JSON.stringify(entry)).join("\n"));
+      const cache = new SessionListProjectionCache();
+      const listSessions = async () => (await cache.list(temp)).map(row => ({
+        ...row, title: "Ordinary session", sessionId: "sess_disk",
+      }));
+      const app = new Hono();
+      app.route("/api", createSessionsRoute({ listSessions, rcState: null }));
+      const titleRes = await app.request("/api/sessions/search?q=disk-fixture&phase=title");
+      expect(await titleRes.json()).toMatchObject({ results: [] });
+      const contentRes = await app.request("/api/sessions/search?q=disk-fixture&phase=content");
+      expect(contentRes.status).toBe(200);
+      expect(await contentRes.json()).toMatchObject({
+        results: [{ path: filePath, sessionId: "sess_disk", snippet: expect.stringContaining("disk-fixture") }],
+      });
+      const [projection] = await listSessions();
+      expect(projection).not.toHaveProperty("allMessagesText");
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
   });
 
   it("projects the same default Studio sessions to a paired device principal", async () => {

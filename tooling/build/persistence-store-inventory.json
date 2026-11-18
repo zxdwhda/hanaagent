@@ -3094,7 +3094,7 @@
     {
       "sourceFile": "apps/server/index.ts",
       "kind": "write-file",
-      "excerpt": "fs.writeFileSync(serverInfoPath, JSON.stringify({ pid: process.pid, port: actualPort, host, configuredHost: serverRuntimeState.listenHost, networkMode: serverRuntimeState.mode, configuredMode: serverRuntimeState.configuredMode, configuredLi",
+      "excerpt": "fs.writeFileSync(serverInfoPath, JSON.stringify({ pid: process.pid, processStartStamp: readProcessStartStamp(process.pid), port: actualPort, host, configuredHost: serverRuntimeState.listenHost, networkMode: serverRuntimeState.mode, configur",
       "reason": "Writes or deletes live server discovery state.",
       "storeId": "server-runtime-info",
       "exemptionId": null,

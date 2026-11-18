@@ -741,9 +741,8 @@ export class SessionManifestStore {
     return toRowManifest(this._stmts.getById.get(sessionId));
   }
 
-  resolveByLocatorPath(sessionPath) {
-    const locator = this._locatorFromPath(sessionPath);
-    return this._findByLocator(locator.key);
+  resolveByLocatorPath(sessionPath, canonicalKey?: string) {
+    return this._findByLocator(canonicalKey ?? this._locatorFromPath(sessionPath).key);
   }
 
   updateLocator(sessionId, nextSessionPath, reason = "update") {

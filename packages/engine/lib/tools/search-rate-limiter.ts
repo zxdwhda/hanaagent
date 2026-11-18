@@ -120,6 +120,13 @@ export class SearchRateLimitError extends Error {
   }
 }
 
+export class SearchQueueTimeoutError extends Error {
+  constructor(provider: string) {
+    super(`Search provider ${provider} is unavailable within the queue wait limit`);
+    this.name = "SearchQueueTimeoutError";
+  }
+}
+
 export class SearchRateLimiter {
   declare _policies: Record<string, any>;
   declare _random: () => number;
@@ -134,15 +141,52 @@ export class SearchRateLimiter {
   reset() {
     for (const state of this._states.values()) {
       if (state.pumpTimer) clearTimeout(state.pumpTimer);
+      for (const task of state.queue.splice(0)) {
+        task.dispose();
+        task.reject(new DOMException("Search queue reset", "AbortError"));
+      }
     }
     this._states.clear();
   }
 
-  async run(provider: any, sourceType: any, operation: any) {
+  async run(provider: any, sourceType: any, operation: any, {
+    signal,
+    maxQueueWaitMs,
+  }: { signal?: AbortSignal; maxQueueWaitMs?: number } = {}) {
+    signal?.throwIfAborted();
     const key = String(provider || sourceType || "search");
     const state = this._stateFor(key);
+    if (maxQueueWaitMs != null && this._nextStartDelay(key, sourceType) > maxQueueWaitMs) {
+      throw new SearchQueueTimeoutError(key);
+    }
     return new Promise((resolve, reject) => {
-      state.queue.push({ sourceType, operation, resolve, reject });
+      let queueTimer;
+      const cancel = (reason) => {
+        const index = state.queue.indexOf(task);
+        if (index !== -1) {
+          state.queue.splice(index, 1);
+          if (!state.queue.length && state.pumpTimer) {
+            clearTimeout(state.pumpTimer);
+            state.pumpTimer = null;
+          }
+        }
+        task.dispose();
+        reject(reason);
+      };
+      const onAbort = () => cancel(signal.reason);
+      const task = {
+        sourceType, operation, resolve, reject,
+        start: () => clearTimeout(queueTimer),
+        dispose: () => {
+          clearTimeout(queueTimer);
+          signal?.removeEventListener("abort", onAbort);
+        },
+      };
+      state.queue.push(task);
+      if (maxQueueWaitMs != null) {
+        queueTimer = setTimeout(() => cancel(new SearchQueueTimeoutError(key)), maxQueueWaitMs);
+      }
+      signal?.addEventListener("abort", onAbort, { once: true });
       this._pump(key);
     });
   }
@@ -219,6 +263,7 @@ export class SearchRateLimiter {
   _startTask(provider: any, task: any) {
     const state = this._stateFor(provider);
     const sourceType = task.sourceType;
+    task.start();
     state.activeCount += 1;
     state.lastStartAt = Date.now();
     const policy = this._policy(provider, sourceType);
@@ -236,12 +281,13 @@ export class SearchRateLimiter {
         task.resolve(result);
       })
       .catch((err) => {
-        this._recordRateLimit(provider, sourceType, err);
+        if (this._states.get(provider) === state) this._recordRateLimit(provider, sourceType, err);
         task.reject(err);
       })
       .finally(() => {
+        task.dispose();
         state.activeCount = Math.max(0, state.activeCount - 1);
-        this._pump(provider);
+        if (this._states.get(provider) === state) this._pump(provider);
       });
   }
 

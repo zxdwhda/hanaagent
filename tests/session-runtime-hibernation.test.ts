@@ -190,6 +190,38 @@ describe("SessionCoordinator runtime hibernation", () => {
     expect(coordinator.currentSessionPath).toBe(sessionPath);
   });
 
+  it("waits for a runtime to finish hibernating before reopening it for a new prompt", async () => {
+    const sessionPath = "/tmp/hana-runtime-hibernation/agents/hana/sessions/reopen.jsonl";
+    const manager = { getCwd: () => "/tmp/workspace", getSessionFile: () => sessionPath };
+    const oldSession = makeSession(sessionPath);
+    const newSession = makeSession(sessionPath, { sessionManager: manager });
+    sessionManagerOpenMock.mockReturnValue(manager);
+    createAgentSessionMock.mockResolvedValue({ session: newSession });
+    let finishShutdown = () => {};
+    emitSessionShutdownMock.mockImplementationOnce(() => new Promise<boolean>((resolve) => {
+      finishShutdown = () => resolve(false);
+    }));
+    const coordinator = makeCoordinator();
+    coordinator._sessions.set(sessionPath, { session: oldSession, agentId: "hana", unsub: vi.fn() });
+    coordinator._session = oldSession;
+    coordinator._currentSessionPath = sessionPath;
+    const hibernating = coordinator.hibernateSessionRuntime(sessionPath, "test");
+    const prompting = coordinator.promptSession(sessionPath, "after pressure", undefined);
+    try {
+      await vi.waitFor(() => expect(emitSessionShutdownMock).toHaveBeenCalledOnce());
+      expect(oldSession.prompt).not.toHaveBeenCalled();
+      expect(sessionManagerOpenMock).not.toHaveBeenCalled();
+    } finally {
+      finishShutdown();
+      await Promise.allSettled([hibernating, prompting]);
+    }
+    await expect(hibernating).resolves.toBe(true);
+    await expect(prompting).resolves.toBeUndefined();
+    expect(oldSession.dispose).toHaveBeenCalledOnce();
+    expect(newSession.prompt).toHaveBeenCalledOnce();
+    expect(coordinator.getSessionByPath(sessionPath)).toBe(newSession);
+  });
+
   it("rejects the next live-session prompt before vision or Pi when its model was disabled", async () => {
     const sessionPath = "/tmp/hana-runtime-hibernation/agents/hana/sessions/gpt56.jsonl";
     const staleModel = {

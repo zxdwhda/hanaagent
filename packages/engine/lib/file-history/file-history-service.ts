@@ -13,6 +13,7 @@ export const FILE_HISTORY_DEFAULTS = {
   maxAgeMs: 30 * 24 * 3600 * 1000,
   maxTotalBytes: 500 * 1024 * 1024,
   debounceMs: 150,
+  watcherRescanDelayMs: 1000,
   retentionIntervalMs: 24 * 3600 * 1000,
 };
 
@@ -26,6 +27,9 @@ type WorkspaceEntry = {
   store: FileHistoryStore;
   watcher: WorkspaceWatcher;
   pendingTimers: Map<string, ReturnType<typeof setTimeout>>;
+  watcherRescanTimer: ReturnType<typeof setTimeout> | null;
+  sweepWork: Promise<void> | null;
+  sweepAgain: boolean;
 };
 
 export class FileHistoryService {
@@ -38,6 +42,8 @@ export class FileHistoryService {
   declare _maxTotalBytes: number;
   declare _debounceMs: number;
   declare _entries: Map<string, WorkspaceEntry>;
+  declare _workspaceSync: Promise<void>;
+  declare _workspaceSyncVersion: number;
   declare _inflight: Set<Promise<unknown>>;
   declare _retentionTimer: ReturnType<typeof setInterval> | null;
 
@@ -69,26 +75,45 @@ export class FileHistoryService {
     this._maxTotalBytes = maxTotalBytes;
     this._debounceMs = debounceMs;
     this._entries = new Map();
+    this._workspaceSync = Promise.resolve();
+    this._workspaceSyncVersion = 0;
     this._inflight = new Set();
     this._retentionTimer = null;
   }
 
   async syncWorkspaces(roots: string[]): Promise<void> {
     const wanted = new Set(roots.map(root => path.resolve(root)));
+    const version = ++this._workspaceSyncVersion;
+    const sync = this._workspaceSync.then(() => this._applyWorkspaces(wanted, version));
+    this._workspaceSync = sync.catch(() => {});
+    return sync;
+  }
 
+  async _applyWorkspaces(wanted: Set<string>, version: number): Promise<void> {
+    if (version !== this._workspaceSyncVersion) return;
     for (const [key, entry] of [...this._entries]) {
       if (wanted.has(key)) continue;
       this._entries.delete(key);
       for (const timer of entry.pendingTimers.values()) clearTimeout(timer);
+      if (entry.watcherRescanTimer) clearTimeout(entry.watcherRescanTimer);
       await entry.watcher.close().catch(() => {});
+      await entry.sweepWork;
       entry.store.close();
+      if (version !== this._workspaceSyncVersion) return;
     }
 
     for (const root of wanted) {
       if (this._entries.has(root)) continue;
-      let stat: fs.Stats;
-      try { stat = fs.statSync(root); } catch { continue; }
-      if (!stat.isDirectory()) continue;
+      try {
+        const canonical = fs.realpathSync(root);
+        const parent = path.dirname(canonical);
+        const stat = fs.statSync(canonical);
+        if (!stat.isDirectory()) continue;
+        if (canonical === parent || stat.dev !== fs.statSync(parent).dev) {
+          this._log(`file-history skipped filesystem root: ${root}`);
+          continue;
+        }
+      } catch { continue; }
 
       const store = new FileHistoryStore({
         dbPath: path.join(this._historyRoot, workspaceHashForRoot(root), "history.sqlite"),
@@ -100,21 +125,30 @@ export class FileHistoryService {
         store,
         watcher: null as unknown as WorkspaceWatcher,
         pendingTimers: new Map(),
+        watcherRescanTimer: null,
+        sweepWork: null,
+        sweepAgain: false,
       };
       entry.watcher = this._createWatcher({
         root,
         onChanged: (relPath) => this._captureSoon(entry, relPath, "watcher", null),
         onDeleted: (relPath) => {
+          if (this._entries.get(root) !== entry) return;
           if (isIgnoredRelPath(relPath) || !isTrackedFile(relPath)) return;
           entry.store.markDeleted(relPath, this._now());
         },
         onError: (err) => {
+          if (this._entries.get(root) !== entry || entry.watcherRescanTimer) return;
           this._log(`file-history watcher error on ${root}: ${err.message}`);
-          this._track(this._sweep(entry));
+          entry.watcherRescanTimer = setTimeout(() => {
+            entry.watcherRescanTimer = null;
+            this._requestSweep(entry);
+          }, FILE_HISTORY_DEFAULTS.watcherRescanDelayMs);
+          entry.watcherRescanTimer.unref?.();
         },
       });
       this._entries.set(root, entry);
-      this._track(this._sweep(entry));
+      this._requestSweep(entry);
       store.enforceRetention({ maxAgeMs: this._maxAgeMs, maxTotalBytes: this._maxTotalBytes, now: this._now() });
     }
 
@@ -128,7 +162,7 @@ export class FileHistoryService {
           }
           // macOS 的 fsevents 在高并发文件系统活动下会静默丢弃事件且不报 error，
           // "watcher 出错时重扫"兜不住这种丢失，靠周期性基线扫描把漏网变更补进历史
-          this._track(this._sweep(entry));
+          this._requestSweep(entry);
         }
       }, FILE_HISTORY_DEFAULTS.retentionIntervalMs);
       this._retentionTimer.unref?.();
@@ -213,6 +247,7 @@ export class FileHistoryService {
   }
 
   _captureSoon(entry: WorkspaceEntry, relPath: string, origin: SnapshotOrigin, opContext: string | null): void {
+    if (this._entries.get(entry.root) !== entry) return;
     if (isIgnoredRelPath(relPath) || !isTrackedFile(relPath)) return;
     const existing = entry.pendingTimers.get(relPath);
     if (existing) clearTimeout(existing);
@@ -234,10 +269,29 @@ export class FileHistoryService {
         return;
       }
       const content = await fsp.readFile(absPath);
+      if (this._entries.get(entry.root) !== entry) return;
       entry.store.recordSnapshot({ relPath, content, origin, opContext, capturedAt: this._now() });
     } catch (err) {
       this._log(`file-history capture error for ${relPath}: ${(err as Error).message}`);
     }
+  }
+
+  _requestSweep(entry: WorkspaceEntry): void {
+    if (this._entries.get(entry.root) !== entry) return;
+    if (entry.sweepWork) {
+      entry.sweepAgain = true;
+      return;
+    }
+    entry.sweepWork = this._sweep(entry).catch((err) => {
+      this._log(`file-history sweep error on ${entry.root}: ${err.message}`);
+    }).finally(() => {
+      entry.sweepWork = null;
+      if (entry.sweepAgain) {
+        entry.sweepAgain = false;
+        this._requestSweep(entry);
+      }
+    });
+    this._track(entry.sweepWork);
   }
 
   async _sweep(entry: WorkspaceEntry): Promise<void> {
@@ -245,6 +299,7 @@ export class FileHistoryService {
       let dirents;
       try { dirents = await fsp.readdir(dirAbs, { withFileTypes: true }); } catch { return; }
       for (const dirent of dirents) {
+        if (this._entries.get(entry.root) !== entry) return;
         const rel = dirRel ? `${dirRel}/${dirent.name}` : dirent.name;
         if (dirent.isDirectory()) {
           if (isIgnoredRelPath(rel + "/")) continue;
@@ -257,6 +312,7 @@ export class FileHistoryService {
           const stat = await fsp.stat(absPath);
           if (stat.size > MAX_SNAPSHOT_BYTES) continue;
           const content = await fsp.readFile(absPath);
+          if (this._entries.get(entry.root) !== entry) return;
           const hash = createHash("sha256").update(content).digest("hex");
           if (entry.store.latestHash(rel) === hash) continue;
           entry.store.recordSnapshot({ relPath: rel, content, origin: "sweep", opContext: null, capturedAt: this._now() });
