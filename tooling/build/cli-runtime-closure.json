@@ -103222,6 +103222,11 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/session-coordinator.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/session-manifest/startup-migration.ts",
           "kind": "import-statement"
         },
@@ -103231,7 +103236,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/session-manifest/startup-migration.ts (import-statement); packages/engine/core/engine.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/session-coordinator.ts (import-statement); packages/engine/core/session-manifest/startup-migration.ts (import-statement); packages/engine/core/engine.ts (import-statement)."
     },
     {
       "path": "packages/engine/core/session-manifest/path-normalizer.ts",
@@ -103239,12 +103244,12 @@
       "provenance": [
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/core/session-manifest/store.ts",
+          "from": "packages/engine/core/session-manifest/legacy-migration.ts",
           "kind": "import-statement"
         },
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/core/session-manifest/legacy-migration.ts",
+          "from": "packages/engine/core/session-manifest/store.ts",
           "kind": "import-statement"
         },
         {
@@ -103253,7 +103258,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/session-manifest/store.ts (import-statement); packages/engine/core/session-manifest/legacy-migration.ts (import-statement); packages/engine/hub/scheduler.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/session-manifest/legacy-migration.ts (import-statement); packages/engine/core/session-manifest/store.ts (import-statement); packages/engine/hub/scheduler.ts (import-statement)."
     },
     {
       "path": "packages/engine/core/session-manifest/ref.ts",
@@ -103381,17 +103386,17 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/session-manifest/legacy-migration.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/session-coordinator.ts",
           "kind": "import-statement"
         },
         {
           "root": "server-bootstrap",
           "from": "packages/engine/core/session-manifest/store.ts",
-          "kind": "import-statement"
-        },
-        {
-          "root": "server-bootstrap",
-          "from": "packages/engine/core/session-manifest/legacy-migration.ts",
           "kind": "import-statement"
         },
         {
@@ -109525,17 +109530,17 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/session-manifest/legacy-migration.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/session-branch-head.ts",
           "kind": "import-statement"
         },
         {
           "root": "server-bootstrap",
           "from": "packages/engine/core/session-coordinator.ts",
-          "kind": "import-statement"
-        },
-        {
-          "root": "server-bootstrap",
-          "from": "packages/engine/core/session-manifest/legacy-migration.ts",
           "kind": "import-statement"
         },
         {

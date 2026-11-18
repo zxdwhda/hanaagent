@@ -64,6 +64,7 @@ import {
   migrateLegacyWeekToLongterm,
 } from "../packages/engine/lib/memory/compile.ts";
 import { processDirtySessions } from "../packages/engine/lib/memory/deep-memory.ts";
+import { readCurrentSessionBranch } from "../packages/engine/lib/session-jsonl.ts";
 
 // ── Helpers ──
 
@@ -295,6 +296,61 @@ describe("_doDaily step orchestration", () => {
     expect(compileEditableFacts).toHaveBeenCalledOnce();
     expect(processDirtySessions).toHaveBeenCalledOnce();
   });
+
+  it.each(["newer branch head", "pending fact replacement"])(
+    "continues session and daily recovery after encountering a dangling parent with %s",
+    async (trigger) => {
+      const sessionDir = path.join(tmpDir, "sessions");
+      const damagedPath = path.join(sessionDir, "damaged.jsonl");
+      // Owner bridge sessions are scanned after the primary session directory.
+      const healthyPath = path.join(sessionDir, "bridge", "owner", "healthy.jsonl");
+      fs.mkdirSync(path.dirname(healthyPath), { recursive: true });
+      writeSession(healthyPath);
+      const damagedSource = JSON.stringify({
+        type: "message",
+        id: "orphan",
+        parentId: "missing",
+        timestamp: new Date().toISOString(),
+        message: { role: "user", content: "message with a missing parent" },
+      }) + "\n";
+      fs.writeFileSync(damagedPath, damagedSource);
+
+      const rollingSummary = vi.fn().mockResolvedValue("summary");
+      const branchHead = { leafId: "orphan", observedTailLeafId: "orphan", updatedAt: new Date().toISOString() };
+      const getBranchHead = (sessionPath: string) =>
+        trigger === "newer branch head" && sessionPath === damagedPath ? branchHead : null;
+      const pendingSummary = trigger === "pending fact replacement"
+        ? { session_id: "damaged", factReplacementRequired: true }
+        : null;
+      ticker = makeTicker(tmpDir, {
+        rollingSummary,
+        getSummary: (sessionId: string) => sessionId === "damaged" ? pendingSummary : null,
+        getDirtySessions: () => pendingSummary ? [pendingSummary] : [],
+      }, {
+        getSessionBranchHeadForPath: getBranchHead,
+        readSessionBranchForPath: (sessionPath: string, options: { since?: string }) =>
+          readCurrentSessionBranch(sessionPath, { ...options, branchHead: getBranchHead(sessionPath) }),
+      });
+
+      await ticker.tick();
+
+      expect(rollingSummary.mock.calls.map(([id]) => id)).toEqual(["healthy"]);
+      expect(compileDaily).toHaveBeenCalledOnce();
+      expect(compileToday).toHaveBeenCalledTimes(2);
+      const checkpoint = readDailyState(tmpDir);
+      expect(checkpoint.completedSteps.compileDaily).toEqual(expect.any(String));
+      if (pendingSummary) {
+        expect(checkpoint.completedSteps).not.toHaveProperty("deepMemory");
+        expect(checkpoint.dailyCompletedAt).toBeNull();
+      } else {
+        expect(checkpoint.dailyCompletedAt).toEqual(expect.any(String));
+      }
+      expect(fs.readFileSync(damagedPath, "utf8")).toBe(damagedSource);
+      expect(() => readCurrentSessionBranch(damagedPath)).toThrow(
+        expect.objectContaining({ code: "session_branch_dangling_parent" }),
+      );
+    },
+  );
 
   it("compileFacts failure does not block other steps", async () => {
     (compileEditableFacts as any).mockRejectedValueOnce(new Error("facts error"));
