@@ -3122,7 +3122,7 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Optional draft proof and pending-date checkpoint fields extend existing memory metadata while retaining legacy reads and the existing data epoch.",
+    "compatibilityReason": "Diary job status and request coalescing are in-process; existing diary files, memory records and data epoch retain their formats.",
     "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38"
   },
   "schemas": [

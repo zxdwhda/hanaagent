@@ -465,6 +465,8 @@
     "diaryBusy": "日記を書いています...",
     "diaryDone": "日記を OH-Works フォルダに保存しました",
     "diaryFailed": "日記の作成に失敗しました",
+    "diaryRejected": "日記の作成を送信できませんでした",
+    "diaryUnknown": "日記が保存されたか確認できません。後で OH-Works フォルダを確認してください。",
     "xing": "会話からスキルを作成",
     "compact": "コンテキストを圧縮",
     "compactBusy": "圧縮中...",

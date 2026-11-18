@@ -465,6 +465,8 @@
     "diaryBusy": "正在寫日記...",
     "diaryDone": "日記寫入完成，已儲存到 OH-Works 資料夾",
     "diaryFailed": "日記寫入失敗",
+    "diaryRejected": "無法提交日記任務",
+    "diaryUnknown": "目前無法確認日記是否已寫入。可稍後到 OH-Works 資料夾查看。",
     "xing": "從對話中提煉技能",
     "compact": "壓縮上下文",
     "compactBusy": "正在壓縮...",

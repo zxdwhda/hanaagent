@@ -465,6 +465,8 @@
     "diaryBusy": "일기 작성 중...",
     "diaryDone": "일기가 OH-Works 폴더에 저장되었습니다",
     "diaryFailed": "일기 작성 실패",
+    "diaryRejected": "일기 작성 요청을 제출하지 못했습니다",
+    "diaryUnknown": "일기 저장 여부를 확인할 수 없습니다. 나중에 OH-Works 폴더를 확인하세요.",
     "xing": "대화에서 스킬 만들기",
     "compact": "컨텍스트 압축",
     "compactBusy": "압축 중...",
