@@ -119,7 +119,8 @@ const DIARY_POLL_INTERVAL_MS = 2_000;
 const DIARY_WAIT_MS = 150_000;
 
 type DiaryOutcome =
-  | { status: 'succeeded' | 'unknown' }
+  | { status: 'succeeded' }
+  | { status: 'unknown' }
   | { status: 'failed' | 'rejected'; error?: string };
 
 type DiaryJobPayload = { status?: string; filePath?: string; error?: string };
