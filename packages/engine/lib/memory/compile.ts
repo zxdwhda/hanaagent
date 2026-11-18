@@ -26,6 +26,7 @@ import {
   normalizeCompiledLLMResult,
   normalizeCompiledSectionBody,
   stripThinkTagBlocks,
+  validateEditableMemoryCompileResult,
 } from "./compiled-memory-state.ts";
 import { attachPromptLayoutMetadata, buildUtilityPromptLayout } from "../llm/prompt-layout.ts";
 import {
@@ -373,7 +374,7 @@ export async function compileToday(summaryManager, outputPath, resolvedModel, op
     "compile_today",
   );
 
-  atomicWrite(outputPath, normalizeCompiledLLMResult(result, "compileToday"));
+  atomicWrite(outputPath, validateEditableMemoryCompileResult(result, "compileToday"));
   if (nextWatermark) writeTodayState(statePath, logicalDate, nextWatermark);
   return "compiled";
 }
@@ -1003,7 +1004,7 @@ export async function compileEditableFacts(summaryManager, outputPath, resolvedM
     "compile_editable_facts",
   );
 
-  atomicWrite(outputPath, normalizeCompiledLLMResult(result, "compileEditableFacts"));
+  atomicWrite(outputPath, validateEditableMemoryCompileResult(result, "compileEditableFacts"));
   if (nextWatermark) writeEditableFactsState(statePath, nextWatermark);
   return "compiled";
 }
@@ -1084,6 +1085,7 @@ async function _compactLLM(input, systemPrompt, resolvedModel, maxTokens, operat
     systemPrompt: layout.systemPrompt,
     temperature: 0.3,
     maxTokens: withMemoryReasoningBuffer(maxTokens, resolvedModel),
+    requireCompleteText: operation === "compile_today" || operation === "compile_editable_facts",
     timeoutMs: 60_000,
     signal: undefined,
     usageLedger: resolvedModel.usageLedger,

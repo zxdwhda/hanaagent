@@ -23,6 +23,11 @@ const SUPPORTED_BUFFERED_APIS = new Set([
   "openai-responses",
   "openai-codex-responses",
 ]);
+const INCOMPLETE_TEXT_REASONS = new Set([
+  "length", "max_tokens", "max_output_tokens", "incomplete", "content_filter",
+  "refusal", "failed", "cancelled", "error", "stream_interrupted",
+  "tool_calls", "function_call", "tool_use", "pause_turn",
+]);
 
 export type CallTextMessage = {
   role?: string;
@@ -59,6 +64,7 @@ export type CallTextOptions = {
   timeoutMs?: number;
   signal?: AbortSignal;
   returnUsage?: boolean;
+  requireCompleteText?: boolean;
   usageContext?: unknown;
   usageLedger?: CallTextUsageLedger | null;
 };
@@ -250,6 +256,19 @@ function extractResponsesMessageText(item) {
   return parts;
 }
 
+function hasBufferedRefusal(data, api) {
+  const hasRefusalBlock = (content) =>
+    Array.isArray(content) && content.some((block) => block?.type === "refusal");
+  if (api === "openai-completions") {
+    const message = data?.choices?.[0]?.message;
+    return Boolean(message?.refusal) || hasRefusalBlock(message?.content);
+  }
+  if (api === "anthropic-messages") return hasRefusalBlock(data?.content);
+  return Array.isArray(data?.output) && data.output.some(
+    (item) => isResponsesAssistantMessage(item) && hasRefusalBlock(item.content),
+  );
+}
+
 function extractResponsesText(data) {
   if (typeof data?.output_text === "string" && data.output_text.trim()) {
     return {
@@ -271,13 +290,16 @@ function extractResponsesText(data) {
   };
 }
 
-async function readCodexResponsesStream(body) {
+async function readCodexResponsesStream(body, requireCompleteText) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const events = [];
   const textDeltas = [];
   let doneText = "";
-  let completedResponse = null;
+  let terminalResponse = null;
+  let terminalStatus = null;
+  let receivedDone = false;
+  let streamErrored = false;
   let buffer = "";
 
   const consumeBlock = (block) => {
@@ -287,7 +309,11 @@ async function readCodexResponsesStream(body) {
       .map((line) => line.slice(5).trimStart())
       .join("\n")
       .trim();
-    if (!data || data === "[DONE]") return;
+    if (!data) return;
+    if (data === "[DONE]") {
+      receivedDone = true;
+      return;
+    }
 
     let event;
     try {
@@ -295,14 +321,19 @@ async function readCodexResponsesStream(body) {
     } catch {
       return;
     }
+    if (!event || typeof event !== "object") return;
     events.push(event);
 
     if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
       textDeltas.push(event.delta);
     } else if (event.type === "response.output_text.done" && typeof event.text === "string") {
       doneText = event.text;
-    } else if (event.type === "response.completed") {
-      completedResponse = event.response || event;
+    } else if (event.type === "response.completed" || (requireCompleteText
+      && ["response.incomplete", "response.failed"].includes(event.type))) {
+      terminalResponse = event.response || event;
+      terminalStatus = terminalResponse.status || event.type.slice("response.".length);
+    } else if (event.type === "error") {
+      streamErrored = true;
     }
   };
 
@@ -321,16 +352,25 @@ async function readCodexResponsesStream(body) {
   if (buffer.trim()) consumeBlock(buffer);
 
   const outputText = textDeltas.join("").trim() || doneText.trim();
-  const usage = completedResponse?.usage || events.find((event) => event?.usage)?.usage || null;
+  const usage = terminalResponse?.usage || events.find((event) => event?.usage)?.usage || null;
+  // Some compatible providers terminate with [DONE] alone. EOF alone cannot
+  // confirm that the visible text is complete, and [DONE] cannot clear an error.
+  const status = streamErrored
+    ? "error"
+    : terminalStatus ?? (outputText && !receivedDone ? "stream_interrupted" : null);
   if (outputText) {
     return {
+      ...(requireCompleteText ? { ...terminalResponse, status } : {}),
       output_text: outputText,
       ...(usage ? { usage } : {}),
     };
   }
-  if (completedResponse) return completedResponse;
+  if (terminalResponse) {
+    return requireCompleteText ? { ...terminalResponse, status } : terminalResponse;
+  }
   return {
     output: events,
+    ...(requireCompleteText ? { status } : {}),
     ...(usage ? { usage } : {}),
   };
 }
@@ -394,6 +434,7 @@ function convertContentForApi(content, api) {
  * @param {number} [opts.timeoutMs]    超时毫秒 (default 60000)
  * @param {AbortSignal} [opts.signal]  外部取消信号
  * @param {boolean} [opts.returnUsage] 返回 { text, usage }，默认保持旧接口返回纯文本
+ * @param {boolean} [opts.requireCompleteText] Reject explicit provider signals for truncated or refused text
  * @param {object} [opts.usageContext] 用量归属和诊断来源
  * @param {object} [opts.usageLedger]  用量账本
  * @returns {Promise<string|{text: string, usage: object|null}>} 生成的文本
@@ -415,6 +456,7 @@ export async function callText({
   timeoutMs = 60_000,
   signal,
   returnUsage = false,
+  requireCompleteText = false,
   usageContext,
   usageLedger,
 }: CallTextOptions) {
@@ -587,7 +629,7 @@ export async function callText({
   let data;
   try {
     if (res.ok && api === "openai-codex-responses" && res.body && typeof res.body.getReader === "function") {
-      data = await readCodexResponsesStream(res.body);
+      data = await readCodexResponsesStream(res.body, requireCompleteText);
       rawText = JSON.stringify(data);
     } else {
       rawText = await res.text();
@@ -647,6 +689,12 @@ export async function callText({
     reasoning = extracted.reasoning;
     stopReason = extracted.stopReason;
     removedStructuredThinking = reasoning.length > 0;
+  }
+
+  if (requireCompleteText) {
+    const incompleteReason = INCOMPLETE_TEXT_REASONS.has(stopReason) ? stopReason : null;
+    const reason = incompleteReason || (hasBufferedRefusal(data, api) ? "refusal" : null);
+    if (reason) throw new Error(`LLM did not complete the requested text (${reason})`);
   }
 
   // 清理 <think> 标签（部分 provider 用标签而非 content block 包裹思考内容）

@@ -1,12 +1,13 @@
 export function buildCompileTodayPrompt(locale = "zh-CN") {
   const isZh = String(locale || "").startsWith("zh");
   return {
-    templateVersion: "compile-today.v2",
+    templateVersion: "compile-today.v3",
     cacheGroup: "memory.compile.today",
     systemPrompt: isZh
-      ? `你会收到「上一版今日草稿」和「新增或修订的时间线条目（delta）」，请据此更新出一份新的"用户近况与大主题清单"草稿。
+      ? `你会收到「新增或修订的时间线条目（delta）」，也可能收到「上一版今日草稿」。请据此更新出一份新的"用户近况与大主题清单"草稿。
 
 处理原则：
+- 没有上一版草稿时，直接根据已有时间线编写。材料少就少写，只返回记忆正文，不向用户索取更多材料
 - 上一版草稿是今天已经沉淀的内容，默认保留；delta 里标注"取代先前相关记述"的条目，说明对应的旧内容已经过时或不准确，请用它更新/替换草稿里的相关部分，而不是并列保留新旧两种说法
 - delta 里没有标注"取代"的条目是今天新发生的事，正常并入
 - 把同一主题/项目的多次往返归并为一件事，不要逐条流水账
@@ -26,10 +27,11 @@ export function buildCompileTodayPrompt(locale = "zh-CN") {
 - 助手具体产出的内容（"生成了一篇关于 X 的文章"够了，不要摘录文章内容）
 - 来回修改、重试、被打断又恢复这类过程波动
 
-输出 3-5 条粗颗粒事件，每条 1-2 句。最多 300 字。一天平淡就写得短。不要输出 Markdown 标题，不要以 #、##、### 开头；直接输出正文列表或段落。`
-      : `You will receive the "previous today draft" and "new or revised timeline entries (delta)". Update them into a new "user-current-state and broad-theme list" draft.
+最多输出 5 条粗颗粒事件，每条 1-2 句。最多 300 字。不要输出 Markdown 标题，不要以 #、##、### 开头；直接输出正文列表或段落。`
+      : `You will receive "new or revised timeline entries (delta)" and may receive a "previous today draft". Use them to write a new "user-current-state and broad-theme list" draft.
 
 Processing principles:
+- If there is no previous draft, use the available timeline. Write less when the material is sparse. Return only the memory body without addressing the user or asking for more information
 - The previous draft is what today has already settled; keep it by default. Delta entries marked "supersedes prior mention" mean the corresponding old content is outdated or inaccurate — use them to update/replace the related part of the draft rather than keeping both the old and new statements side by side
 - Delta entries without a "supersedes" marker are new things that happened today; merge them in normally
 - Merge multiple back-and-forth on the same topic/project into ONE event; do not enumerate line by line
@@ -49,7 +51,7 @@ Do NOT record:
 - Specific content of assistant's output ("wrote an article about X" is enough; do not excerpt the article)
 - Revisions, retries, interruptions and resumptions — these are process noise
 
-Output 3-5 coarse events, 1-2 sentences each. Max 180 words. Keep it short on quiet days. Do not output Markdown headings. Do not start with #, ##, or ###; output body text only.`,
+Output up to 5 coarse events, 1-2 sentences each. Max 180 words. Do not output Markdown headings. Do not start with #, ##, or ###; output body text only.`,
   };
 }
 
@@ -154,10 +156,10 @@ Do not output Markdown headings. Do not start with #, ##, or ###; output body te
 export function buildCompileEditableFactsPrompt(locale = "zh-CN") {
   const isZh = String(locale || "").startsWith("zh");
   return {
-    templateVersion: "compile-editable-facts.v1",
+    templateVersion: "compile-editable-facts.v2",
     cacheGroup: "memory.compile.editable_facts",
     systemPrompt: isZh
-      ? "请综合「当前可信 Facts」和「新增候选 Facts」，重写成一份新的重要事实。必须控制在 200 字以内，宁可概括合并，也不要堆叠罗列。当前可信 Facts 代表用户或 Agent 已确认过的稳定信息，默认作为基础，但如果过长，必须压成更高层概括；新增候选 Facts 只在能纠正、补充或更新稳定用户画像时吸收。只保留稳定的、跨时间有效的用户画像：身份、人格特质、审美、兴趣、喜欢或讨厌的事物、长期关系、长期关注方向。新增候选 Facts 与当前可信 Facts 冲突时，以新增候选 Facts 修正当前事实。不要追加，不要把两部分分别复述。不要保留工作方式、协作流程、工具偏好、执行细节。不要输出 Markdown 标题，不要以 #、##、### 开头；直接输出正文列表或段落。"
-      : "Synthesize \"Current Trusted Facts\" and \"New Candidate Facts\", then rewrite them into one new Key Facts section. You must keep the result under 120 words; prefer concise abstraction and merging over stacked lists. Current Trusted Facts are stable information confirmed by the user or agent and are the base, but if they are too long, compress them into higher-level facts. Absorb New Candidate Facts only when they correct, supplement, or update stable user-profile information. Keep only stable, time-persistent user-profile facts: identity, personality traits, aesthetics, interests, likes/dislikes, long-term relationships, and long-term focus directions. When New Candidate Facts conflict with Current Trusted Facts, use them to correct the current facts. Do not append. Do not restate the two inputs separately. Do not keep work style, collaboration process, tool preferences, or execution details. Do not output Markdown headings. Do not start with #, ##, or ###; output body text only.",
+      ? "请综合「当前可信 Facts」和「新增候选 Facts」，重写成一份新的重要事实。没有当前可信 Facts 时，根据已有候选内容编写。只返回事实正文，不向用户索取材料。必须控制在 200 字以内，宁可概括合并，也不要堆叠罗列。当前可信 Facts 代表用户或 Agent 已确认过的稳定信息，默认作为基础，但如果过长，必须压成更高层概括；新增候选 Facts 只在能纠正、补充或更新稳定用户画像时吸收。只保留稳定的、跨时间有效的用户画像：身份、人格特质、审美、兴趣、喜欢或讨厌的事物、长期关系、长期关注方向。新增候选 Facts 与当前可信 Facts 冲突时，以新增候选 Facts 修正当前事实。不要追加，不要把两部分分别复述。不要保留工作方式、协作流程、工具偏好、执行细节。不要输出 Markdown 标题，不要以 #、##、### 开头；直接输出正文列表或段落。"
+      : "Synthesize \"Current Trusted Facts\" and \"New Candidate Facts\", then rewrite them into one new Key Facts section. If there are no Current Trusted Facts, use the available candidates. Return only the facts without addressing the user or asking for more information. You must keep the result under 120 words; prefer concise abstraction and merging over stacked lists. Current Trusted Facts are stable information confirmed by the user or agent and are the base, but if they are too long, compress them into higher-level facts. Absorb New Candidate Facts only when they correct, supplement, or update stable user-profile information. Keep only stable, time-persistent user-profile facts: identity, personality traits, aesthetics, interests, likes/dislikes, long-term relationships, and long-term focus directions. When New Candidate Facts conflict with Current Trusted Facts, use them to correct the current facts. Do not append. Do not restate the two inputs separately. Do not keep work style, collaboration process, tool preferences, or execution details. Do not output Markdown headings. Do not start with #, ##, or ###; output body text only.",
   };
 }
