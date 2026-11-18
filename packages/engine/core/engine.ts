@@ -222,6 +222,7 @@ import {
   UNCATEGORIZED_PROJECT_ID,
 } from "../../shared/session-projects.ts";
 import { assertValidAgentId, isValidAgentId } from "../../shared/agent-id.ts";
+import { getLogicalDayForDate } from "../lib/time-utils.ts";
 
 const moduleLog = createModuleLogger("engine");
 const mcpLog = createModuleLogger("mcp");
@@ -271,6 +272,7 @@ export class HanaEngine {
   declare _computerHost: any;
   declare _computerProviders: any;
   declare _configCoord: any;
+  declare _diaryWrites: Map<string, ReturnType<typeof import("../lib/diary/diary-writer.ts").writeDiary>>;
   declare _confirmStore: any;
   declare _coreExtensionFactories: any;
   declare _currentTurnNativeMedia: any;
@@ -3419,38 +3421,46 @@ export class HanaEngine {
   // ════════════════════════════
 
   async writeDiary(opts: any = {}) {
-    const currentPath = this.currentSessionPath;
-    if (currentPath && this.agent.memoryTicker) {
-      await this.agent.memoryTicker.flushSession(currentPath);
-    }
-    const { writeDiary } = await import("../lib/diary/diary-writer.ts");
-    const diaryModelId = this.agent.config.models?.chat || this.agent.memoryModel;
-    const resolvedModel = await this._models.resolveModelWithCredentialsFresh(diaryModelId);
-    // 写日记是用户主动触发的「读历史」功能，必须参考记忆，
-    // 跟「在对话中潜移默化带入记忆」的 master 开关无关。所以不查 memoryMasterEnabled。
-    // per-session 开关只决定缺摘要时是否写回 summaries；关闭时仍可为本次日记临时压缩。
     const agent = this.agent;
-    return writeDiary({
-      summaryManager: agent.summaryManager,
-      resolvedModel,
-      agentPersonality: agent.personality,
-      memory: (() => {
-        try { return fs.readFileSync(agent.memoryMdPath, "utf-8"); } catch { return ""; }
-      })(),
-      userName: agent.userName,
-      agentName: agent.agentName,
-      cwd: this.homeCwd || process.cwd(),
-      targetDate: opts.targetDate,
-      activityStore: this.activityStore,
-      sessionDir: agent.sessionDir,
-      isSessionMemoryEnabledForPath: (sessionPath) => {
-        return agent.isSessionMemoryEnabledFor(sessionPath);
-      },
-      getSessionIdForPath: (sessionPath) => this.getSessionIdForPath(sessionPath),
-      readSessionBranchForPath: (sessionPath, options) => (
-        this.getSessionBranchProjection(sessionPath, options)
-      ),
+    const { logicalDate: targetDate } = getLogicalDayForDate(opts.targetDate);
+    const writes = this._diaryWrites ??= new Map();
+    const key = JSON.stringify([agent.id, targetDate]);
+    const existing = writes.get(key);
+    if (existing) return existing;
+
+    const currentPath = this.currentSessionPath;
+    const memoryTicker = agent.memoryTicker;
+    const diaryModelId = agent.config.models?.chat || agent.memoryModel;
+    const cwd = this.getHomeCwd(agent.id) || process.cwd();
+    const activityStore = this.getActivityStore(agent.id);
+    // Publish the shared job before flushing memory or invoking the provider.
+    const write = Promise.resolve().then(async () => {
+      if (currentPath && memoryTicker) await memoryTicker.flushSession(currentPath);
+      const { writeDiary } = await import("../lib/diary/diary-writer.ts");
+      const resolvedModel = await this._models.resolveModelWithCredentialsFresh(diaryModelId);
+      // 日记主动读取历史；per-session 开关只决定是否回写缺失摘要。
+      return writeDiary({
+        summaryManager: agent.summaryManager,
+        resolvedModel,
+        agentPersonality: agent.personality,
+        memory: (() => {
+          try { return fs.readFileSync(agent.memoryMdPath, "utf-8"); } catch { return ""; }
+        })(),
+        userName: agent.userName,
+        agentName: agent.agentName,
+        cwd,
+        targetDate,
+        activityStore,
+        sessionDir: agent.sessionDir,
+        isSessionMemoryEnabledForPath: (sessionPath) => agent.isSessionMemoryEnabledFor(sessionPath),
+        getSessionIdForPath: (sessionPath) => this.getSessionIdForPath(sessionPath),
+        readSessionBranchForPath: (sessionPath, options) => this.getSessionBranchProjection(sessionPath, options),
+      });
+    }).finally(() => {
+      writes.delete(key);
     });
+    writes.set(key, write);
+    return write;
   }
 
   _utilityOptionsForContext( opts: any = {}) {

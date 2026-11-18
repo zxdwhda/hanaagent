@@ -109997,6 +109997,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/engine.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "apps/server/routes/config.ts",
           "kind": "import-statement"
         },
@@ -110006,7 +110011,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/fresh-compact/policy.ts (import-statement); packages/engine/lib/memory/compile.ts (import-statement); packages/engine/lib/memory/memory-ticker.ts (import-statement); +4 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/fresh-compact/policy.ts (import-statement); packages/engine/lib/memory/compile.ts (import-statement); packages/engine/lib/memory/memory-ticker.ts (import-statement); +5 more importer(s)."
     },
     {
       "path": "packages/engine/lib/tool-protocol-sanitizer.ts",

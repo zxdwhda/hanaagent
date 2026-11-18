@@ -5,6 +5,7 @@
  */
 
 import { hanaFetch } from '../../hooks/use-hana-fetch';
+import { resolveServerConnection } from '../../services/server-connection';
 import { getWebSocket } from '../../services/websocket';
 import { useStore } from '../../stores';
 
@@ -111,7 +112,114 @@ type AddToast = (
 ) => number | null;
 type RemoveToast = (id: number) => void;
 
-const DIARY_WRITE_TIMEOUT_MS = 150_000;
+const DIARY_JOB_PATH = '/api/diary/jobs';
+const DIARY_SUBMIT_TIMEOUT_MS = 10_000;
+const DIARY_STATUS_TIMEOUT_MS = 5_000;
+const DIARY_POLL_INTERVAL_MS = 2_000;
+const DIARY_WAIT_MS = 150_000;
+
+type DiaryOutcome =
+  | { status: 'succeeded' | 'unknown' }
+  | { status: 'failed' | 'rejected'; error?: string };
+
+type DiaryJobPayload = { status?: string; filePath?: string; error?: string };
+
+function createDiaryJobId() {
+  const crypto = globalThis.crypto;
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // Browser access on non-secure LAN origins still supports getRandomValues.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
+}
+
+async function requestDiaryJob(path: string, timeout: number, options: RequestInit) {
+  const controller = new AbortController();
+  // hanaFetch's own timeout ends when headers arrive. Keep the request bounded
+  // while reading the response body too.
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await hanaFetch(path, {
+      ...options,
+      timeout,
+      signal: controller.signal,
+      throwOnHttpError: false,
+    });
+    const data: DiaryJobPayload | null = await response.json().catch(() => null);
+    return { ok: response.ok, code: response.status, data };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function diaryTerminalOutcome(response: Awaited<ReturnType<typeof requestDiaryJob>>): DiaryOutcome | null {
+  if (!response?.ok) return null;
+  const data = response.data;
+  if (data?.status === 'succeeded' && typeof data.filePath === 'string' && data.filePath.trim()) {
+    return { status: 'succeeded' };
+  }
+  if (data?.status === 'failed') {
+    return { status: 'failed', error: typeof data.error === 'string' ? data.error : undefined };
+  }
+  return null;
+}
+
+function readDiaryBackendIdentity() {
+  const connection = resolveServerConnection(useStore.getState());
+  if (!connection) return null;
+  return [
+    connection.connectionId,
+    connection.baseUrl,
+    connection.serverId,
+    connection.serverNodeId ?? connection.executionBoundary?.serverNodeId,
+    connection.studioId,
+    connection.credentialKind,
+    connection.userId ?? null,
+    connection.platformAccountId ?? null,
+    // A rotating token is only identifying when no stable principal is known.
+    connection.userId || connection.platformAccountId ? null : connection.token,
+  ] as const;
+}
+
+async function waitForDiaryJob(jobId: string): Promise<DiaryOutcome> {
+  const backend = readDiaryBackendIdentity();
+  const stillOnBackend = () => {
+    const active = readDiaryBackendIdentity();
+    return backend === null ? active === null : active !== null && backend.every((part, index) => part === active[index]);
+  };
+  const deadline = performance.now() + DIARY_WAIT_MS;
+  const submission = await requestDiaryJob(DIARY_JOB_PATH, DIARY_SUBMIT_TIMEOUT_MS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jobId }),
+  });
+  if (!stillOnBackend()) return { status: 'unknown' };
+  const terminal = diaryTerminalOutcome(submission);
+  if (terminal) return terminal;
+  if (submission && [400, 401, 403, 409, 422].includes(submission.code)) {
+    const error = submission.data?.error;
+    return { status: 'rejected', error: typeof error === 'string' ? error : undefined };
+  }
+
+  // A missing acknowledgement (or an early 404) could precede acceptance.
+  // Only query status from here so the original request can finish.
+  for (let remaining = deadline - performance.now(); remaining > 0; remaining = deadline - performance.now()) {
+    if (!stillOnBackend()) break;
+    const status = await requestDiaryJob(DIARY_JOB_PATH + '/' + jobId, Math.min(remaining, DIARY_STATUS_TIMEOUT_MS), {
+      method: 'GET',
+    });
+    if (!stillOnBackend()) break;
+    const result = diaryTerminalOutcome(status);
+    if (result) return result;
+    const delay = Math.min(deadline - performance.now(), DIARY_POLL_INTERVAL_MS);
+    if (delay > 0) await new Promise<void>((resolve) => setTimeout(resolve, delay));
+  }
+  return { status: 'unknown' };
+}
 
 export function executeDiary(
   t: (key: string) => string,
@@ -123,34 +231,24 @@ export function executeDiary(
   return () => {
     setInput('');
     setMenuOpen(false);
+    let jobId: string;
+    try {
+      jobId = createDiaryJobId();
+    } catch {
+      addToast(t('slash.diaryRejected'), 'error', 6000);
+      return;
+    }
     const progressToastId = addToast(t('slash.diaryBusy'), 'info', 0, {
       persistent: true,
-      dedupeKey: 'slash-diary-progress',
+      dedupeKey: 'slash-diary-progress:' + jobId,
     });
 
     void (async () => {
-      try {
-        const res = await hanaFetch('/api/diary/write', {
-          method: 'POST',
-          timeout: DIARY_WRITE_TIMEOUT_MS,
-          throwOnHttpError: false,
-        });
-        let data: { error?: string } = {};
-        try {
-          data = await res.json();
-        } catch {
-          data = {};
-        }
-        if (progressToastId !== null) removeToast(progressToastId);
-        if (!res.ok || data.error) {
-          addToast(data.error || t('slash.diaryFailed'), 'error', 6000);
-          return;
-        }
-        addToast(t('slash.diaryDone'), 'success', 5000);
-      } catch {
-        if (progressToastId !== null) removeToast(progressToastId);
-        addToast(t('slash.diaryFailed'), 'error', 6000);
-      }
+      const result = await waitForDiaryJob(jobId).catch((): DiaryOutcome => ({ status: 'unknown' }));
+      if (progressToastId !== null) removeToast(progressToastId);
+      if (result.status === 'succeeded') addToast(t('slash.diaryDone'), 'success', 5000);
+      else if (result.status === 'unknown') addToast(t('slash.diaryUnknown'), 'warning', 6000);
+      else addToast(result.error || t(result.status === 'failed' ? 'slash.diaryFailed' : 'slash.diaryRejected'), 'error', 6000);
     })();
   };
 }

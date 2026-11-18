@@ -465,6 +465,8 @@
     "diaryBusy": "Writing diary...",
     "diaryDone": "Diary saved under OH-Works",
     "diaryFailed": "Failed to write diary",
+    "diaryRejected": "Could not submit the diary request",
+    "diaryUnknown": "The diary result is unconfirmed. Check the OH-Works folder later.",
     "xing": "Create skill from conversation",
     "compact": "Compact context",
     "compactBusy": "Compacting...",
