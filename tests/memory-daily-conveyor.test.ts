@@ -28,6 +28,7 @@ vi.mock("../packages/engine/lib/i18n.js", () => ({
 
 import {
   compileDaily,
+  compileToday,
   assembleWeekFromDaily,
   rollDailyWindow,
   migrateLegacyWeekToLongterm,
@@ -35,6 +36,7 @@ import {
   listDailyEntries,
   readDailyEntryBody,
   writeDailyEntryBody,
+  writeTodaySection,
 } from "../packages/engine/lib/memory/compile.ts";
 import { callText } from "../packages/engine/core/llm-client.ts";
 import { shiftLogicalDate } from "../packages/engine/lib/time-utils.ts";
@@ -110,6 +112,129 @@ describe("compileDaily", () => {
     expect(result).toBe("skipped");
     expect(fs.existsSync(path.join(dailyDir, "2026-07-03.md"))).toBe(false);
     expect(callText).not.toHaveBeenCalled();
+  });
+
+  it.each(["missing", "earlier date", "different content"])("does not archive a draft with %s state", async (condition) => {
+    const draft = path.join(tmpDir, "today.md");
+    const statePath = path.join(tmpDir, "today-state.json");
+    const original = "旧活动草稿，归属日期有待校验。";
+    fs.writeFileSync(draft, original);
+    if (condition !== "missing") {
+      fs.writeFileSync(statePath, JSON.stringify({
+        schemaVersion: 1,
+        logicalDate: condition === "earlier date" ? "2026-06-29" : "2026-07-03",
+        ...(condition === "different content" ? { draftSha256: "a".repeat(64) } : {}),
+      }));
+    }
+    const result = await compileDaily(makeFakeSummaryManager([]), dailyDir, "2026-07-03", RESOLVED_MODEL, {
+      todayDraftPath: draft,
+      todayDraftStatePath: statePath,
+    });
+    expect(result).toBe("skipped");
+    expect(fs.existsSync(path.join(dailyDir, "2026-07-03.md"))).toBe(false);
+    expect(fs.readFileSync(draft, "utf8")).toBe(original);
+    expect(callText).not.toHaveBeenCalled();
+  });
+
+  it("archives a matching legacy draft and prefers actual dated notes over a stale draft", async () => {
+    const draft = path.join(tmpDir, "today.md");
+    const statePath = path.join(tmpDir, "today-state.json");
+    fs.writeFileSync(draft, "历史草稿可用内容");
+    fs.writeFileSync(statePath, JSON.stringify({ schemaVersion: 1, logicalDate: "2026-07-03" }));
+    const opts = { todayDraftPath: draft, todayDraftStatePath: statePath };
+
+    await compileDaily(makeFakeSummaryManager([]), dailyDir, "2026-07-03", RESOLVED_MODEL, opts);
+    expect(vi.mocked(callText).mock.calls[0][0].messages[0].content).toContain("历史草稿可用内容");
+
+    const dated = [{ session_id: "fresh", updated_at: "2026-07-04T12:00:00.000Z",
+      summary: "### 事情经过\n- 2026-07-04 12:00 当日实际记录" }];
+    await compileDaily(makeFakeSummaryManager(dated), dailyDir, "2026-07-04", RESOLVED_MODEL, opts);
+    const request = vi.mocked(callText).mock.calls[1][0];
+    expect(request.messages[0].content).toContain("当日实际记录");
+    expect(request.messages[0].content).not.toContain("历史草稿可用内容");
+  });
+
+  it("ties a newly generated draft state to the exact body it archives", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 6, 3, 13, 0));
+      const draft = path.join(tmpDir, "today.md");
+      const statePath = path.join(tmpDir, "today-state.json");
+      const summary = { session_id: "draft-source", updated_at: new Date().toISOString(),
+        summary: "### 事情经过\n- 2026-07-03 13:00 当日记录" };
+      vi.mocked(callText).mockResolvedValueOnce("当天已生成的草稿。");
+      await compileToday(makeFakeSummaryManager([summary]), draft, RESOLVED_MODEL, { statePath });
+      const opts = { todayDraftPath: draft, todayDraftStatePath: statePath };
+      const empty = makeFakeSummaryManager([]);
+      expect(await compileDaily(empty, dailyDir, "2026-07-03", RESOLVED_MODEL, opts)).toBe("compiled");
+      expect(vi.mocked(callText).mock.calls[1][0].messages[0].content).toContain("当天已生成的草稿。");
+
+      fs.writeFileSync(draft, "另一份尚未匹配到草稿状态的正文。");
+      expect(await compileDaily(empty, path.join(tmpDir, "second-daily"), "2026-07-03", RESOLVED_MODEL, opts)).toBe("skipped");
+      expect(callText).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("archives an intentional manual edit without resetting its date or incremental watermark", async () => {
+    const draft = path.join(tmpDir, "today.md");
+    const statePath = path.join(tmpDir, "today-state.json");
+    const lastCompiledSummaryUpdatedAt = "2026-07-03T08:00:00.000Z";
+    fs.writeFileSync(draft, "旧当天稿。");
+    fs.writeFileSync(statePath, JSON.stringify({
+      schemaVersion: 1, logicalDate: "2026-07-03", lastCompiledSummaryUpdatedAt,
+      draftSha256: "a".repeat(64),
+    }));
+    writeTodaySection(tmpDir, "用户订正后的当天稿。");
+    expect(JSON.parse(fs.readFileSync(statePath, "utf8"))).toMatchObject({
+      logicalDate: "2026-07-03", lastCompiledSummaryUpdatedAt,
+    });
+    const result = await compileDaily(makeFakeSummaryManager([]), dailyDir, "2026-07-03", RESOLVED_MODEL, {
+      todayDraftPath: draft, todayDraftStatePath: statePath,
+    });
+    expect(result).toBe("compiled");
+    expect(vi.mocked(callText).mock.calls[0][0].messages[0].content).toContain("用户订正后的当天稿。");
+  });
+
+  it("does not certify a mismatched body with a watermark-only scan or feed it into a later draft", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 6, 3, 13, 0));
+      const draft = path.join(tmpDir, "today.md");
+      const statePath = path.join(tmpDir, "today-state.json");
+      const originalState = JSON.stringify({
+        schemaVersion: 1, logicalDate: "2026-07-03", draftSha256: "a".repeat(64),
+        lastCompiledSummaryUpdatedAt: "2026-07-03T08:00:00.000Z",
+      });
+      fs.writeFileSync(statePath, originalState);
+      fs.writeFileSync(draft, "尚未经日期确认的旧内容。");
+      const wrongDate = { session_id: "old", updated_at: "2026-07-02T12:00:00.000Z",
+        summary: "### 事情经过\n- 2026-07-02 12:00 昨天的事" };
+      await compileToday(makeFakeSummaryManager([wrongDate]), draft, RESOLVED_MODEL, { statePath });
+      expect(fs.readFileSync(statePath, "utf8")).toBe(originalState);
+      expect(fs.readFileSync(draft, "utf8")).toBe("尚未经日期确认的旧内容。");
+      expect(callText).not.toHaveBeenCalled();
+
+      const known = { session_id: "known", updated_at: new Date().toISOString(),
+        summary: "### 事情经过\n- 2026-07-03 13:00 当前来源" };
+      await compileToday(makeFakeSummaryManager([known]), draft, RESOLVED_MODEL, { statePath });
+      const input = vi.mocked(callText).mock.calls[0][0].messages[0].content;
+      expect(input).toContain("当前来源");
+      expect(input).not.toContain("尚未经日期确认的旧内容。");
+      expect(JSON.parse(fs.readFileSync(statePath, "utf8")).draftSha256).not.toBe("a".repeat(64));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not publish a daily result or its fingerprint after the source changes", async () => {
+    const mgr = makeFakeSummaryManager([
+      { session_id: "day", updated_at: "2026-07-03T12:00:00.000Z", summary: "实际日记内容" },
+    ]);
+    await expect(compileDaily(mgr, dailyDir, "2026-07-03", RESOLVED_MODEL, { canCommit: () => false }))
+      .rejects.toThrow("Daily memory source changed");
+    expect(fs.readdirSync(dailyDir)).toEqual([]);
   });
 
   it("skips recompilation via fingerprint when rerun for the same closed day with unchanged summaries", async () => {
@@ -316,7 +441,7 @@ describe("assembleWeekFromDaily", () => {
     writeDailyFile("2026-07-02", "第二天的记录。");
     writeDailyFile("2026-07-03", "第三天的记录。");
 
-    assembleWeekFromDaily(dailyDir, weekPath);
+    assembleWeekFromDaily(dailyDir, weekPath, { referenceDate: "2026-07-04" });
 
     const content = fs.readFileSync(weekPath, "utf-8");
     const firstIdx = content.indexOf("第一天的记录。");
@@ -337,7 +462,7 @@ describe("assembleWeekFromDaily", () => {
       writeDailyFile(d, `第${i}天的记录内容。`);
     }
 
-    assembleWeekFromDaily(dailyDir, weekPath);
+    assembleWeekFromDaily(dailyDir, weekPath, { referenceDate: "2026-07-10" });
 
     const content = fs.readFileSync(weekPath, "utf-8");
     // 最老的三天（07-01, 07-02, 07-03）应被排除在外
@@ -361,7 +486,7 @@ describe("assembleWeekFromDaily", () => {
       writeDailyFile(d, "很长的一段记录内容。".repeat(50));
     }
 
-    assembleWeekFromDaily(dailyDir, weekPath, { maxChars: 500 });
+    assembleWeekFromDaily(dailyDir, weekPath, { referenceDate: "2026-07-07", maxChars: 500 });
 
     const content = fs.readFileSync(weekPath, "utf-8");
     expect(content.length).toBeLessThanOrEqual(500 + 200); // 允许日期抬头等少量结构性开销
@@ -375,7 +500,7 @@ describe("assembleWeekFromDaily", () => {
     fs.writeFileSync(path.join(dailyDir, "2026-07-03.md.fingerprint"), "abc123", "utf-8");
     fs.writeFileSync(path.join(dailyDir, "week.md.migrated.bak"), "旧数据", "utf-8");
 
-    assembleWeekFromDaily(dailyDir, weekPath);
+    assembleWeekFromDaily(dailyDir, weekPath, { referenceDate: "2026-07-04" });
 
     const content = fs.readFileSync(weekPath, "utf-8");
     expect(content).toContain("唯一有效的一天。");
@@ -460,7 +585,7 @@ describe("listDailyEntries / readDailyEntryBody / writeDailyEntryBody", () => {
     writeDailyEntryBody(dailyDir, "2026-07-01", "编辑后的第一天记录。");
 
     const weekPath = path.join(tmpDir, "week.md");
-    assembleWeekFromDaily(dailyDir, weekPath);
+    assembleWeekFromDaily(dailyDir, weekPath, { referenceDate: "2026-07-03" });
 
     const content = fs.readFileSync(weekPath, "utf-8");
     expect(content).toContain("编辑后的第一天记录。");

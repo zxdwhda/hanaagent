@@ -8,6 +8,7 @@ import { emitAppEvent } from "../app-events.ts";
 import { safeJson } from "../hono-helpers.ts";
 import { t } from "../../../packages/engine/lib/i18n.ts";
 import { debugLog } from "../../../packages/engine/lib/debug-log.ts";
+import { getLogicalDay } from "../../../packages/engine/lib/time-utils.ts";
 import { clearConfigCache } from "../../../packages/engine/lib/memory/config-loader.ts";
 import { FactStore } from "../../../packages/engine/lib/memory/fact-store.ts";
 import {
@@ -547,7 +548,7 @@ export function createConfigRoute(engine: any) {
     try {
       const agent = resolveAgentStrict(engine, c);
       const memDir = path.dirname(agent.memoryMdPath);
-      const days = listWeekDayEntries(memDir);
+      const days = listWeekDayEntries(memDir, { referenceDate: getLogicalDay().logicalDate });
       return c.json({ days });
     } catch (err) {
       if (err instanceof AgentNotFoundError) return c.json({ error: err.message }, 404);
@@ -570,12 +571,14 @@ export function createConfigRoute(engine: any) {
         return c.json({ error: "body must be a string" }, 400);
       }
       const memDir = path.dirname(agent.memoryMdPath);
-      const existingDates = new Set(listWeekDayEntries(memDir).map((entry) => entry.date));
+      const referenceDate = getLogicalDay().logicalDate;
+      const existingDates = new Set(listWeekDayEntries(memDir, { referenceDate }).map((entry) => entry.date));
       if (!existingDates.has(date)) {
         return c.json({ error: `no daily entry for date "${date}"` }, 404);
       }
       const normalizedBody = writeWeekDayEntry(memDir, date, body.body, {
         memoryMdPath: agent.memoryMdPath,
+        referenceDate,
       });
       debugLog()?.log("api", `PUT /api/memories/compiled/week/days/${date} agent=${agent.id}`);
       await engine.updateConfig({}, { agentId: agent.id });

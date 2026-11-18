@@ -25,7 +25,8 @@ import path from "path";
 
 // ── Mock compile / deep-memory / debug ──
 
-vi.mock("../packages/engine/lib/memory/compile.js", () => ({
+vi.mock("../packages/engine/lib/memory/compile.js", async (importOriginal) => ({
+  ...await importOriginal<object>(),
   compileToday: vi.fn().mockResolvedValue("compiled"),
   compileDaily: vi.fn().mockResolvedValue("compiled"),
   assembleWeekFromDaily: vi.fn(),

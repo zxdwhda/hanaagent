@@ -3122,7 +3122,7 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Continue existing branch and deep-memory recovery from the current archive locator, with unchanged stored records and data epoch.",
+    "compatibilityReason": "Optional draft proof and pending-date checkpoint fields extend existing memory metadata while retaining legacy reads and the existing data epoch.",
     "payloadFingerprint": "sha256:f9766ba2f5e9e5d45d08fa445ef0c864f8e352b109344d25de0df1c6bbe61a38"
   },
   "schemas": [

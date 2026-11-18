@@ -5,6 +5,7 @@ import { atomicWriteSync } from "../../../../shared/safe-fs.ts";
 import {
   assemble,
   assembleWeekFromDaily,
+  captureTodayDraftProof,
   listWeekDayEntries,
   readCompiledMemorySections,
   writeDailyEntryBody,
@@ -188,6 +189,7 @@ function applyAllFiles(memoryDir: string, sections: DreamSections, memoryMdPath:
   fs.mkdirSync(dailyDir, { recursive: true });
 
   writeSectionFile(path.join(memoryDir, "facts.md"), normalized.facts);
+  captureTodayDraftProof(memoryDir);
   writeSectionFile(path.join(memoryDir, "today.md"), normalized.today);
   writeSectionFile(path.join(memoryDir, "longterm.md"), normalized.longterm);
   for (const entry of normalized.weekDays) {

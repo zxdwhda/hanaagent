@@ -3,7 +3,8 @@ import os from "os";
 import fs from "fs";
 import path from "path";
 
-vi.mock("../packages/engine/lib/memory/compile.js", () => ({
+vi.mock("../packages/engine/lib/memory/compile.js", async (importOriginal) => ({
+  ...await importOriginal<object>(),
   compileToday: vi.fn().mockResolvedValue("compiled"),
   compileDaily: vi.fn().mockResolvedValue("compiled"),
   assembleWeekFromDaily: vi.fn(),
