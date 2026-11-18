@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InputArea } from '../../components/InputArea';
@@ -332,6 +332,7 @@ describe('InputArea status stack', () => {
   it('opens legacy screenshot notice directories in the system file manager', async () => {
     const openFolder = vi.fn();
     window.platform = { openFolder } as unknown as typeof window.platform;
+    useStore.setState({ compactingSessions: [] });
     render(React.createElement(InputArea));
 
     window.dispatchEvent(new CustomEvent('hana-inline-notice', {
@@ -342,7 +343,7 @@ describe('InputArea status stack', () => {
       },
     }));
 
-    fireEvent.click(await screen.findByTestId('input-status-bars'));
+    fireEvent.click(await screen.findByRole('button', { name: 'slash-result' }));
 
     expect(openFolder).toHaveBeenCalledWith('/workspace/OH-Works');
     expect(deskActionMocks.toggleJianSidebar).not.toHaveBeenCalled();
@@ -350,23 +351,26 @@ describe('InputArea status stack', () => {
     expect(deskActionMocks.loadDeskFiles).not.toHaveBeenCalled();
   });
 
-  it('reveals the generated screenshot in the system file manager when the notice carries a file path', async () => {
+  it('reveals the generated screenshot in the system file manager when the notice carries a file path', () => {
     const openFile = vi.fn();
     const openFolder = vi.fn();
     const showInFinder = vi.fn();
     window.platform = { openFile, openFolder, showInFinder } as unknown as typeof window.platform;
+    useStore.setState({ compactingSessions: [] });
     render(React.createElement(InputArea));
 
-    window.dispatchEvent(new CustomEvent('hana-inline-notice', {
-      detail: {
-        text: '截图已保存到工作目录下的「OH-Works」文件夹',
-        type: 'success',
-        deskDir: '/workspace/OH-Works/截图',
-        filePath: '/workspace/OH-Works/截图/hanako-20260617.png',
-      },
-    }));
+    act(() => {
+      window.dispatchEvent(new CustomEvent('hana-inline-notice', {
+        detail: {
+          text: '截图已保存到工作目录下的「OH-Works」文件夹',
+          type: 'success',
+          deskDir: '/workspace/OH-Works/截图',
+          filePath: '/workspace/OH-Works/截图/hanako-20260617.png',
+        },
+      }));
+    });
 
-    fireEvent.click(await screen.findByTestId('input-status-bars'));
+    fireEvent.click(screen.getByRole('button', { name: 'slash-result' }));
 
     expect(showInFinder).toHaveBeenCalledWith('/workspace/OH-Works/截图/hanako-20260617.png');
     expect(openFile).not.toHaveBeenCalled();
