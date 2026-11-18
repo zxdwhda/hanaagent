@@ -164,7 +164,18 @@ export function createMetaSourceGate(opts: any = {}) {
   };
 }
 
-// 从账本里读出当前全部被判死刑（too_large / parse_error）的文件，供 UI /诊断消费全量视图。
+export function isMissingSessionMetaSource(filePath: unknown) {
+  if (typeof filePath !== "string" || !filePath) return false;
+  try {
+    fs.statSync(filePath);
+    return false;
+  } catch (err) {
+    // Permissions and other I/O failures do not establish that a source moved.
+    return err?.code === "ENOENT" || err?.code === "ENOTDIR";
+  }
+}
+
+// 从账本读出还在原位置的 too_large / parse_error 来源，供实时健康状态使用。
 // migrateLegacySessions 返回的 result.skippedMetaSources 只含"本轮新观察到"的跳过事件——
 // 稳态下（签名没再变化）它是空数组，驱动不了"有文件待恢复"这类持续提示；这个函数读的是
 // 账本里的全集，不管是不是本轮新记的。store 没有 getState 或账本损坏时返回空数组，不 throw。
@@ -182,6 +193,7 @@ export function listSkippedMetaSources(store) {
     const entry: any = value;
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     if (entry.status !== "too_large" && entry.status !== "parse_error") continue;
+    if (isMissingSessionMetaSource(filePath)) continue;
     entries.push({
       path: filePath,
       reason: entry.status,

@@ -26,6 +26,7 @@ const SESSION_FILE_SORT_KEY = 'hana-session-file-sort';
 const RUBBER_BAND_MIN = 4;
 
 type SessionFileSortMode = 'time-desc' | 'name-asc' | 'name-desc' | 'type-asc';
+type SessionFileFilter = 'all' | 'no-embedded' | 'available' | 'available-no-embedded';
 
 type BridgePlatform = 'feishu' | 'dingtalk' | 'telegram' | 'whatsapp' | 'qq' | 'wechat';
 
@@ -75,6 +76,7 @@ function tr(key: string, vars?: Record<string, string | number>): string {
 
 function statusLabel(file: FileRef): string {
   if (file.status === 'expired') return tr('rightWorkspace.sessionFiles.status.expired');
+  if (file.status === 'missing') return tr('rightWorkspace.sessionFiles.status.missing');
   return tr('rightWorkspace.sessionFiles.status.available');
 }
 
@@ -86,8 +88,8 @@ function formatKind(file: FileRef): string {
   return (file.ext || file.kind || 'file').toUpperCase();
 }
 
-function isExpired(file: FileRef): boolean {
-  return file.status === 'expired';
+function isUnavailable(file: FileRef): boolean {
+  return file.status === 'expired' || file.status === 'missing';
 }
 
 function resourceAccessContext() {
@@ -111,7 +113,7 @@ function canCopyFilePath(file: FileRef): boolean {
 }
 
 function canDragFile(file: FileRef): boolean {
-  return !isExpired(file) && (!!nativePathForFile(file, { requireAvailable: true }) || !!file.inlineData);
+  return !isUnavailable(file) && (!!nativePathForFile(file, { requireAvailable: true }) || !!file.inlineData);
 }
 
 function canScreenshotShareFile(file: FileRef): boolean {
@@ -184,7 +186,7 @@ function sortSessionFiles(files: readonly FileRef[], mode: SessionFileSortMode):
 }
 
 function pathBackedFiles(files: readonly FileRef[], opts: { requireAvailable?: boolean } = {}): FileRef[] {
-  return files.filter(file => !!file.path && (!opts.requireAvailable || !isExpired(file)));
+  return files.filter(file => !!file.path && (!opts.requireAvailable || !isUnavailable(file)));
 }
 
 function nativePathBackedFiles(files: readonly FileRef[], opts: { requireAvailable?: boolean } = {}): FileRef[] {
@@ -414,7 +416,16 @@ export function SessionRegistryFilesPanel() {
     s.currentSessionPath ? selectSessionFiles(s, s.currentSessionPath) : EMPTY_FILES
   ));
   const [sortMode, setSortMode] = useState<SessionFileSortMode>(getInitialSortMode);
-  const sortedFiles = useMemo(() => sortSessionFiles(files, sortMode), [files, sortMode]);
+  const [filter, setFilter] = useState<SessionFileFilter>('all');
+  const sortedFiles = useMemo(() => {
+    const hideEmbedded = filter === 'no-embedded' || filter === 'available-no-embedded';
+    const hideUnavailable = filter === 'available' || filter === 'available-no-embedded';
+    const visible = files.filter(file => (
+      (!hideEmbedded || file.origin !== 'agent_read_docx_media')
+      && (!hideUnavailable || !isUnavailable(file))
+    ));
+    return sortSessionFiles(visible, sortMode);
+  }, [files, sortMode, filter]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
@@ -788,7 +799,7 @@ export function SessionRegistryFilesPanel() {
 
   return (
     <section className={styles.sessionFilesPanel} aria-label={tr('rightWorkspace.tabs.sessionFiles')}>
-      {sortedFiles.length === 0 ? (
+      {files.length === 0 ? (
         <div className={styles.emptyState}>{tr('rightWorkspace.sessionFiles.empty')}</div>
       ) : (
         <>
@@ -803,6 +814,17 @@ export function SessionRegistryFilesPanel() {
               <SortIcon />
               <span>{sortLabel(sortMode)}</span>
             </button>
+            <select
+              className={styles.sessionFilesFilter}
+              aria-label={tr('rightWorkspace.sessionFiles.filters.label')}
+              value={filter}
+              onChange={event => setFilter(event.target.value as SessionFileFilter)}
+            >
+              <option value="all">{tr('rightWorkspace.sessionFiles.filters.all')}</option>
+              <option value="no-embedded">{tr('rightWorkspace.sessionFiles.filters.hideEmbeddedMedia')}</option>
+              <option value="available">{tr('rightWorkspace.sessionFiles.filters.hideUnavailable')}</option>
+              <option value="available-no-embedded">{tr('rightWorkspace.sessionFiles.filters.availableWithoutEmbeddedMedia')}</option>
+            </select>
           </div>
           <div
             className={styles.fileList}
@@ -815,6 +837,9 @@ export function SessionRegistryFilesPanel() {
             onPaste={suppressImport}
             onDrop={suppressImport}
           >
+            {sortedFiles.length === 0 && (
+              <div className={styles.emptyState} role="status">{tr('rightWorkspace.sessionFiles.filters.empty')}</div>
+            )}
             {sortedFiles.map(file => (
               <SessionFileRow
                 key={file.id}

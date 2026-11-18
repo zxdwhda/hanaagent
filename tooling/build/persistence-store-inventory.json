@@ -7909,6 +7909,15 @@
     {
       "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
       "kind": "copy-file",
+      "excerpt": "fs.cpSync(filePath, pendingPayload, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true, verbatimSymlinks: true, filter: (entry) => { const entryBefore = sourceRevisions.get(entry) || fs.lstatSync(entry, { bigint: ",
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "storeId": null,
+      "exemptionId": "external-resource-io",
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "kind": "copy-file",
       "excerpt": "fs.cpSync(sourcePath, targetPath, { recursive: true })",
       "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
       "storeId": null,
@@ -7954,7 +7963,25 @@
     {
       "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
       "kind": "mkdir",
-      "excerpt": "fs.mkdirSync(trashPath, { recursive: true })",
+      "excerpt": "fs.mkdirSync(path.dirname(trashPath), { recursive: true })",
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "storeId": null,
+      "exemptionId": "external-resource-io",
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "kind": "mkdir",
+      "excerpt": "fs.mkdirSync(trashPath, { mode: 0o700 })",
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "storeId": null,
+      "exemptionId": "external-resource-io",
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "kind": "remove-path",
+      "excerpt": "fs.rmSync(filePath, { recursive: true })",
       "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
       "storeId": null,
       "exemptionId": "external-resource-io",
@@ -7971,8 +7998,26 @@
     },
     {
       "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "kind": "remove-path",
+      "excerpt": "fs.rmSync(trashPath, { recursive: true, force: true })",
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "storeId": null,
+      "exemptionId": "external-resource-io",
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
       "kind": "rename",
       "excerpt": "fs.renameSync(filePath, payloadPath)",
+      "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
+      "storeId": null,
+      "exemptionId": "external-resource-io",
+      "ordinal": 0
+    },
+    {
+      "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
+      "kind": "rename",
+      "excerpt": "fs.renameSync(pendingPayload, payloadPath)",
       "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
       "storeId": null,
       "exemptionId": "external-resource-io",
@@ -8008,7 +8053,7 @@
     {
       "sourceFile": "packages/engine/lib/resource-io/providers/local-fs-provider.ts",
       "kind": "write-file",
-      "excerpt": "fs.writeFileSync(path.join(trashPath, \"metadata.json\"), JSON.stringify({ schemaVersion: 1, trashId, originalPath: filePath, originalName: path.basename(filePath), deletedAt: new Date().toISOString(), ...(options.metadata && typeof options.m",
+      "excerpt": "fs.writeFileSync(path.join(trashPath, \"metadata.json\"), JSON.stringify({ ...(options.metadata && typeof options.metadata === \"object\" ? options.metadata : {}), schemaVersion: 1, trashId, originalPath: filePath, originalName: path.basename(f",
       "reason": "Writes explicit user-selected local filesystem resource targets outside Hana persistence ownership.",
       "storeId": null,
       "exemptionId": "external-resource-io",
@@ -8791,7 +8836,7 @@
     {
       "sourceFile": "packages/engine/lib/tools/experience.ts",
       "kind": "write-file",
-      "excerpt": "fs.writeFileSync(indexPath, indexContent, \"utf-8\")",
+      "excerpt": "fs.writeFileSync(indexPath, renderExperienceIndex(docs), \"utf-8\")",
       "reason": "Writes a user- or agent-authored Markdown record.",
       "storeId": "agent-authored-records",
       "exemptionId": null,

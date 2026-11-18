@@ -25,6 +25,7 @@ import {
   type SessionRef,
 } from '../stores/session-actions';
 import { getWebSocket } from '../services/websocket';
+import { withRequestDeadline } from '../services/request-deadline';
 import { collectUiContext } from '../utils/ui-context';
 import { formatQuotedSelectionForPrompt } from '../utils/quoted-selection';
 import { renderMarkdown } from '../utils/markdown';
@@ -1578,16 +1579,26 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   // ── Load thinking level once server port is ready + listen for plan mode sync ──
   const activeServerConnection = useStore(s => s.activeServerConnection);
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
     if (activeServerConnection && surface !== 'mobile') {
+      const draftId = useStore.getState().pendingDraftId;
       const query = pendingNewSession
         ? '?pendingNewSession=1'
         : currentSessionPath
           ? `?sessionPath=${encodeURIComponent(currentSessionPath)}`
           : '';
-      hanaFetch(`/api/session-thinking-level${query}`)
-        .then(r => r.json())
-        .then(d => { if (d.thinkingLevel) setThinkingLevel(d.thinkingLevel as ThinkingLevel); })
-        .catch((err: unknown) => console.warn('[InputArea] load thinking level failed', err));
+      void withRequestDeadline(controller, async () => {
+        const response = await hanaFetch(`/api/session-thinking-level${query}`, { signal: controller.signal });
+        return response.json();
+      }).then(data => {
+        const latest = useStore.getState();
+        if (!active || !data.thinkingLevel) return;
+        if (pendingNewSession && (latest.pendingDraftId !== draftId || latest.pendingNewSessionThinkingLevel)) return;
+        setThinkingLevel(data.thinkingLevel as ThinkingLevel);
+      }).catch((err: unknown) => {
+        if (active) console.warn('[InputArea] load thinking level failed', err);
+      });
     }
 
     const handler = (e: Event) => {
@@ -1595,7 +1606,11 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
       setPermissionMode((detail.mode || (detail.enabled ? 'read_only' : 'operate')) as PermissionMode);
     };
     window.addEventListener('hana-plan-mode', handler);
-    return () => window.removeEventListener('hana-plan-mode', handler);
+    return () => {
+      active = false;
+      controller.abort();
+      window.removeEventListener('hana-plan-mode', handler);
+    };
   }, [activeServerConnection, currentSessionPath, pendingNewSession, setPermissionMode, setThinkingLevel, surface]);
 
   // ── Handle slash selection (builtin vs skill) ──

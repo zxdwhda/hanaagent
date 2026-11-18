@@ -26,6 +26,35 @@ describe("ResourceIO agent tools", () => {
     });
   });
 
+  it.each(["read", "write", "edit"])("rejects %s without a usable target before Pi", async (name) => {
+    const execute = vi.fn();
+    const [tool] = wrapResourceIoFileTools([{
+      name, parameters: { type: "object", required: ["path"], properties: {} }, execute,
+    }], { cwd: "/workspace", resourceIO: {} });
+
+    await expect(tool.execute("missing-target", { limit: 1, path: " " })).rejects.toMatchObject({
+      code: "invalid_resource_ref",
+      status: 400,
+      message: expect.stringContaining("requires a file target"),
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["ls", {}],
+    ["find", { pattern: "*.md" }],
+    ["grep", { pattern: "hello" }],
+  ])("keeps the implicit working directory for %s with no target", async (name, params) => {
+    const result = { content: [{ type: "text", text: "workspace result" }] };
+    const execute = vi.fn(async () => result);
+    const [tool] = wrapResourceIoFileTools([{
+      name, parameters: { type: "object", properties: {} }, execute,
+    }], { cwd: "/workspace", resourceIO: {} });
+
+    await expect(tool.execute("default-target", params)).resolves.toBe(result);
+    expect(execute).toHaveBeenCalledExactlyOnceWith("default-target", params);
+  });
+
   it("normalizes local path aliases before delegating write through the ResourceIO-backed tool", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-resource-io-tools-"));
     const execute = vi.fn(async (_toolCallId, params) => {

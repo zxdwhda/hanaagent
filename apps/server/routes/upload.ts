@@ -257,6 +257,14 @@ function uniqueUploadName(base, ext) {
   return `${truncateUtf8Bytes(base, maxBaseBytes)}${suffix}${ext}`;
 }
 
+function uploadFailureReason(error: { code?: unknown } | null | undefined) {
+  const code = typeof error?.code === "string" ? error.code : "";
+  if (code === "ENOENT" || code === "ENOTDIR") return t("error.pathNotFound");
+  if (code === "EACCES" || code === "EPERM") return t("error.fsPermission") + " (" + code + ")";
+  const reason = t("error.uploadFailed");
+  return /^[A-Z][A-Z0-9_]{1,24}$/.test(code) ? reason + " (" + code + ")" : reason;
+}
+
 export function createUploadRoute(engine) {
   const route = new Hono();
 
@@ -284,31 +292,34 @@ export function createUploadRoute(engine) {
     for (const srcPath of paths) {
       // 超出文件数限制后，对剩余路径统一报错
       if (totalFiles > MAX_FILES) {
+        const reason = t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles });
         results.push({
           src: srcPath,
-          error: t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles }),
+          error: reason,
+          failureReason: reason,
         });
         continue;
       }
 
       try {
         if (!path.isAbsolute(srcPath)) {
-          results.push({ src: srcPath, error: "Path must be absolute" });
+          results.push({ src: srcPath, error: "Path must be absolute", failureReason: "Path must be absolute" });
           continue;
         }
         let stat;
         try {
           stat = await fs.lstat(srcPath);
-        } catch {
-          results.push({ src: srcPath, error: t("error.pathNotFound") });
+        } catch (error) {
+          const reason = uploadFailureReason(error);
+          results.push({ src: srcPath, error: reason, failureReason: reason });
           continue;
         }
         if (stat.isSymbolicLink()) {
-          results.push({ src: srcPath, error: "symlink not allowed" });
+          results.push({ src: srcPath, error: "symlink not allowed", failureReason: "Symbolic links are not supported" });
           continue;
         }
         if (isSensitivePath(srcPath, engine.hanakoHome)) {
-          results.push({ src: srcPath, error: "sensitive path blocked" });
+          results.push({ src: srcPath, error: "sensitive path blocked", failureReason: "Protected paths cannot be attached" });
           continue;
         }
 
@@ -327,9 +338,11 @@ export function createUploadRoute(engine) {
         // 每个路径计 1 个附件额度；目录走引用、不复制，因此不再递归计数
         totalFiles += 1;
         if (totalFiles > MAX_FILES) {
+          const reason = t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles });
           results.push({
             src: srcPath,
-            error: t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles }),
+            error: reason,
+            failureReason: reason,
           });
           continue;
         }
@@ -400,7 +413,10 @@ export function createUploadRoute(engine) {
           ...(sessionFile || {}),
         });
       } catch (err) {
-        results.push({ src: srcPath, error: err.message });
+        // OS errors can embed local absolute paths. Expose a display reason
+        // separately from the existing API error detail.
+        const error = err?.message || String(err);
+        results.push({ src: srcPath, error, failureReason: uploadFailureReason(err) });
       }
     }
 

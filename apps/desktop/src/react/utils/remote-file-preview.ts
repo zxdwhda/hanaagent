@@ -364,7 +364,7 @@ export async function openMobileWorkbenchPreview(input: WorkbenchPreviewInput): 
 }
 
 export async function openFileRefPreview(file: FileRef, context: FileRefPreviewContext): Promise<void> {
-  if (file.status === 'expired') return;
+  if (file.status === 'expired' || file.status === 'missing') return;
   if (isMediaKind(file.kind)) {
     openMediaViewerForRef(file, {
       origin: context.origin,
@@ -405,7 +405,7 @@ export async function openFileRefPreview(file: FileRef, context: FileRefPreviewC
 }
 
 export function fileRefDownloadUrl(file: FileRef): string | null {
-  if (file.status === 'expired') return null;
+  if (file.status === 'expired' || file.status === 'missing') return null;
   try {
     const resolved = resolveFileRefUrl(file, {
       connection: resolveServerConnection(useStore.getState()),

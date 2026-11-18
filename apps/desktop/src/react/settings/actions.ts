@@ -14,6 +14,7 @@ import {
   startRemoteLoad,
 } from './resource-state';
 import type { SettingsSnapshot } from './store';
+import { withRequestDeadline } from '../services/request-deadline';
 
 let _settingsConfigLoadVersion = 0;
 let _settingsConfigAbortController: AbortController | null = null;
@@ -106,35 +107,38 @@ export async function loadSettingsConfig() {
     return;
   }
   try {
-    const agentBase = `/api/agents/${agentId}`;
-    const [configRes, identityRes, agentsMdRes, publicAgentsMdRes, userProfileRes, pinnedRes, globalModelsRes] =
-      await Promise.all([
-        hanaFetch(`${agentBase}/config`, { signal: controller.signal }),
-        hanaFetch(`${agentBase}/identity`, { signal: controller.signal }),
-        hanaFetch(`${agentBase}/agents-md`, { signal: controller.signal }),
-        hanaFetch(`${agentBase}/public-agents-md`, { signal: controller.signal }),
-        hanaFetch('/api/user-profile', { signal: controller.signal }),
-        hanaFetch(`${agentBase}/pinned`, { signal: controller.signal }),
-        hanaFetch('/api/preferences/models', { signal: controller.signal }),
-      ]);
+    const { config, globalModels, pinnedData } = await withRequestDeadline(controller, async () => {
+      const agentBase = `/api/agents/${agentId}`;
+      const [configRes, identityRes, agentsMdRes, publicAgentsMdRes, userProfileRes, pinnedRes, globalModelsRes] =
+        await Promise.all([
+          hanaFetch(`${agentBase}/config`, { signal: controller.signal }),
+          hanaFetch(`${agentBase}/identity`, { signal: controller.signal }),
+          hanaFetch(`${agentBase}/agents-md`, { signal: controller.signal }),
+          hanaFetch(`${agentBase}/public-agents-md`, { signal: controller.signal }),
+          hanaFetch('/api/user-profile', { signal: controller.signal }),
+          hanaFetch(`${agentBase}/pinned`, { signal: controller.signal }),
+          hanaFetch('/api/preferences/models', { signal: controller.signal }),
+        ]);
 
-    const config = await configRes.json();
-    const globalModels = await globalModelsRes.json();
-    const identityData = await identityRes.json();
-    config._identity = identityData.content || '';
-    const agentsMdData = await agentsMdRes.json();
-    config._agents = agentsMdData.content || '';
-    const publicAgentsMdData = await publicAgentsMdRes.json();
-    config._publicAgents = publicAgentsMdData.content || '';
-    const userProfileData = await userProfileRes.json();
-    config._userProfile = userProfileData.content || '';
-    const pinnedData = await pinnedRes.json();
-    config._experience = '';
-    if (config.experience?.enabled === true) {
-      const experienceRes = await hanaFetch(`${agentBase}/experience`, { signal: controller.signal });
-      const experienceData = await experienceRes.json();
-      config._experience = experienceData.content || '';
-    }
+      const config = await configRes.json();
+      const globalModels = await globalModelsRes.json();
+      const identityData = await identityRes.json();
+      config._identity = identityData.content || '';
+      const agentsMdData = await agentsMdRes.json();
+      config._agents = agentsMdData.content || '';
+      const publicAgentsMdData = await publicAgentsMdRes.json();
+      config._publicAgents = publicAgentsMdData.content || '';
+      const userProfileData = await userProfileRes.json();
+      config._userProfile = userProfileData.content || '';
+      const pinnedData = await pinnedRes.json();
+      config._experience = '';
+      if (config.experience?.enabled === true) {
+        const experienceRes = await hanaFetch(`${agentBase}/experience`, { signal: controller.signal });
+        const experienceData = await experienceRes.json();
+        config._experience = experienceData.content || '';
+      }
+      return { config, globalModels, pinnedData };
+    });
     if (myVersion !== _settingsConfigLoadVersion) return;
     if (_settingsConfigAbortController !== controller) return;
     const latest = useSettingsStore.getState();
@@ -264,10 +268,12 @@ export async function loadSettingsSnapshot(options: { retainSameKeyData?: boolea
   }
 
   try {
-    const res = await hanaFetch(`/api/settings/snapshot?agentId=${encodeURIComponent(agentId)}`, {
-      signal: controller.signal,
+    const snapshot = await withRequestDeadline(controller, async () => {
+      const res = await hanaFetch(`/api/settings/snapshot?agentId=${encodeURIComponent(agentId)}`, {
+        signal: controller.signal,
+      });
+      return await res.json() as SettingsSnapshot & { error?: string };
     });
-    const snapshot = await res.json() as SettingsSnapshot & { error?: string };
     if (snapshot.error) throw new Error(snapshot.error);
     if (myVersion !== _settingsSnapshotLoadVersion) return;
     if (_settingsSnapshotAbortController !== controller) return;

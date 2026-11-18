@@ -113,7 +113,7 @@ import { SessionManifestResolver } from "./session-manifest/resolver.ts";
 import { SessionManifestStore } from "./session-manifest/store.ts";
 import { ensureSessionRefForPath as establishSessionRefForPath } from "./session-manifest/ref.ts";
 import { ensureLegacySessionManifestMigration } from "./session-manifest/startup-migration.ts";
-import { listSkippedMetaSources } from "./session-manifest/legacy-migration.ts";
+import { isMissingSessionMetaSource, listSkippedMetaSources } from "./session-manifest/legacy-migration.ts";
 import {
   moveSessionManifestDbFilesAside,
   sanitizeSessionManifestFileSuffix,
@@ -1536,6 +1536,7 @@ export class HanaEngine {
     }
 
     for (const quarantine of this._sessionCoord?.listMetaQuarantines?.() || []) {
+      if (isMissingSessionMetaSource(quarantine?.backupPath)) continue;
       reasons.push({ kind: "meta_quarantined", detail: describeMetaSourcePath(quarantine?.metaPath) });
     }
 

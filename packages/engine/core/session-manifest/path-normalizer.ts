@@ -17,7 +17,10 @@ export function canonicalSessionLocatorPath(sessionPath) {
   const resolved = path.resolve(sessionPath);
   try {
     return fs.realpathSync.native(resolved);
-  } catch {
+  } catch (err) {
+    if (err?.code === "ENOENT" || err?.code === "ENOTDIR") {
+      return normalizeMissingPathFromExistingParent(resolved, true);
+    }
     try {
       return fs.realpathSync(resolved);
     } catch {
@@ -31,9 +34,9 @@ export function sessionLocatorKey(sessionPath) {
   return process.platform === "win32" ? canonical.toLocaleLowerCase("en-US") : canonical;
 }
 
-function normalizeMissingPathFromExistingParent(resolvedPath) {
-  const missingParts = [];
-  let cursor = resolvedPath;
+function normalizeMissingPathFromExistingParent(resolvedPath, alreadyMissing = false) {
+  const missingParts = alreadyMissing ? [path.basename(resolvedPath)] : [];
+  let cursor = alreadyMissing ? path.dirname(resolvedPath) : resolvedPath;
 
   while (!fs.existsSync(cursor)) {
     const parent = path.dirname(cursor);

@@ -164,12 +164,17 @@ describe("agent.systemPrompt: master / per-session 解耦", { timeout: AGENT_INI
   it("session 路径仍能用 buildSystemPrompt({ forceMemoryEnabled }) 自己构建带/不带记忆的快照", async () => {
     const agent = makeAgent(agentsDir, tmpDir);
     await agent.init(() => {});
+    const pinnedPath = path.join(agent.agentDir, "pinned.md");
+    const savedPins = fs.readFileSync(pinnedPath, "utf8");
 
     const onSnapshot = agent.buildSystemPrompt({ forceMemoryEnabled: true });
     const offSnapshot = agent.buildSystemPrompt({ forceMemoryEnabled: false });
 
     expect(onSnapshot).toContain("MEMORY_MD_BEACON");
+    expect(onSnapshot).toContain("PINNED_MEMORY_BEACON");
     expect(offSnapshot).not.toContain("MEMORY_MD_BEACON");
+    expect(offSnapshot).not.toContain("PINNED_MEMORY_BEACON");
+    expect(fs.readFileSync(pinnedPath, "utf8")).toBe(savedPins);
 
     await agent.dispose();
   });

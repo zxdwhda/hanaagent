@@ -1,6 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { normalizeWin32ShellPath } from "../sandbox/win32-path.ts";
+import { ResourceIOError } from "./errors.ts";
 
 const RESOURCE_IO_FILE_TOOL_NAMES = new Set(["read", "write", "edit", "grep", "find", "ls"]);
 const WRITE_TOOL_NAMES = new Set(["write", "edit"]);
@@ -306,7 +307,19 @@ function wrapResourceIoTool(tool, options) {
       }
 
       const target: any = resolveToolTarget(params, options.cwd);
-      if (!target) return tool.execute(toolCallId, params, ...rest);
+      if (!target) {
+        // These tools intentionally accept an omitted path and use their cwd.
+        if (toolName !== "read" && !WRITE_TOOL_NAMES.has(toolName)) {
+          return tool.execute(toolCallId, params, ...rest);
+        }
+        const targets = toolName === "read"
+          ? "path, fileId, url, or resource"
+          : "path or a writable resource";
+        throw new ResourceIOError(`${toolName} requires a file target. Provide ${targets}.`, {
+          code: "invalid_resource_ref",
+          status: 400,
+        });
+      }
 
       if (target.kind === "url") {
         if (toolName === "read") return readUrlAsText(target.url, options.resourceIO);

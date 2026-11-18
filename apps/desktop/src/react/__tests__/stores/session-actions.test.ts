@@ -652,14 +652,14 @@ function mockPermissionDefault(mode = 'ask') {
           name: 'Hana',
           isPrimary: true,
           homeFolder: null,
-          effectiveHomeFolder: '/home/test/Desktop/OH-WorkSpace',
+          effectiveHomeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
         },
         {
           id: 'mio',
           name: 'Mio',
           isPrimary: false,
           homeFolder: null,
-          effectiveHomeFolder: '/home/test/Desktop/OH-WorkSpace',
+          effectiveHomeFolder: '/fixture-homes/test/Desktop/OH-WorkSpace',
         },
       ];
       (mockState as Record<string, unknown>).currentAgentId = 'mio';
@@ -672,10 +672,10 @@ function mockPermissionDefault(mode = 'ask') {
       await createNewSession();
 
       expect(mockState.selectedAgentId).toBe('hana');
-      expect(mockState.selectedFolder).toBe('/home/test/Desktop/OH-WorkSpace');
-      expect(mockState.deskBasePath).toBe('/home/test/Desktop/OH-WorkSpace');
+      expect(mockState.selectedFolder).toBe('/fixture-homes/test/Desktop/OH-WorkSpace');
+      expect(mockState.deskBasePath).toBe('/fixture-homes/test/Desktop/OH-WorkSpace');
       expect(mockState.deskCurrentPath).toBe('');
-      expect(mockLoadDeskFiles).toHaveBeenCalledWith('', '/home/test/Desktop/OH-WorkSpace', null);
+      expect(mockLoadDeskFiles).toHaveBeenCalledWith('', '/fixture-homes/test/Desktop/OH-WorkSpace', null);
     });
 
     it('invalidates an in-flight session switch so the new-session desk stays on the agent home folder', async () => {
@@ -733,9 +733,29 @@ function mockPermissionDefault(mode = 'ask') {
 
       await createNewSession();
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/session-thinking-level?pendingNewSession=1');
+      expect(mockFetch).toHaveBeenCalledWith('/api/session-thinking-level?pendingNewSession=1', {
+        signal: expect.any(AbortSignal),
+      });
       expect(mockState.thinkingLevel).toBe('medium');
       expect(mockState.pendingNewSessionThinkingLevel).toBe('medium');
+    });
+
+    it('keeps the new draft usable when workspace loading and preference bodies stall', async () => {
+      vi.useFakeTimers();
+      try {
+        deskActionMocks.activateWorkspaceDesk.mockImplementationOnce(() => new Promise<void>(() => {}));
+        mockFetch.mockResolvedValue({ json: () => new Promise(() => {}) } as Response);
+        const creating = createNewSession();
+        expect(mockState.pendingNewSession).toBe(true);
+        expect(mockState.requestInputFocus).toHaveBeenCalledOnce();
+        await vi.advanceTimersByTimeAsync(30_000);
+        await creating;
+        expect(mockState.pendingNewSessionPermissionMode).toBe('ask');
+        expect(mockState.pendingNewSessionThinkingLevel).toBeNull();
+        expect(mockState.requestInputFocus).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('does not restore focus when a stale new-session continuation is no longer pending', async () => {
@@ -748,6 +768,7 @@ function mockPermissionDefault(mode = 'ask') {
       }));
 
       const creating = createNewSession();
+      vi.mocked(mockState.requestInputFocus as () => void).mockClear();
       Object.assign(mockState, {
         pendingNewSession: false,
         currentSessionPath: '/session/existing.jsonl',
@@ -758,6 +779,29 @@ function mockPermissionDefault(mode = 'ask') {
 
       expect((mockState as unknown as { requestInputFocus: ReturnType<typeof vi.fn> }).requestInputFocus)
         .not.toHaveBeenCalled();
+    });
+
+    it('keeps manually selected draft preferences if server defaults arrive late', async () => {
+      let resolvePermission!: (response: Response) => void;
+      let resolveThinking!: (response: Response) => void;
+      mockFetch.mockImplementationOnce(() => new Promise(resolve => { resolvePermission = resolve; }));
+      mockFetch.mockImplementationOnce(() => new Promise(resolve => { resolveThinking = resolve; }));
+      const creating = createNewSession();
+      Object.assign(mockState, {
+        sessionPermissionMode: 'read_only',
+        pendingNewSessionPermissionMode: 'read_only',
+        thinkingLevel: 'high',
+        pendingNewSessionThinkingLevel: 'high',
+      });
+      resolvePermission(jsonResponse({ permissionMode: 'operate' }));
+      resolveThinking(jsonResponse({ thinkingLevel: 'medium' }));
+      await creating;
+      expect(mockState).toMatchObject({
+        sessionPermissionMode: 'read_only',
+        pendingNewSessionPermissionMode: 'read_only',
+        thinkingLevel: 'high',
+        pendingNewSessionThinkingLevel: 'high',
+      });
     });
 
     it('sends extra workspace folders when creating a pending session', async () => {
@@ -787,19 +831,15 @@ function mockPermissionDefault(mode = 'ask') {
 
       await expect(ensureSession()).resolves.toMatchObject({ sessionId: 'sess_workspace_a', sessionPath: '/session/new.jsonl' });
 
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        1,
-        '/api/sessions/new-detached',
-        expect.objectContaining({
-          body: JSON.stringify({
-            memoryEnabled: true,
-            recordWorkspaceHistory: true,
-            cwd: '/workspace-a',
-            workspaceFolders: ['/reference-a'],
-            currentSessionPath: null,
-          }),
-        }),
-      );
+      const create = mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached');
+      expect(JSON.parse(String(create?.[1]?.body))).toEqual({
+      memoryEnabled: true,
+      recordWorkspaceHistory: true,
+      cwd: '/workspace-a',
+      workspaceFolders: ['/reference-a'],
+      currentSessionPath: null,
+      requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
+      });
       expect(mockState.workspaceFolders).toEqual(['/reference-a']);
       // 首页草稿在 session 创建成功时被消费（HOME_DRAFT_KEY 契约）
       expect((mockState as unknown as { clearDraft: ReturnType<typeof vi.fn> }).clearDraft)
@@ -915,6 +955,7 @@ function mockPermissionDefault(mode = 'ask') {
         recordWorkspaceHistory: true,
         cwd: '/workspace-b',
         currentSessionPath: null,
+        requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
       }]);
       expect(mockFetch.mock.calls.filter(([url]) => url === '/api/sessions/new-detached')).toHaveLength(1);
       expect(mockState.currentSessionPath).toBe('/session/fresh.jsonl');
@@ -957,6 +998,70 @@ function mockPermissionDefault(mode = 'ask') {
       expect(mockFetch.mock.calls.some(([url]) => url === '/api/sessions/switch')).toBe(false);
     });
 
+    it('times out a stalled first-send body and retries with the same request identity', async () => {
+      vi.useFakeTimers();
+      try {
+        Object.assign(mockState, {
+          currentAgentId: 'hana',
+          memoryEnabled: true,
+          homeFolder: '/workspace-a',
+        });
+        const permission = Promise.withResolvers<Response>();
+        const thinking = Promise.withResolvers<Response>();
+        mockFetch.mockReturnValueOnce(permission.promise).mockReturnValueOnce(thinking.promise);
+        const opening = createNewSession();
+        const draftId = String(mockState.pendingDraftId);
+        mockFetch.mockResolvedValueOnce({ json: () => new Promise(() => {}) } as Response);
+        const first = ensureSession(draftId);
+        permission.resolve(jsonResponse({ permissionMode: 'read_only' }));
+        thinking.resolve(jsonResponse({ thinkingLevel: 'high' }));
+        await opening;
+        expect(mockState.pendingNewSessionThinkingLevel).toBeNull();
+        expect(mockState.sessionPermissionMode).not.toBe('read_only');
+
+        await vi.advanceTimersByTimeAsync(30_000);
+        await expect(first).resolves.toBeNull();
+        expect(mockState.pendingDraftId).toBe(draftId);
+        const firstCreate = mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached');
+        expect(firstCreate?.[1]?.signal?.aborted).toBe(true);
+
+        mockFetch.mockResolvedValueOnce(jsonResponse({
+          ok: true, path: '/session/created.jsonl', sessionId: 'sess_created', agentId: 'hana',
+        }));
+        mockFetch.mockResolvedValueOnce(jsonResponse({
+          ok: true, sessionId: 'sess_created', agentId: 'hana', workspaceFolders: [],
+        }));
+        await expect(ensureSession(draftId)).resolves.toMatchObject({ sessionId: 'sess_created' });
+        const creates = mockFetch.mock.calls.filter(([url]) => url === '/api/sessions/new-detached');
+        expect(creates).toHaveLength(2);
+        expect(creates[0][1]?.body).toBe(creates[1][1]?.body);
+        expect(JSON.parse(String(creates[0][1]?.body)).requestId).toMatch(/^[a-f0-9]{32}$/);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not return a newly created session to a first send after the backend changes', async () => {
+      Object.assign(mockState, {
+        pendingNewSession: true,
+        pendingDraftId: 'draft-changed-server',
+        currentAgentId: 'hana',
+        activeServerConnection: null,
+        activeServerConnectionId: null,
+        serverPort: '12345',
+      });
+      const result = Promise.withResolvers<Response>();
+      mockFetch.mockReturnValueOnce(result.promise);
+
+      const creating = ensureSession('draft-changed-server');
+      Object.assign(mockState, { serverPort: '12346' });
+      result.resolve(jsonResponse({ ok: true, path: '/session/old-server.jsonl', sessionId: 'sess_old', agentId: 'hana' }));
+
+      await expect(creating).resolves.toBeNull();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockState.pendingDraftId).toBe('draft-changed-server');
+    });
+
     it('sends workspaceMountId instead of cwd when the pending session selects a Studio workspace', async () => {
       Object.assign(mockState, {
         pendingNewSession: true,
@@ -989,18 +1094,14 @@ function mockPermissionDefault(mode = 'ask') {
 
       await expect(ensureSession()).resolves.toMatchObject({ sessionId: 'sess_mount' });
 
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        1,
-        '/api/sessions/new-detached',
-        expect.objectContaining({
-          body: JSON.stringify({
-            memoryEnabled: true,
-            recordWorkspaceHistory: true,
-            workspaceMountId: 'mount_docs',
-            currentSessionPath: null,
-          }),
-        }),
-      );
+      const create = mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached');
+      expect(JSON.parse(String(create?.[1]?.body))).toEqual({
+      memoryEnabled: true,
+      recordWorkspaceHistory: true,
+      workspaceMountId: 'mount_docs',
+      currentSessionPath: null,
+      requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
+      });
       expect(deskActionMocks.activateWorkspaceDesk).toHaveBeenCalledWith('/server/docs', {
         mountId: 'mount_docs',
         label: 'Docs',
@@ -1037,19 +1138,15 @@ function mockPermissionDefault(mode = 'ask') {
 
       await expect(ensureSession()).resolves.toMatchObject({ sessionId: 'sess_thinking' });
 
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        1,
-        '/api/sessions/new-detached',
-        expect.objectContaining({
-          body: JSON.stringify({
-            memoryEnabled: true,
-            recordWorkspaceHistory: true,
-            cwd: '/workspace-a',
-            thinkingLevel: 'high',
-            currentSessionPath: null,
-          }),
-        }),
-      );
+      const create = mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached');
+      expect(JSON.parse(String(create?.[1]?.body))).toEqual({
+      memoryEnabled: true,
+      recordWorkspaceHistory: true,
+      cwd: '/workspace-a',
+      thinkingLevel: 'high',
+      currentSessionPath: null,
+      requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
+      });
       expect(mockState.pendingNewSessionThinkingLevel).toBeNull();
       expect(mockState.thinkingLevel).toBe('high');
     });
@@ -1083,19 +1180,15 @@ function mockPermissionDefault(mode = 'ask') {
 
       await expect(ensureSession()).resolves.toMatchObject({ sessionId: 'sess_permission' });
 
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        1,
-        '/api/sessions/new-detached',
-        expect.objectContaining({
-          body: JSON.stringify({
-            memoryEnabled: true,
-            recordWorkspaceHistory: true,
-            cwd: '/workspace-a',
-            permissionMode: 'auto',
-            currentSessionPath: null,
-          }),
-        }),
-      );
+      const create = mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached');
+      expect(JSON.parse(String(create?.[1]?.body))).toEqual({
+      memoryEnabled: true,
+      recordWorkspaceHistory: true,
+      cwd: '/workspace-a',
+      permissionMode: 'auto',
+      currentSessionPath: null,
+      requestId: expect.stringMatching(/^[a-f0-9]{32}$/),
+      });
       expect(mockState.pendingNewSessionPermissionMode).toBeNull();
       expect(mockState.sessionPermissionMode).toBe('auto');
     });
@@ -1149,6 +1242,7 @@ function mockPermissionDefault(mode = 'ask') {
             permissionMode: 'ask',
             agentId: 'hana',
             currentSessionPath: null,
+            requestId: JSON.parse(String(mockFetch.mock.calls.find(([url]) => url === '/api/sessions/new-detached')?.[1]?.body)).requestId,
           }),
         }),
       );
@@ -1437,6 +1531,41 @@ function mockPermissionDefault(mode = 'ask') {
   });
 
   describe('loadSessions 首次自动切换', () => {
+    it('keeps cached chats on a malformed response and can retry successfully', async () => {
+      Object.assign(mockState, {
+        currentSessionPath: '/session/cached.jsonl',
+        sessions: [{ path: '/session/cached.jsonl' }],
+      });
+      mockFetch.mockImplementation(async (path) => (
+        jsonResponse(path === '/api/sessions' ? { error: 'Unavailable' } : {})
+      ));
+      await loadSessions();
+      expect(mockState).toMatchObject({
+        sessions: [{ path: '/session/cached.jsonl' }],
+        sessionListStatus: 'error',
+      });
+
+      mockFetch.mockImplementation(async (path) => jsonResponse(path === '/api/sessions' ? [] : {}));
+      await loadSessions();
+      expect(mockState).toMatchObject({ sessions: [], sessionListStatus: 'ready' });
+    });
+
+    it('stops waiting for a session list body after the request deadline', async () => {
+      vi.useFakeTimers();
+      try {
+        mockFetch.mockImplementation(async (path) => path === '/api/sessions'
+          ? { json: () => new Promise(() => {}) } as Response
+          : jsonResponse({}));
+        const pending = loadSessions();
+        expect(mockState).toMatchObject({ sessionListStatus: 'loading' });
+        await vi.advanceTimersByTimeAsync(30_000);
+        await pending;
+        expect(mockState).toMatchObject({ sessionListStatus: 'error' });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('reconciles the focused locator by currentSessionId without switching or reloading chat', async () => {
       Object.assign(mockState, {
         currentSessionId: 'sess_a',
@@ -1652,6 +1781,55 @@ function mockPermissionDefault(mode = 'ask') {
   });
 
   describe('switchSession 的 hasData 语义（#405 直接回归）', () => {
+    it('clears a pending switch when the response body times out without changing focus', async () => {
+      vi.useFakeTimers();
+      try {
+        Object.assign(mockState, { currentSessionPath: '/a' });
+        mockFetch.mockResolvedValueOnce({ json: () => new Promise(() => {}) } as Response);
+        const pending = switchSession('/b');
+        expect(mockState.pendingSessionSwitchPath).toBe('/b');
+        await vi.advanceTimersByTimeAsync(30_000);
+        await pending;
+        expect(mockState.pendingSessionSwitchPath).toBeNull();
+        expect(mockState.currentSessionPath).toBe('/a');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('can retry a switch when uncached history times out after the switch response', async () => {
+      vi.useFakeTimers();
+      try {
+        Object.assign(mockState, { currentSessionPath: '/a' });
+        mockFetch.mockResolvedValueOnce(jsonResponse({ ok: true, path: '/b' }));
+        mockFetch.mockResolvedValueOnce({ json: () => new Promise(() => {}) } as Response);
+        const pending = switchSession('/b');
+        await vi.advanceTimersByTimeAsync(30_000);
+        await pending;
+        expect(mockState.pendingSessionSwitchPath).toBeNull();
+        expect(mockState.currentSessionPath).toBe('/a');
+        expect(mockState.addToast).toHaveBeenCalled();
+
+        mockFetch.mockResolvedValueOnce(jsonResponse({ ok: true, path: '/b' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse({ messages: [{ text: 'restored history' }] }));
+        await switchSession('/b');
+        expect(mockState.currentSessionPath).toBe('/b');
+        expect(mockState.chatSessions).toMatchObject({ '/b': { items: [{ data: { text: 'restored history' } }] } });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('finishes switching chat while the right workspace is still loading', async () => {
+      deskActionMocks.activateWorkspaceDesk.mockImplementationOnce(() => new Promise<void>(() => {}));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ ok: true, path: '/b', cwd: '/workspace/b' }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ messages: [{ text: 'history' }] }));
+      await switchSession('/b');
+      expect(mockState.currentSessionPath).toBe('/b');
+      expect(mockState.pendingSessionSwitchPath).toBeNull();
+      expect(mockState.requestInputFocus).toHaveBeenCalledOnce();
+    });
+
     it('点回已提交的当前 session 会取消在途切换，旧响应不能把焦点切走', async () => {
       Object.assign(mockState, {
         currentSessionPath: '/a',
@@ -2308,6 +2486,7 @@ function mockPermissionDefault(mode = 'ask') {
 
       expect(mockFetch).toHaveBeenCalledWith(
         `/api/sessions/messages?path=${encodeURIComponent(sessionPath)}&sessionId=sess_revisioned`,
+        { signal: expect.any(AbortSignal) },
       );
       const cached = (mockState.chatSessions as Record<string, { revision?: string | null }>)[sessionPath];
       expect(cached.revision).toBe('2048:1765500000000');
@@ -2362,6 +2541,7 @@ function mockPermissionDefault(mode = 'ask') {
 
       expect(mockFetch).toHaveBeenCalledWith(
         `/api/sessions/messages?path=${encodeURIComponent(sessionPath)}`,
+        { signal: expect.any(AbortSignal) },
       );
       const cached = (mockState.chatSessions as Record<string, { items: unknown[]; revision?: string | null }>)[sessionPath];
       expect(cached.items).toHaveLength(2);
@@ -2499,10 +2679,13 @@ function mockPermissionDefault(mode = 'ask') {
 
       expect(mockFetch).toHaveBeenCalledWith(
         `/api/sessions/messages?path=${encodeURIComponent(target)}`,
+        { signal: expect.any(AbortSignal) },
       );
-      const cached = (mockState.chatSessions as Record<string, { items: unknown[]; revision?: string | null }>)[target];
-      expect(cached.items).toHaveLength(2);
-      expect(cached.revision).toBe('rev-after-rc');
+      await vi.waitFor(() => {
+        const cached = (mockState.chatSessions as Record<string, { items: unknown[]; revision?: string | null }>)[target];
+        expect(cached.items).toHaveLength(2);
+        expect(cached.revision).toBe('rev-after-rc');
+      });
     });
 
     it('does not re-pull a cached session whose revision still matches the list', async () => {
@@ -2554,6 +2737,7 @@ function mockPermissionDefault(mode = 'ask') {
       expect((mockState.capabilityRefreshingSessions as string[]).includes(target)).toBe(false);
       expect(mockFetch).toHaveBeenCalledWith(
         `/api/sessions/messages?path=${encodeURIComponent(target)}`,
+        { signal: expect.any(AbortSignal) },
       );
     });
 

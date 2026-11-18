@@ -555,6 +555,42 @@ describe("retrySessionTurn", () => {
     }
   });
 
+  it("retries a failed visible user turn with no persisted assistant message", async () => {
+    const manager = SessionManager.inMemory("/workspace");
+    manager.appendMessage({ role: "user", content: "first question" } as any);
+    const priorAnswer = manager.appendMessage({ role: "assistant", content: "first answer" } as any);
+    const inputId = manager.appendMessage({ role: "user", content: "retry this question" } as any);
+    const session = makeNavigableSession(manager);
+    const engine = makeStableEngine(session);
+    const target = { role: "assistant_turn", turnInputEntryId: inputId };
+    const submit = vi.fn(async (_engine, options) => {
+      options.beforeInputSideEffects();
+      manager.appendMessage({ role: "user", content: options.text } as any);
+      manager.appendMessage({ role: "assistant", content: "recovered answer" } as any);
+      return { text: "recovered answer", toolMedia: [] };
+    });
+
+    expect(() => resolveSessionNodeTarget(manager.getBranch(), target, { mode: "fork" }))
+      .toThrow("assistant_turn has no completed assistant message");
+    await expect(retrySessionTurn(engine, { sessionId: "sess-main", target }, {
+      submit,
+      invalidateDerivedState: vi.fn(),
+    })).resolves.toMatchObject({ text: "recovered answer" });
+
+    expect(submit).toHaveBeenCalledOnce();
+    expect(submit).toHaveBeenCalledWith(engine, expect.objectContaining({
+      text: "retry this question",
+      projectUserMessage: true,
+    }));
+    expect(engine.setSessionBranchHead).toHaveBeenCalledWith("/tmp/main.jsonl", {
+      leafId: priorAnswer,
+      reason: "replay_rewind",
+    });
+    const branch = manager.getBranch();
+    expect(branch.some(({ id }) => id === inputId)).toBe(false);
+    expect(branch.at(-1)).toMatchObject({ message: { role: "assistant", content: "recovered answer" } });
+  });
+
   it("retries a persisted custom background turn without projecting a user node", async () => {
     const manager = SessionManager.inMemory("/workspace");
     const visibleUserId = manager.appendMessage({ role: "user", content: "visible question" } as any);
@@ -880,6 +916,35 @@ describe("retrySessionTurn", () => {
 
     releaseSubmit?.({ text: "new answer", toolMedia: [] });
     await first;
+  });
+
+  it("allows the same edit again after a temporary busy response settles", async () => {
+    const manager = SessionManager.inMemory("/workspace");
+    const userId = manager.appendMessage({ role: "user", content: "original question" } as any);
+    const answerId = manager.appendMessage({ role: "assistant", content: "original answer" } as any);
+    const engine = makeStableEngine(makeNavigableSession(manager));
+    const isSessionStreaming = vi.spyOn(engine, "isSessionStreaming").mockReturnValue(true);
+    const submit = vi.fn(async (_engine, options) => {
+      options.beforeInputSideEffects();
+      return { text: "edited answer", toolMedia: [] };
+    });
+    const invalidateDerivedState = vi.fn();
+    const input = {
+      sessionId: "sess-main",
+      target: { role: "user", entryId: userId },
+      replacementText: "edited question",
+    };
+
+    await expect(retrySessionTurn(engine, input, { submit, invalidateDerivedState })).rejects.toThrow("session_busy");
+    expect(manager.getBranch().map(({ id }) => id)).toEqual([userId, answerId]);
+    expect(invalidateDerivedState).not.toHaveBeenCalled();
+
+    isSessionStreaming.mockReturnValue(false);
+    await expect(retrySessionTurn(engine, input, { submit, invalidateDerivedState })).resolves.toMatchObject({
+      text: "edited answer",
+    });
+    expect(submit).toHaveBeenCalledExactlyOnceWith(engine, expect.objectContaining({ text: "edited question" }));
+    expect(invalidateDerivedState).toHaveBeenCalledOnce();
   });
 
   it("durably restores the original leaf when memory invalidation rejects the branch commit", async () => {

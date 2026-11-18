@@ -879,3 +879,13 @@
     color: var(--text-muted);
     font-size: var(--fs-caption);
 }
+
+.sessionListRetry {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}

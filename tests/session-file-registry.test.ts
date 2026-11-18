@@ -50,6 +50,25 @@ describe("SessionFileRegistry", () => {
     return JSON.parse(fs.readFileSync(`${sessionPath}.files.json`, "utf-8"));
   }
 
+  it.each(["rename", "delete"])("projects external files as missing after %s without changing history", (action) => {
+    const filePath = makeTempFile("original.txt");
+    const sessionPath = makeSessionPath();
+    const registry = new SessionFileRegistry({ now: () => 1234 });
+    const file = registry.registerFile({ sessionPath, filePath, origin: "stage_files", storageKind: "external" });
+    const renamed = path.join(path.dirname(filePath), "renamed.txt");
+    if (action === "rename") fs.renameSync(filePath, renamed);
+    else fs.unlinkSync(filePath);
+
+    expect(registry.list(sessionPath)).toEqual([
+      expect.objectContaining({ id: file.id, status: "missing", missingAt: 1234 }),
+    ]);
+    expect(registry.listReachable(sessionPath, [{ fileId: file.id }])).toEqual(registry.list(sessionPath));
+    expect(readSidecar(sessionPath).files[file.id]).toMatchObject({ status: "available", missingAt: null });
+    if (action === "rename") fs.renameSync(renamed, filePath);
+    else fs.writeFileSync(filePath, "restored");
+    expect(registry.list(sessionPath)).toEqual([file]);
+  });
+
   it("persists file metadata in a per-session sidecar and hydrates it by sessionPath", () => {
     const filePath = makeTempFile("note.md", "# hello\n");
     const sessionPath = makeSessionPath();

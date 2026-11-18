@@ -1,4 +1,5 @@
 import fs from "fs";
+import fsPromises from "fs/promises";
 import os from "os";
 import path from "path";
 import { Hono } from "hono";
@@ -56,7 +57,60 @@ describe("upload route", () => {
     expect(data.uploads[0]).toMatchObject({
       src: linkPath,
       error: "symlink not allowed",
+      failureReason: "Symbolic links are not supported",
     });
+  });
+
+  it("returns a path-free display reason for upload errors that contain local paths", async () => {
+    tmpDir = mktemp();
+    const file = path.join(tmpDir, "local.txt");
+    const sessionPath = path.join(tmpDir, "session.jsonl");
+    fs.writeFileSync(file, "fixture");
+    const engine = {
+      hanakoHome: path.join(tmpDir, "hana-home"),
+      registerSessionFile: () => { throw Object.assign(new Error("could not register: " + file), { code: "EACCES" }); },
+    };
+    const app = new Hono();
+    app.route("/api", createUploadRoute(engine));
+    const res = await app.request("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paths: [file], sessionPath }),
+    });
+    const data = await res.json();
+    expect(data.uploads[0].error).toContain(file);
+    expect(data.uploads[0].failureReason).toContain("EACCES");
+    expect(data.uploads[0].failureReason).not.toContain(tmpDir);
+  });
+
+  it("distinguishes permission-denied paths from missing attachment paths", async () => {
+    tmpDir = mktemp();
+    const denied = path.join(tmpDir, "private-folder");
+    const missing = path.join(tmpDir, "missing-folder");
+    const lstat = fsPromises.lstat;
+    const mock = vi.spyOn(fsPromises, "lstat").mockImplementation(async (filePath, options?: any) => {
+      if (filePath === denied) {
+        throw Object.assign(new Error("access denied: " + denied), { code: "EACCES" });
+      }
+      return lstat(filePath, options);
+    });
+    const app = new Hono();
+    app.route("/api", createUploadRoute({ hanakoHome: path.join(tmpDir, "hana-home") }));
+
+    try {
+      const res = await app.request("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: [denied, missing] }),
+      });
+      const { uploads } = await res.json();
+      expect(uploads[0].failureReason).toContain("EACCES");
+      expect(uploads[0].failureReason).not.toContain(tmpDir);
+      expect(uploads[1].failureReason).not.toContain("EACCES");
+      expect(uploads[0].failureReason).not.toBe(uploads[1].failureReason);
+    } finally {
+      mock.mockRestore();
+    }
   });
 
   it("accepts directories that contain symlinks by registering a reference", async () => {

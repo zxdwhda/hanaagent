@@ -81,6 +81,25 @@ describe('desk-actions workspace roots', () => {
     } as never);
   });
 
+  it('does not reload an older workspace after a newer activation has finished', async () => {
+    const firstPreferences = deferred<Response>();
+    mockHanaFetch.mockImplementation(async (url: string) => {
+      if (url.includes('workspace=%2Fworkspace%2Ffirst')) return firstPreferences.promise;
+      if (url.startsWith('/api/preferences/workspace-ui-state')) return jsonResponse({ state: null });
+      if (url.startsWith('/api/desk/files')) return jsonResponse({ basePath: '/workspace/second', files: [{ name: 'second.md' }] });
+      return jsonResponse({});
+    });
+    const { activateWorkspaceDesk } = await import('../../stores/desk-actions');
+    const first = activateWorkspaceDesk('/workspace/first');
+    await activateWorkspaceDesk('/workspace/second');
+    firstPreferences.resolve(jsonResponse({ state: null }));
+    await first;
+
+    expect(mockHanaFetch.mock.calls.map(([url]) => url)).not.toContain('/api/desk/files?dir=%2Fworkspace%2Ffirst');
+    expect(useStore.getState().deskBasePath).toBe('/workspace/second');
+    expect(useStore.getState().deskFiles).toEqual([{ name: 'second.md' }]);
+  });
+
   it('loads the selected/home folder when no explicit override is passed', async () => {
     mockHanaFetch
       .mockResolvedValueOnce(jsonResponse({ files: [], basePath: '/home-folder' }))
@@ -224,7 +243,7 @@ describe('desk-actions workspace roots', () => {
     mockHanaFetch
       .mockResolvedValueOnce(jsonResponse({
         mountId: 'mount_docs',
-        mount: { label: 'Docs', nativeRootPath: '/Users/me/docs' },
+        mount: { label: 'Docs', nativeRootPath: '/fixture-homes/me/docs' },
         files: [{ name: 'remote.md', isDir: false }],
       }))
       .mockResolvedValueOnce({ ok: false, status: 404, text: async () => '' } as unknown as Response);
@@ -232,7 +251,7 @@ describe('desk-actions workspace roots', () => {
     const { loadDeskFiles } = await import('../../stores/desk-actions');
     await loadDeskFiles();
 
-    expect(useStore.getState().deskWorkspaceNativeRoot).toBe('/Users/me/docs');
+    expect(useStore.getState().deskWorkspaceNativeRoot).toBe('/fixture-homes/me/docs');
   });
 
   it('keeps the visible mounted workspace files when a refresh fails', async () => {
@@ -274,7 +293,7 @@ describe('desk-actions workspace roots', () => {
       deskBasePath: 'studio:mount_docs',
       deskWorkspaceMountId: 'mount_docs',
       deskWorkspaceLabel: 'Docs',
-      deskWorkspaceNativeRoot: '/Users/me/docs',
+      deskWorkspaceNativeRoot: '/fixture-homes/me/docs',
     } as never);
     mockHanaFetch
       .mockResolvedValueOnce(jsonResponse({
@@ -295,7 +314,7 @@ describe('desk-actions workspace roots', () => {
       if (url.startsWith('/api/workbench/files')) {
         return jsonResponse({
           mountId: 'mount_docs',
-          mount: { label: 'Docs', nativeRootPath: '/Users/me/docs' },
+          mount: { label: 'Docs', nativeRootPath: '/fixture-homes/me/docs' },
           files: [],
         });
       }
@@ -312,13 +331,13 @@ describe('desk-actions workspace roots', () => {
     await applyStudioWorkspace({
       mountId: 'mount_docs',
       label: 'Docs',
-      nativeRootPath: '/Users/me/docs',
+      nativeRootPath: '/fixture-homes/me/docs',
     });
 
     expect(useStore.getState().deskWorkspaceMountId).toBe('mount_docs');
-    expect(useStore.getState().deskWorkspaceNativeRoot).toBe('/Users/me/docs');
+    expect(useStore.getState().deskWorkspaceNativeRoot).toBe('/fixture-homes/me/docs');
 
-    await applyFolder('/Users/me/plain');
+    await applyFolder('/fixture-homes/me/plain');
 
     expect(useStore.getState().deskWorkspaceMountId).toBeNull();
     expect(useStore.getState().deskWorkspaceNativeRoot).toBeNull();

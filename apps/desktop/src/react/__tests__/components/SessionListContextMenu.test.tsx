@@ -9,6 +9,7 @@ import path from 'node:path';
 
 const hanaFetchMock = vi.fn();
 const switchSessionMock = vi.fn();
+const loadSessionsMock = vi.fn();
 const archiveSessionMock = vi.fn();
 const renameSessionMock = vi.fn();
 const pinSessionMock = vi.fn();
@@ -37,6 +38,7 @@ vi.mock('../../hooks/use-hana-fetch', () => ({
 }));
 
 vi.mock('../../stores/session-actions', () => ({
+  loadSessions: (...args: unknown[]) => loadSessionsMock(...args),
   switchSession: (...args: unknown[]) => switchSessionMock(...args),
   archiveSession: (...args: unknown[]) => archiveSessionMock(...args),
   renameSession: (...args: unknown[]) => renameSessionMock(...args),
@@ -90,6 +92,7 @@ function seedSessions() {
       },
     ],
     currentSessionPath: null,
+    sessionListStatus: 'ready',
     pendingSessionSwitchPath: null,
     pendingNewSession: false,
     agents: [],
@@ -164,6 +167,7 @@ describe('SessionList context menu', () => {
       return jsonResponse({});
     });
     switchSessionMock.mockReset();
+    loadSessionsMock.mockReset();
     archiveSessionMock.mockReset();
     renameSessionMock.mockReset();
     pinSessionMock.mockReset();
@@ -184,6 +188,15 @@ describe('SessionList context menu', () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+  });
+
+  it('offers a retry instead of an empty sidebar on a cold-start request failure', () => {
+    useStore.setState({ sessions: [], sessionListStatus: 'error' });
+    render(<SessionList />);
+    expect(screen.getByRole('status')).toHaveTextContent('sidebar.sessionListFailed');
+    expect(screen.queryByText('sidebar.empty')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'sidebar.sessionListRetry' }));
+    expect(loadSessionsMock).toHaveBeenCalledOnce();
   });
 
   it('keeps summaryless session rows readable and disables only the summary menu item', () => {

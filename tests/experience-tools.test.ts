@@ -65,6 +65,49 @@ describe("experience tools", () => {
     expect(recallResult.content[0].text).toContain("1. Remember to preserve owner session identity.");
   });
 
+  it("uses the display title of a CRLF document in exact recall and in the live overview", async () => {
+    tmpDir = mktemp();
+    const experienceDir = path.join(tmpDir, "experience");
+    const indexPath = path.join(tmpDir, "experience.md");
+    recordEntry(experienceDir, indexPath, "Design Notes", "Preserve the same title across line endings.");
+    const { filePath } = listExperienceDocuments(experienceDir)[0];
+    const crlf = fs.readFileSync(filePath, "utf8").replaceAll("\n", "\r\n");
+    fs.writeFileSync(filePath, crlf);
+    fs.writeFileSync(indexPath, "# stale-file-title");
+    const recall = createExperienceTools(tmpDir, { isEnabled: () => true })[0];
+
+    const exact = await recall.execute("exact", { category: "Design Notes" });
+    expect(exact.content[0].text).toBe("# Design Notes\n\n1. Preserve the same title across line endings.");
+    const overview = await recall.execute("overview", {});
+    expect(overview.content[0].text).toContain("# Design Notes");
+    expect(overview.content[0].text).not.toContain("stale-file-title");
+    expect(fs.readFileSync(filePath, "utf8")).toBe(crlf);
+  });
+
+  it("discloses omitted preview entries and finds a literal term in the full category body", async () => {
+    tmpDir = mktemp();
+    const experienceDir = path.join(tmpDir, "experience");
+    const indexPath = path.join(tmpDir, "experience.md");
+    for (let number = 1; number <= 6; number += 1) {
+      recordEntry(experienceDir, indexPath, "Archive Notes", `Archive preservation example ${number}.`);
+    }
+    recordEntry(experienceDir, indexPath, "Archive Notes", "The import receipt uses DeepLedgerSeal.");
+    recordEntry(experienceDir, indexPath, "Other Notes", "The import receipt uses a staging seal.");
+    const recall = createExperienceTools(tmpDir, { isEnabled: () => true })[0];
+
+    const overview = await recall.execute("overview", {});
+    expect(overview.content[0].text).toContain("2 more entries");
+    expect(overview.content[0].text).not.toContain("DeepLedgerSeal");
+    const search = await recall.execute("search", { query: "deepledgerseal" });
+    expect(search.content[0].text).toContain("Archive Notes");
+    expect(search.content[0].text).not.toContain("Other Notes");
+    expect(search.content[0].text).not.toContain("The import receipt uses");
+    const missing = await recall.execute("missing", { query: "NoSuchReceipt" });
+    expect(missing.content[0].text).toContain("No categories match");
+    const exact = await recall.execute("exact", { category: "Archive Notes" });
+    expect(exact.content[0].text).toContain("7. The import receipt uses DeepLedgerSeal.");
+  });
+
   it("keeps stored content but blocks recall and record while paused", async () => {
     tmpDir = mktemp();
     let enabled = true;

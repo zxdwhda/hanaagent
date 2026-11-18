@@ -145,6 +145,14 @@
     margin: 0 var(--space-8);
 }
 
+.sessionFilesFilter {
+    min-width: 0;
+    max-width: 55%;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: var(--fs-hint);
+}
+
 .sessionFilesSortButton {
     display: inline-flex;
     align-items: center;

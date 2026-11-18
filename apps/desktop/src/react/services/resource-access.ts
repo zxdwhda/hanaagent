@@ -68,7 +68,9 @@ export function resolveFileRefPreviewAccess(
   context: ResourceAccessContext = {},
   options: { preferNativePath?: boolean } = {},
 ): FileRefPreviewAccess {
-  if (file.status === 'expired') return { mode: 'unsupported', reason: 'expired' };
+  if (file.status === 'expired' || file.status === 'missing') {
+    return { mode: 'unsupported', reason: file.status };
+  }
   const preferNativePath = options.preferNativePath !== false;
   if (preferNativePath && file.path && canUseNativeResourcePath(context)) {
     return { mode: 'native-path', path: file.path };
@@ -101,7 +103,7 @@ export function resolveFileRefNativePath(
   context: ResourceAccessContext = {},
   options: { requireAvailable?: boolean } = {},
 ): string | null {
-  if (options.requireAvailable && file.status === 'expired') return null;
+  if (options.requireAvailable && (file.status === 'expired' || file.status === 'missing')) return null;
   if (!file.path || !canUseNativeResourcePath(context)) return null;
   return file.path;
 }

@@ -29,6 +29,7 @@ import { pendingNewSessionIdentityPatch } from './session-actions';
 const t = (key: string, vars?: Record<string, string | number>) => window.t?.(key, vars) ?? key;
 
 let _deskLoadVersion = 0;
+let _deskActivationVersion = 0;
 const _deskTreeLoadVersion = new Map<string, number>();
 
 // ── 路径工具 ──
@@ -383,6 +384,7 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
   label?: string | null;
   nativeRootPath?: string | null;
 } = {}): Promise<void> {
+  const activationVersion = ++_deskActivationVersion;
   // Any workspace activation owns the visible desk state. Invalidate older file
   // loads even when the caller delays the reload until after another step
   // such as persisting workspace history.
@@ -457,7 +459,9 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
 
   if (!saved) {
     const persisted = await loadPersistedWorkspaceUiState(workspaceKey);
+    if (activationVersion !== _deskActivationVersion) return;
     const restoredPreviewItems = mountId ? [] : await hydratePersistedPreviewItems(workspaceKey, persisted);
+    if (activationVersion !== _deskActivationVersion) return;
     const restoredPreviewItemsById = new Map(restoredPreviewItems.map(item => [item.id, item]));
     const restoredOpenTabs = persisted?.openTabs?.filter(id => restoredPreviewItemsById.has(id)) || [];
     const restoredActiveTabId = activePreviewTabId(restoredOpenTabs, persisted?.activeTabId);
@@ -490,6 +494,7 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
   await loadDeskFiles('', normalized, mountId);
   const expandedPaths = useStore.getState().deskExpandedPaths || [];
   for (const subdir of expandedPaths) {
+    if (activationVersion !== _deskActivationVersion) return;
     await loadDeskTreeFiles(subdir, { force: true, overrideDir: normalized, overrideMountId: mountId });
   }
 }
@@ -669,6 +674,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 export async function loadDeskTreeFiles(subdir = '', options: { force?: boolean; overrideDir?: string | null; overrideMountId?: string | null } = {}): Promise<boolean> {
   const s = useStore.getState();
   if (!hasServerConnection(s)) return false;
+  const activationVersion = _deskActivationVersion;
   const mountId = activeDeskMountId(s, options.overrideMountId);
   const dir = mountId ? undefined : activeDeskRoot(s, options.overrideDir);
   const normalizedSubdir = normalizeSubdir(subdir);
@@ -691,7 +697,7 @@ export async function loadDeskTreeFiles(subdir = '', options: { force?: boolean;
     const qs = params.toString() ? `?${params}` : '';
     const res = await hanaFetch(`${mountId ? '/api/workbench/files' : '/api/desk/files'}${qs}`);
     const data = await res.json();
-    if (_deskTreeLoadVersion.get(key) !== myVersion) return false;
+    if (activationVersion !== _deskActivationVersion || _deskTreeLoadVersion.get(key) !== myVersion) return false;
     if (data.error) throw new Error(String(data.error));
     const st = useStore.getState();
     if (mountId) {
