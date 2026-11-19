@@ -140,6 +140,29 @@ describe('usePluginSurfaceUrl', () => {
     );
   });
 
+  it('issues a fresh remote navigation ticket when the active agent changes', async () => {
+    useStore.setState({ activeServerConnection: remoteConnection } as any);
+    const fresh = Promise.withResolvers<Response>();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(issuanceResponse())
+      .mockReturnValueOnce(fresh.promise);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(<Harness routeUrl="/api/plugins/demo/page" agentId="first" />);
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('ready'));
+    expect(new URL(screen.getByTestId('src').textContent!).searchParams.get('pluginIframeTicket')).toBe('ticket-1');
+
+    rerender(<Harness routeUrl="/api/plugins/demo/page" agentId="second" />);
+    expect(screen.getByTestId('src').textContent).toBe('');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    fresh.resolve(issuanceResponse({ ticket: 'ticket-2' }));
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('ready'));
+    const url = new URL(screen.getByTestId('src').textContent!);
+    expect(url.searchParams.get('agentId')).toBe('second');
+    expect(url.searchParams.get('pluginIframeTicket')).toBe('ticket-2');
+  });
+
   it('keeps local surfaces rendering when the server omits the surface session field', async () => {
     const fetchMock = vi.fn(async () => issuanceResponse({ surfaceSession: undefined }));
     vi.stubGlobal('fetch', fetchMock);

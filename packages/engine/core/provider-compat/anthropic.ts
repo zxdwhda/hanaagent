@@ -143,10 +143,20 @@ function normalizeRecentUserMessages(messages) {
 
 export function matches(model) {
   if (!model || typeof model !== "object") return false;
-  if (usesAnthropicCacheControl(model)) return true;
+  if (usesAnthropicCacheControl(model) || usesMiniMaxM3Thinking(model)) return true;
   if (lower(model.api) === "anthropic-messages" && getThinkingFormat(model) === "anthropic") return true;
   if (isAdaptiveOnlyProfile(model)) return true;
   return false;
+}
+
+function usesMiniMaxM3Thinking(model) {
+  if (lower(model.api) !== "anthropic-messages" || lower(model.id) !== "minimax-m3") return false;
+  const baseUrl = model.baseUrl || model.base_url;
+  if (baseUrl) {
+    const host = URL.parse(baseUrl)?.hostname;
+    return host === "api.minimaxi.com" || host === "api.minimax.io";
+  }
+  return ["minimax", "minimax-token-plan"].includes(lower(model.provider));
 }
 
 function usesAnthropicCacheControl(model) {
@@ -268,7 +278,7 @@ function normalizeEnabledAdaptiveThinking(payload, model, options) {
   };
 }
 
-export function apply(payload, model, options = {}) {
+export function apply(payload, model, options: { mode?: string; reasoningLevel?: string } = {}) {
   let result = payload;
 
   if (usesAnthropicCacheControl(model) && Object.prototype.hasOwnProperty.call(payload, "system")) {
@@ -283,6 +293,13 @@ export function apply(payload, model, options = {}) {
 
   if (isAdaptiveOnlyProfile(model)) return normalizeAdaptiveOnlyThinking(result, model, options);
   result = normalizeStandardThinking(result, options);
+  if (usesMiniMaxM3Thinking(model)) {
+    if (result.thinking?.type === "disabled") return result;
+    if (result.thinking?.type === "enabled" || result.thinking?.type === "adaptive"
+      || ["minimal", "low", "medium", "high", "xhigh", "max"].includes(options.reasoningLevel ?? "")) {
+      return { ...result, thinking: { type: "adaptive" } };
+    }
+  }
   result = normalizeEnabledAdaptiveThinking(result, model, options);
   return normalizeMaxEffort(result, model, options);
 }
