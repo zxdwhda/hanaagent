@@ -270,8 +270,14 @@ describe("MiniMax M3 thinking transport", () => {
       baseUrl: "https://gateway.example/anthropic",
       compat: { forceAdaptiveThinking: true },
     };
-    expect(normalizeProviderPayload(payload, gateway, { mode: "chat", reasoningLevel }))
+    const sdkPayload = { ...payload, output_config: { effort: reasoningLevel } };
+    expect(normalizeProviderPayload(sdkPayload, gateway, { mode: "chat", reasoningLevel }))
       .toEqual({ thinking: { type: "adaptive" } });
+    expect(normalizeProviderPayload({
+      ...sdkPayload,
+      output_config: { effort: reasoningLevel, format: { type: "json_schema" } },
+    }, gateway, { mode: "chat", reasoningLevel }))
+      .toEqual({ thinking: { type: "adaptive" }, output_config: { format: { type: "json_schema" } } });
     expect(normalizeProviderPayload(payload, gateway, { mode: "chat", reasoningLevel: "off" }))
       .toEqual({ thinking: { type: "disabled" } });
   });

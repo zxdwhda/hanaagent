@@ -298,7 +298,14 @@ export function apply(payload, model, options: { mode?: string; reasoningLevel?:
     if (result.thinking?.type === "disabled") return result;
     if (result.thinking?.type === "enabled" || result.thinking?.type === "adaptive"
       || ["minimal", "low", "medium", "high", "xhigh", "max"].includes(options.reasoningLevel ?? "")) {
-      return { ...result, thinking: { type: "adaptive" } };
+      const next = { ...result, thinking: { type: "adaptive" } };
+      if (Object.hasOwn(result.output_config ?? {}, "effort")) {
+        const outputConfig = { ...result.output_config };
+        delete outputConfig.effort;
+        if (Object.keys(outputConfig).length > 0) next.output_config = outputConfig;
+        else delete next.output_config;
+      }
+      return next;
     }
   }
   result = normalizeEnabledAdaptiveThinking(result, model, options);
