@@ -256,7 +256,7 @@
       ],
       "maintainer": "liliMozi <liliMozi@users.noreply.github.com>",
       "category": "Utility",
-      "icon": "apps/desktop/src/icon.png",
+      "icon": "apps/desktop/src/icon.icns",
       "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
     }
   },
