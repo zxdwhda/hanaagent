@@ -59,7 +59,7 @@ function guardStreamEvent(event, state) {
       bufferInvalidToolCallEvent(state, event, toolCall);
       return [];
     }
-    return [{ ...event, partial: sanitizeAssistantMessage(event.partial, state) }];
+    return [sanitizePartialEvent(event, state)];
   }
   if (event.type === "toolcall_end") {
     const toolCall = toolCallFromEvent(event);
@@ -68,15 +68,14 @@ function guardStreamEvent(event, state) {
       const text = recoverInvalidToolCallText(toolCall, getBufferedInvalidToolCallText(state, event, toolCall));
       if (!text) return [];
       recordRecoveredInvalidToolCallText(state, event, toolCall, text);
-      const partial = sanitizeAssistantMessage(event.partial, state);
-      const contentIndex = Math.max(0, partial.content.length - 1);
+      const { partial, contentIndex } = sanitizePartialEvent(event, state);
       return [
         { type: "text_start", contentIndex, partial },
         { type: "text_delta", contentIndex, delta: text, partial },
         { type: "text_end", contentIndex, content: text, partial },
       ];
     }
-    return [{ ...event, partial: sanitizeAssistantMessage(event.partial, state) }];
+    return [sanitizePartialEvent(event, state)];
   }
   if (event.type === "done") {
     return [{ ...event, message: sanitizeAssistantMessage(event.message, state) }];
@@ -85,7 +84,7 @@ function guardStreamEvent(event, state) {
     return [{ ...event, error: sanitizeAssistantMessage(event.error, state) }];
   }
   if ("partial" in event) {
-    return [{ ...event, partial: sanitizeAssistantMessage(event.partial, state) }];
+    return [sanitizePartialEvent(event, state)];
   }
   return [event];
 }
@@ -103,27 +102,29 @@ function isEmptyNameToolCall(block) {
   return block?.type === "toolCall" && String(block.name || "").trim().length === 0;
 }
 
-export function sanitizeAssistantMessage(message, state = null) {
+function sanitizePartialEvent(event, state) {
+  const indices = new Map<number, number>();
+  const partial = sanitizeAssistantMessage(event.partial, state, indices);
+  const contentIndex = indices.get(event.contentIndex);
+  return { ...event, partial, ...(contentIndex === undefined ? {} : { contentIndex }) };
+}
+
+export function sanitizeAssistantMessage(message, state = null, indices: Map<number, number> | null = null) {
   if (!message || !Array.isArray(message.content)) return message;
   const content = [];
   message.content.forEach((block, index) => {
     if (isEmptyNameToolCall(block)) {
-      appendTextBlock(content, recoverInvalidToolCallText(block, getRecoveredInvalidToolCallText(state, block, index)));
+      const text = recoverInvalidToolCallText(block, getRecoveredInvalidToolCallText(state, block, index));
+      if (text) {
+        indices?.set(index, content.length);
+        content.push({ type: "text", text });
+      }
       return;
     }
+    indices?.set(index, content.length);
     content.push(block);
   });
   return { ...message, content };
-}
-
-function appendTextBlock(content, text) {
-  if (!text) return;
-  const last = content[content.length - 1];
-  if (last?.type === "text") {
-    last.text += text;
-    return;
-  }
-  content.push({ type: "text", text });
 }
 
 function recoverInvalidToolCallText(block, bufferedText = "") {

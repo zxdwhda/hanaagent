@@ -1,24 +1,15 @@
 /**
- * patch-pi-sdk.cjs — Pi SDK 只读验证
- *
- * 历史上这个脚本会在 postinstall 阶段修改
- * node_modules/@mariozechner/pi-coding-agent/dist/core/sdk.js，
- * 为 Hana 的 session-scoped sandbox tools 打通 baseToolsOverride。
- *
- * Pi SDK 0.68+ 已把 createAgentSession({ tools }) 改成工具名 allowlist，
- * Hana 现在通过 lib/pi-sdk 适配层把本地 Tool[] 转为 customTools + names。
- * 因此这个脚本只验证版本、SDK 结构和生产 import 边界，不再写 node_modules。
- *
- * 文件名（patch-pi-sdk）保留是为了不动 package.json 的 postinstall 钩子，
- * 避免触发 npm install cache 重算。实际职责已是只读验证（log 前缀 verify-pi-sdk）。
+ * 验证锁定的 Pi SDK，并把 Responses 消息项已声明的 phase 带到正文增量。
+ * SDK 升级时需在移除此补丁前验证 text_delta 和 text_end 的相位。
  */
 
+const crypto = require("node:crypto");
 const fs = require("fs");
 const path = require("path");
 
 // This verifier runs from tooling/scripts in source and a temporary scripts/ copy in server packages.
 const sourceRoot = path.resolve(__dirname, "../..");
-const root = fs.existsSync(path.join(sourceRoot, "tooling", "scripts", "patch-pi-sdk.cjs"))
+const root = __dirname === path.join(sourceRoot, "tooling", "scripts")
   ? sourceRoot
   : path.resolve(__dirname, "..");
 const sdkRoot = path.join(root, "node_modules", "@earendil-works", "pi-coding-agent");
@@ -71,6 +62,46 @@ for (const marker of expectedExportMarkers) {
   if (!sdkIndex.includes(marker)) {
     fail(`expected SDK export marker not found: ${marker}`);
   }
+}
+
+function patchResponsesPhase(packageRoot) {
+  const sourcePath = path.join(packageRoot, "dist", "api", "openai-responses-shared.js");
+  const originalHash = "20b7552b535da2d0bc0bae21eaa93905fbce500f5aeed24a9ac54d702ff84ede";
+  const patchedHash = "ebf6c63c8382eba7c70917b5672ba98b4dbebd3152c42955bb04e29a9cfca4cb";
+  const digest = (value) => crypto.createHash("sha256").update(value).digest("hex");
+  const source = fs.readFileSync(sourcePath, "utf8");
+  const hash = digest(source);
+  if (hash === patchedHash) return;
+  if (hash !== originalHash) fail(`unrecognized Responses parser: ${path.relative(root, sourcePath)}`);
+
+  const start = '            const block = { type: "text", text: "" };';
+  const patched = source.replace(start, [
+    start,
+    '            if (item.phase === "commentary" || item.phase === "final_answer") {',
+    "                block.textSignature = encodeTextSignatureV1(item.id, item.phase);",
+    "            }",
+  ].join("\n")).replace(
+    "                slot.block.textSignature = encodeTextSignatureV1(item.id, item.phase ?? undefined);",
+    "                slot.block.textSignature = encodeTextSignatureV1(item.id, item.phase ?? parseTextSignature(slot.block.textSignature)?.phase);",
+  );
+  if (digest(patched) !== patchedHash) fail("Responses phase patch does not match the verified digest");
+  const temporaryPath = `${sourcePath}.${process.pid}.patch`;
+  try {
+    fs.writeFileSync(temporaryPath, patched, { mode: fs.statSync(sourcePath).mode & 0o777, flag: "wx" });
+    fs.renameSync(temporaryPath, sourcePath);
+  } finally {
+    fs.rmSync(temporaryPath, { force: true });
+  }
+}
+
+const piAiCopies = [piAiRoot, ...[
+  sdkRoot,
+  path.join(root, "node_modules", "@earendil-works", "pi-agent-core"),
+].map((packageRoot) => path.join(packageRoot, "node_modules", "@earendil-works", "pi-ai"))];
+for (const packageRoot of new Set(piAiCopies.filter((candidate) => fs.existsSync(candidate)).map((candidate) => fs.realpathSync(candidate)))) {
+  const { version } = readJson(path.join(packageRoot, "package.json"));
+  if (!verifiedPiAiVersions.has(version)) fail(`unverified nested pi-ai version ${version}`);
+  patchResponsesPhase(packageRoot);
 }
 
 const scanDirs = ["core", "server", "lib", "hub"].map(d => path.join(root, d));
