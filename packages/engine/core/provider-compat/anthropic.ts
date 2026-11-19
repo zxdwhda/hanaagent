@@ -151,6 +151,7 @@ export function matches(model) {
 
 function usesMiniMaxM3Thinking(model) {
   if (lower(model.api) !== "anthropic-messages" || lower(model.id) !== "minimax-m3") return false;
+  if (model.compat?.forceAdaptiveThinking === true) return true;
   const baseUrl = model.baseUrl || model.base_url;
   if (baseUrl) {
     const host = URL.parse(baseUrl)?.hostname;
