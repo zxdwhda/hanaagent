@@ -1772,6 +1772,8 @@
       "video": "影片",
       "audio": "音訊",
       "reasoning": "推理",
+      "promptCacheKey": "傳送提示快取鍵",
+      "adaptiveThinking": "使用自適應思考",
       "videoTransportUnavailable": "已宣告支援影片，但目前的通訊協定無法直接傳送影片。",
       "capability": {
         "image": "支援圖像輸入",

@@ -1772,6 +1772,8 @@
       "video": "비디오",
       "audio": "오디오",
       "reasoning": "추론",
+      "promptCacheKey": "프롬프트 캐시 키 전송",
+      "adaptiveThinking": "적응형 사고 사용",
       "videoTransportUnavailable": "동영상 입력이 설정되어 있지만 현재 프로토콜은 동영상을 직접 전송할 수 없습니다.",
       "capability": {
         "image": "이미지 입력 지원",

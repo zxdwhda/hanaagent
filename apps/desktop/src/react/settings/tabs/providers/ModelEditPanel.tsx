@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { modelSupportsDirectVideoInput } from '../../../../../../../packages/shared/model-capabilities.ts';
+import { modelSupportsDirectVideoInput, supportsResponsesPromptCacheKey } from '../../../../../../../packages/shared/model-capabilities.ts';
 import { useSettingsStore } from '../../store';
 import { t, lookupModelMeta, CONTEXT_PRESETS, OUTPUT_PRESETS } from '../../helpers';
 import { hanaFetch } from '../../api';
@@ -57,6 +57,15 @@ export function ModelEditPanel({ modelId, providerId, providerApi, providerBaseU
   );
   const [audio, setAudio] = useState<boolean>(meta.audio === true);
   const [reasoning, setReasoning] = useState<boolean>(meta.reasoning === true);
+  const api = userMeta.api || providerApi;
+  const protocolOption = api === 'openai-responses' ? 'supportsPromptCacheKey'
+    : api === 'anthropic-messages' ? 'forceAdaptiveThinking' : undefined;
+  const protocolLabel = protocolOption === 'supportsPromptCacheKey'
+    ? t('settings.api.promptCacheKey') : t('settings.api.adaptiveThinking');
+  const protocolDefault = protocolOption === 'supportsPromptCacheKey'
+    ? supportsResponsesPromptCacheKey({ ...userMeta, api }, { baseUrl: providerBaseUrl })
+    : meta.compat?.forceAdaptiveThinking === true;
+  const [protocolOverride, setProtocolOverride] = useState<boolean>();
   const [dirtyCapabilities, setDirtyCapabilities] = useState<Record<string, boolean>>({});
   const panelRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -84,6 +93,9 @@ export function ModelEditPanel({ modelId, providerId, providerApi, providerBaseU
     if (dirtyCapabilities.video) entry.video = video;
     if (dirtyCapabilities.audio) entry.audio = audio;
     if (dirtyCapabilities.reasoning) entry.reasoning = reasoning;
+    if (protocolOption && protocolOverride !== undefined) {
+      entry.compat = { [protocolOption]: protocolOverride };
+    }
 
     try {
       await hanaFetch(`/api/providers/${encodeURIComponent(providerId)}/models/${encodeURIComponent(modelId)}`, {
@@ -145,6 +157,16 @@ export function ModelEditPanel({ modelId, providerId, providerApi, providerBaseU
           <Toggle ariaLabel={t('settings.api.reasoning')} on={reasoning} onChange={(value) => { setReasoning(value); setDirtyCapabilities(prev => ({ ...prev, reasoning: true })); }} />
         </div>
       </div>
+      {protocolOption && (
+        <div className={styles['pv-model-edit-field']}>
+          <label className={styles['pv-model-edit-label']}>{protocolLabel}</label>
+          <Toggle
+            ariaLabel={protocolLabel}
+            on={protocolOverride ?? protocolDefault}
+            onChange={setProtocolOverride}
+          />
+        </div>
+      )}
       {videoTransportUnavailable && (
         <div className={styles['pv-model-edit-label']} role="status">
           {t('settings.api.videoTransportUnavailable')}
