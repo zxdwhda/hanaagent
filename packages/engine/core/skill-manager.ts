@@ -91,6 +91,8 @@ function decorateLoadedSkill(skill, hiddenSkills) {
 }
 
 export class SkillManager {
+  private reloadQueue: Promise<void> = Promise.resolve();
+
   declare _allSkills: any;
   declare _externalPaths: any;
   declare _externalWatchers: any;
@@ -280,16 +282,19 @@ export class SkillManager {
    * @param {object} resourceLoader
    * @param {Map} agents
    */
-  async reload(resourceLoader, agents) {
-    // 暂时恢复原始 getSkills 以便 reload() 正确扫描
-    delete resourceLoader.getSkills;
-    await resourceLoader.reload();
-
-    this._allSkills = resourceLoader.getSkills().skills;
-    for (const s of this._allSkills) {
-      decorateLoadedSkill(s, this._hiddenSkills);
-    }
-    this._appendExternalSkills();
+  reload(resourceLoader, _agents) {
+    const reload = this.reloadQueue.then(async () => {
+      await resourceLoader.reload();
+      // Read the scan result without removing the instance's agent-specific projection.
+      const readScannedSkills = Object.getPrototypeOf(resourceLoader)?.getSkills ?? resourceLoader.getSkills;
+      this._allSkills = readScannedSkills.call(resourceLoader).skills;
+      for (const skill of this._allSkills) {
+        decorateLoadedSkill(skill, this._hiddenSkills);
+      }
+      this._appendExternalSkills();
+    });
+    this.reloadQueue = reload.catch(() => {});
+    return reload;
   }
 
   /**

@@ -364,6 +364,50 @@ describe("SKILL_WATCH_DEPTH", () => {
   });
 });
 
+describe("skill reload isolation", () => {
+  it("does not run two scans against the same loader concurrently", async () => {
+    const manager = new SkillManager({ skillsDir: os.tmpdir() });
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const scan = vi.fn().mockImplementationOnce(async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    class Loader {
+      getSkills() { return { skills: [] }; }
+      reload() { return scan(); }
+    }
+    const loader = new Loader();
+    const first = manager.reload(loader, new Map());
+    await entered.promise;
+    const second = manager.reload(loader, new Map());
+    try {
+      expect(scan).toHaveBeenCalledOnce();
+    } finally {
+      release.resolve();
+      await Promise.all([first, second]);
+    }
+    expect(scan).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves the active agent projection during and after a failed reload", async () => {
+    const manager = new SkillManager({ skillsDir: os.tmpdir() });
+    const projected = { skills: [{ name: "allowed" }] };
+    class Loader {
+      getSkills() { return { skills: [] }; }
+      async reload() {
+        expect(this.getSkills()).toBe(projected);
+        throw new Error("fixture scan failed");
+      }
+    }
+    const loader = new Loader();
+    loader.getSkills = () => projected;
+
+    await expect(manager.reload(loader, new Map())).rejects.toThrow("fixture scan failed");
+    expect(loader.getSkills()).toBe(projected);
+  });
+});
+
 describe("external skill watchers", () => {
   it("keeps the shared native watcher when the active workspace paths change", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-external-watch-handoff-"));

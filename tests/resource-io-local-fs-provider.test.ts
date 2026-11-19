@@ -73,6 +73,22 @@ describe("LocalFsProvider", () => {
     expect(stat).toMatchObject({ exists: true, isDirectory: false, version: { size: 11 } });
   });
 
+  it("uses non-blocking I/O for directory entries and file content", async () => {
+    const { cwd, realCwd, provider } = makeProvider();
+    const file = path.join(cwd, "notes.md");
+    fs.writeFileSync(file, "payload");
+    const readdir = vi.spyOn(fs.promises, "readdir");
+    const open = vi.spyOn(fs.promises, "open");
+
+    const listing = await provider.list({ kind: "local-file", path: "." });
+    const read = await provider.read({ kind: "local-file", path: "notes.md" });
+
+    expect(listing.items).toEqual([expect.objectContaining({ name: "notes.md", size: 7 })]);
+    expect(read.content.toString()).toBe("payload");
+    expect(readdir).toHaveBeenCalledWith(realCwd, { withFileTypes: true });
+    expect(open).toHaveBeenCalledWith(path.join(realCwd, "notes.md"), expect.any(Number));
+  });
+
   it("denies writes outside the guard", async () => {
     const { provider } = makeProvider(vi.fn(() => ({ allowed: false, reason: "denied by test" })));
 
