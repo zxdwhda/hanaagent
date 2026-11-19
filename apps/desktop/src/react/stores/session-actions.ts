@@ -749,13 +749,14 @@ export function upsertOptimisticSessionFirstMessage(
 // Session 切换
 // ══════════════════════════════════════════════════════
 
-export async function switchSession(path: string): Promise<void> {
+export async function switchSession(path: string, options: { sessionId?: string | null } = {}): Promise<void> {
   const s = useStore.getState();
+  const explicitSessionId = options.sessionId ?? null;
   const myVersion = ++_switchVersion;
   _switchAbortController?.abort();
   _switchAbortController = null;
 
-  if (path === s.currentSessionPath && !s.pendingNewSession) {
+  if (path === s.currentSessionPath && !s.pendingNewSession && (!explicitSessionId || explicitSessionId === s.currentSessionId)) {
     useStore.setState(state => ({
       pendingSessionSwitchPath: null,
       unreadOutputSessionPaths: filterSessionScopedStateList(state as Record<string, any>, state.unreadOutputSessionPaths || [], path),
@@ -779,7 +780,7 @@ export async function switchSession(path: string): Promise<void> {
 
   const abortController = new AbortController();
   _switchAbortController = abortController;
-  const targetSessionId = sessionIdForPathFromState(s as Record<string, any>, path);
+  const targetSessionId = explicitSessionId ?? sessionIdForPathFromState(s as Record<string, any>, path);
 
   try {
     const data = await withRequestDeadline(abortController, async () => {
@@ -864,7 +865,7 @@ export async function switchSession(path: string): Promise<void> {
 
     // 批量更新 store（切 currentSessionPath 切换对话内容；可见 desk/preview 状态由 workspace 激活流程恢复）
     useStore.setState((prev: any) => ({
-      ...currentSessionIdentityPatch(prev, path, data.sessionId),
+      ...currentSessionIdentityPatch(prev, path, normalizeSessionId(data.sessionId) ?? targetSessionId),
       pendingSessionSwitchPath: null,
       pendingNewSession: false,
       pendingDraftId: null,
@@ -1466,6 +1467,7 @@ export async function listArchivedSessions(): Promise<ArchivedSession[]> {
 export async function restoreSession(target: string | Pick<ArchivedSession, 'path' | 'sessionId'>): Promise<RestoreResult> {
   const sessionPath = typeof target === 'string' ? target : target.path;
   const sessionId = typeof target === 'string' ? null : normalizeSessionId(target.sessionId);
+  const focusVersion = _switchVersion;
   try {
     const res = await hanaFetch('/api/sessions/restore', {
       method: 'POST',
@@ -1481,14 +1483,13 @@ export async function restoreSession(target: string | Pick<ArchivedSession, 'pat
     const restoredPath = typeof data?.restoredPath === 'string' ? data.restoredPath : null;
     const restoredSessionId = normalizeSessionId(data?.sessionId) || sessionId;
 
+    if (restoredPath && focusVersion === _switchVersion) {
+      await switchSession(restoredPath, { sessionId: restoredSessionId });
+    }
     await loadSessions();
-    const restoredSession = sessionByIdentityOrPath(
-      useStore.getState() as Record<string, any>,
-      restoredSessionId,
-      restoredPath,
-    );
-    if (restoredSession?.path) {
-      await switchSession(restoredSession.path);
+    if (!restoredPath && restoredSessionId) {
+      const restoredSession = sessionByIdentityOrPath(useStore.getState() as Record<string, any>, restoredSessionId, null);
+      if (restoredSession?.path) await switchSession(restoredSession.path);
     }
     void hydrateInputDrafts();
     return { status: 'ok', restoredPath, sessionId: restoredSessionId };
