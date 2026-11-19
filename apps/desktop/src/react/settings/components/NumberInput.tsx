@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './settings-components.module.css';
 
 interface NumberInputProps {
@@ -24,8 +24,10 @@ export function NumberInput({
   fieldWidth = 'default',
   disabled,
 }: NumberInputProps) {
+  const [empty, setEmpty] = useState(false);
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const raw = event.target.value;
+    setEmpty(raw === '');
     const next = precision === 'float' ? parseFloat(raw) : parseInt(raw, 10);
     if (!Number.isFinite(next)) return;
     onChange(next);
@@ -41,12 +43,13 @@ export function NumberInput({
       <input
         type="number"
         className={inputClassName}
-        value={value}
+        value={empty ? '' : value}
         min={min}
         max={max}
         step={step}
         disabled={disabled}
         onChange={handleChange}
+        onBlur={() => setEmpty(false)}
       />
       {unit && <span className={styles.numberInputUnit}>{unit}</span>}
     </div>

@@ -101106,6 +101106,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/session-list-projection-cache.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/session-collab/delivery.ts",
           "kind": "import-statement"
         },
@@ -101130,7 +101135,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/message-utils.ts (import-statement); packages/engine/lib/session-collab/delivery.ts (import-statement); packages/engine/core/session-turn-actions.ts (import-statement); +3 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/message-utils.ts (import-statement); packages/engine/core/session-list-projection-cache.ts (import-statement); packages/engine/lib/session-collab/delivery.ts (import-statement); +4 more importer(s)."
     },
     {
       "path": "packages/engine/core/device-registry.ts",
@@ -110957,9 +110962,14 @@
           "root": "server-bootstrap",
           "from": "packages/engine/lib/tools/workflow-tool.ts",
           "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/desk/cron-scheduler.ts",
+          "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/workflow-tool.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/workflow-tool.ts (import-statement); packages/engine/lib/desk/cron-scheduler.ts (import-statement)."
     },
     {
       "path": "packages/engine/lib/workflow/host-api.ts",

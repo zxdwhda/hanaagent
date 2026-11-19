@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CronStore } from "../packages/engine/lib/desk/cron-store.ts";
+import { createCronScheduler } from "../packages/engine/lib/desk/cron-scheduler.ts";
 import { issueAutomationSuggestionReceipt } from "../packages/engine/lib/desk/automation-suggestion-receipt.ts";
 import { AutomationSuggestionStore } from "../packages/engine/lib/tools/automation-suggestion-store.ts";
 import fs from "fs";
@@ -30,6 +31,45 @@ function localDate(year, month, day, hour = 0, minute = 0) {
 }
 
 describe("CronStore cron 解析", () => {
+  it.each([["every", 60_000], ["cron", "* * * * *"]])(
+    "records missed %s periods and runs one catch-up after a pause", async (type, schedule) => {
+      const { jobsPath, runsDir } = makeTmpPaths();
+      vi.useFakeTimers();
+      try {
+        const base = Date.UTC(2026, 1, 1, 12);
+        vi.setSystemTime(base);
+        const store = new CronStore(jobsPath, runsDir);
+        const job = store.addJob({ type, schedule, prompt: "fixture", label: "fixture" } as any);
+        vi.setSystemTime(base + 6 * 60_000);
+        const executeJob = vi.fn(async () => {});
+        const scheduler = createCronScheduler({ cronStore: store, executeJob } as any);
+
+        await scheduler.checkJobs();
+        await scheduler.checkJobs();
+
+        expect(executeJob).toHaveBeenCalledOnce();
+        const history = store.getRunHistory(job.id);
+        expect(history).toHaveLength(2);
+        expect(history).toEqual(expect.arrayContaining([
+          expect.objectContaining({ status: "success" }),
+          expect.objectContaining({
+            status: "skipped",
+            reason: "missed_schedule_slots",
+            missedSlots: {
+              count: 5,
+              from: new Date(base + 60_000).toISOString(),
+              through: new Date(base + 5 * 60_000).toISOString(),
+            },
+          }),
+        ]));
+        expect(store.getJob(job.id)?.nextRunAt).toBe(new Date(base + 7 * 60_000).toISOString());
+      } finally {
+        vi.useRealTimers();
+        fs.rmSync(path.dirname(jobsPath), { recursive: true, force: true });
+      }
+    },
+  );
+
   // ── 步进值 ──
 
   it("*/30 * * * * → 每30分钟触发", () => {

@@ -1366,6 +1366,20 @@ describe('SessionList context menu', () => {
       });
     });
 
+    it('clears the drop indicator when leaving a pinned row', () => {
+      seedPinnedSessions();
+      render(<SessionList />);
+      const dataTransfer = dragData();
+      fireEvent.dragStart(sessionButton('Pin C'), { dataTransfer });
+      const target = pinnedRow('Pin A');
+      stubRowGeometry(target);
+      fireDragAt('dragOver', target, dataTransfer, 5);
+      expect(target.className).toContain('pinnedDropIndicatorBefore');
+
+      fireEvent.dragLeave(target, { dataTransfer, relatedTarget: null });
+      expect(target.className).not.toContain('pinnedDropIndicatorBefore');
+    });
+
     it('submits the order with the dragged row below the target when dropped on its lower half', async () => {
       seedPinnedSessions();
       render(<SessionList />);

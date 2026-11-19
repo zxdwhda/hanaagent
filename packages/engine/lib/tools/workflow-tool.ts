@@ -1,5 +1,6 @@
 // lib/tools/workflow-tool.ts
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { Type } from "../pi-sdk/index.ts";
 import { t } from "../i18n.ts";
 import { runWorkflowScript } from "../workflow/sandbox.ts";
@@ -117,20 +118,12 @@ function workflowResultToText(result) {
 }
 
 /** 构造接入 UsageLedger 的实时 budget 对象。 */
-function makeBudget(ledger, taskId, budgetTotal) {
+function makeBudget(ledger, workflowRunId, budgetTotal) {
   const total = typeof budgetTotal === "number" && budgetTotal > 0 ? budgetTotal : null;
   function spent() {
     if (!ledger?.list) return 0;
-    const { entries } = ledger.list({ attributionKind: "subagent" });
-    if (!entries?.length) return 0;
-    let sum = 0;
-    for (const e of entries) {
-      const attr = e.attribution;
-      if (attr?.parentTaskId === taskId || attr?.subagentTaskId === taskId) {
-        sum += usageTokens(e.usage);
-      }
-    }
-    return sum;
+    const { entries } = ledger.list({ workflowRunId });
+    return entries?.reduce((sum, entry) => sum + usageTokens(entry.usage), 0) ?? 0;
   }
   return {
     total,
@@ -269,6 +262,7 @@ export function createWorkflowTool(deps) {
         parentSessionPath,
         subagentContext: true,
         subagentTaskId: taskId,
+        workflowRunId: taskId,
         emitEvents: true,
         approvalPolicy: "deny_on_prompt",
         allowHumanApproval: false,
@@ -436,6 +430,7 @@ async function _syncRun(deps, params, meta, { agentId, cwd, parentSessionPath, p
   const limiter = makeLimiter(limits.maxConcurrent);
   const ledger = deps.getUsageLedger?.();
   const budgetTotal = params.args?.budgetTokens ?? null;
+  const workflowRunId = `workflow-${randomUUID()}`;
   const parentSessionId = sessionIdForPath(deps, parentSessionPath);
   // 同步路径同样是"先 abort 再收尾"，只是没有 journal，失败消息不给 resume 指引。
   const controller = new AbortController();
@@ -463,6 +458,7 @@ async function _syncRun(deps, params, meta, { agentId, cwd, parentSessionPath, p
       parentSessionId,
       parentSessionPath,
       subagentContext: true,
+      workflowRunId,
       emitEvents: true,
       approvalPolicy: "deny_on_prompt",
       allowHumanApproval: false,
@@ -472,7 +468,7 @@ async function _syncRun(deps, params, meta, { agentId, cwd, parentSessionPath, p
     signal: controller.signal,
     onProgress: (evt) => deps.emitEvent?.({ ...evt, type: "workflow_progress" }, parentSessionPath),
     onAgentEvent: () => watchdog.feed(),
-    budget: makeBudget(ledger, null, budgetTotal),
+    budget: makeBudget(ledger, workflowRunId, budgetTotal),
     args: params.args,
     resolveAgentId: deps.resolveAgentId,
     parentFolderScope,

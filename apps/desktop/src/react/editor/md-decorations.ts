@@ -376,6 +376,13 @@ export function collectLivePreviewRanges(
       continue;
     }
 
+    const singleLineMath = line.match(/^ {0,3}\$\$(?!\$)(.+?)\$\$[ \t]*$/)?.[1].trim();
+    if (singleLineMath) {
+      if (includeBlockMath) ranges.push({ kind: 'blockMath', from: offset, to: offset + line.length, source: singleLineMath });
+      offset += line.length + 1;
+      continue;
+    }
+
     if (line.trim() === '$$') {
       let endIdx = idx + 1;
       while (endIdx < lines.length && lines[endIdx].trim() !== '$$') endIdx += 1;

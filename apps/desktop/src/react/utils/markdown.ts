@@ -531,8 +531,8 @@ function trimAutoLinkifiedSuffixes(md: MarkdownItInstance): void {
   });
 }
 
-function unwrapLocalFileAutoLinks(md: MarkdownItInstance): void {
-  md.core.ruler.after('trim_auto_linkified_suffixes', 'unwrap_local_file_auto_links', (state: StateCore) => {
+function unwrapPlainTextAutoLinks(md: MarkdownItInstance): void {
+  md.core.ruler.after('trim_auto_linkified_suffixes', 'unwrap_plain_text_auto_links', (state: StateCore) => {
     for (const blockToken of state.tokens) {
       const children = blockToken.children;
       if (!children?.length) continue;
@@ -544,7 +544,8 @@ function unwrapLocalFileAutoLinks(md: MarkdownItInstance): void {
         if (!isAutoLinkifyToken(open, 'link_open') || text?.type !== 'text' || !isAutoLinkifyToken(close, 'link_close')) {
           continue;
         }
-        if (!isLikelyLocalFileAutolink(text.content)) continue;
+        const isHongKongStockCode = /^\d{4,5}\.hk$/i.test(text.content);
+        if (!isHongKongStockCode && !isLikelyLocalFileAutolink(text.content)) continue;
 
         children.splice(index, 3, text);
       }
@@ -953,7 +954,7 @@ function applyMarkdownPlugins(md: MarkdownItInstance): void {
   md.use(footnotes);
   md.use(markdownHeadingAnchors);
   md.use(trimAutoLinkifiedSuffixes);
-  md.use(unwrapLocalFileAutoLinks);
+  md.use(unwrapPlainTextAutoLinks);
   md.use(mermaidFences);
   md.use(markdownImageRenderer);
   md.use(markdownTableScrollWrapper);

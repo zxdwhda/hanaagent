@@ -8265,6 +8265,7 @@ export class SessionCoordinator {
           ? opts.parentSessionId.trim()
           : (parentSessionPath ? this._sessionIdForPath(parentSessionPath) : null);
         const childSessionId = childSessionPath ? this._sessionIdForPath(childSessionPath) : null;
+        const workflowAttribution = opts.workflowRunId ? { workflowRunId: opts.workflowRunId } : {};
         recordAssistantUsage({
           ledger: this._d.getUsageLedger?.(),
           event,
@@ -8300,6 +8301,7 @@ export class SessionCoordinator {
           attribution: parentSessionPath
             ? {
                 kind: "session",
+                ...workflowAttribution,
                 agentId: this.resolveSessionOwnership(parentSessionPath).agentId || null,
                 ...(parentSessionId ? { sessionId: parentSessionId } : {}),
                 sessionPath: parentSessionPath,
@@ -8310,7 +8312,7 @@ export class SessionCoordinator {
                 threadId: opts.subagentContext ? opts.subagentThreadId || null : undefined,
                 threadKind: opts.subagentContext ? opts.subagentThreadKind || null : undefined,
               }
-            : { kind: opts.subagentContext ? "utility" : "automation", agentId: targetAgent.id || null },
+            : { kind: opts.subagentContext ? "utility" : "automation", ...workflowAttribution, agentId: targetAgent.id || null },
         });
         if (event.type === "message_update") {
           const sub = event.assistantMessageEvent;

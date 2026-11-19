@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } 
 import { SettingsSection } from '../../components/SettingsSection';
 import { t } from '../../helpers';
 import styles from '../../Settings.module.css';
-import { loadLlmUsageEntries, type UsageLedgerEntry } from './usage-ledger-actions';
+import { loadLlmUsageEntries, loadLlmUsageWindow, type UsageLedgerEntry } from './usage-ledger-actions';
 import { DailyBars, ModelOrbit, RequestLedger, SplitRing, UsageLegend } from './UsageLedgerCharts';
 import {
   USAGE_VIEW_ORDER,
@@ -26,6 +26,7 @@ type CssVars = CSSProperties & Record<string, string | number>;
 export function UsageLedgerSection() {
   const [entries, setEntries] = useState<UsageLedgerEntry[]>([]);
   const [dateWindowEntries, setDateWindowEntries] = useState<UsageLedgerEntry[]>([]);
+  const [historyMayBeIncomplete, setHistoryMayBeIncomplete] = useState(false);
   const [view, setView] = useState<UsageView>('overall');
   const [period, setPeriod] = useState<UsagePeriod>('week');
   const [loading, setLoading] = useState(false);
@@ -37,10 +38,11 @@ export function UsageLedgerSection() {
     try {
       const [recent, dateWindow] = await Promise.all([
         loadLlmUsageEntries(500),
-        loadLlmUsageEntries(usagePeriodDateRange(period)),
+        loadLlmUsageWindow(usagePeriodDateRange(period)),
       ]);
       setEntries(recent);
-      setDateWindowEntries(dateWindow);
+      setDateWindowEntries(dateWindow.entries);
+      setHistoryMayBeIncomplete(dateWindow.historyMayBeIncomplete);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -61,6 +63,9 @@ export function UsageLedgerSection() {
       <div className={styles['usage-ledger']}>
         <div className={styles['usage-note']}>{t('settings.usage.note')}</div>
         <UsageTabs view={view} onChange={setView} />
+        {view === 'daily' && !error && !loading && historyMayBeIncomplete && (
+          <div className={styles['usage-note']} role="status">{t('settings.usage.historyMayBeIncomplete')}</div>
+        )}
         <div className={styles['usage-view-frame']}>
           {error && <div className={styles['usage-error']}>{error}</div>}
           {!error && loading && entries.length === 0 && <div className={styles['usage-empty']}>{t('settings.usage.loading')}</div>}

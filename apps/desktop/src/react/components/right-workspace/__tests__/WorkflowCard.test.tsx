@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { act, render, fireEvent } from '@testing-library/react';
 import { WorkflowCard } from '../WorkflowCard';
 
 const mockState: any = { currentSessionPath: '/s/a.jsonl', agentActivitiesBySession: {}, agents: [] };
@@ -65,6 +65,31 @@ describe('WorkflowCard', () => {
     const { container } = render(<WorkflowCard />);
     expect(container.textContent).toContain('5s');
     delete (window as any).t;
+  });
+
+  it('updates the running timer without rendering the card and node summaries again', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(2000);
+    const translate = vi.fn((key: string, vars?: Record<string, unknown>) => (
+      key === 'rightWorkspace.workflow.running' ? String(vars?.text) : key
+    ));
+    (window as any).t = translate;
+    mockState.agentActivitiesBySession = {
+      '/s/a.jsonl': [wf({ startedAt: 1000 }), ...Array.from({ length: 45 }, (_, i) => node({ id: `node-${i}` }))],
+    };
+    const { container, unmount } = render(<WorkflowCard />);
+    try {
+      fireEvent.click(container.querySelector('[data-status]') as HTMLElement);
+      expect(container.textContent).toContain('1s');
+      translate.mockClear();
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(container.textContent).toContain('2s');
+      expect(translate.mock.calls.map(([key]) => key)).toEqual(['rightWorkspace.workflow.running']);
+    } finally {
+      unmount();
+      delete (window as any).t;
+      vi.useRealTimers();
+    }
   });
 
   it('按 phaseLabel 分组显示 Phase 名称', () => {

@@ -130,9 +130,13 @@ export function createUsageLedger({
       const limit = normalizeLimit(filter.limit);
       const filtered = entries.filter(entry => matchesFilter(entry, filter));
       const limited = limit ? filtered.slice(Math.max(0, filtered.length - limit)) : filtered;
+      const oldestEndedAt = entries[0]?.endedAt;
+      const historyMayBeIncomplete = entries.length >= maxEntries
+        && oldestEndedAt && typeof filter.since === "string" && filter.since <= oldestEndedAt;
       return {
         entries: limited.map(clone),
         nextCursor: null,
+        ...(historyMayBeIncomplete ? { historyMayBeIncomplete: true } : {}),
       };
     },
 
@@ -246,6 +250,7 @@ function matchesFilter(entry, filter) {
   if (filter.sessionPath && attributionSessionPath(entry.attribution) !== filter.sessionPath) return false;
   if (filter.childSessionId && entry.attribution?.childSessionId !== filter.childSessionId) return false;
   if (filter.childSessionPath && entry.attribution?.childSessionPath !== filter.childSessionPath) return false;
+  if (filter.workflowRunId && entry.attribution?.workflowRunId !== filter.workflowRunId) return false;
   if (filter.agentId && entry.attribution?.agentId !== filter.agentId) return false;
   if (filter.subsystem && entry.source?.subsystem !== filter.subsystem) return false;
   if (filter.operation && entry.source?.operation !== filter.operation) return false;

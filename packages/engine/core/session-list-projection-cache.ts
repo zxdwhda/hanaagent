@@ -3,7 +3,8 @@ import path from "path";
 import { isSessionJsonlFilename } from "../lib/session-jsonl.ts";
 import { readFileLikePaths } from "../../shared/link-aware-fs.ts";
 import { createModuleLogger } from "../lib/debug-log.ts";
-import { stripSessionReminderBlocks } from "./session-reminders.ts";
+import { MESSAGE_PRESENTATION_RECORD_TYPE } from "./desktop-session-submit.ts";
+import { stripSessionReminderBlocks, visiblePromptText } from "./session-reminders.ts";
 
 const log = createModuleLogger("session-list-cache");
 export const SESSION_PROJECTION_IDENTITY = Symbol("session projection file identity");
@@ -150,6 +151,7 @@ async function buildSessionProjection(filePath, stat, identity: SessionFileIdent
     let header = null;
     let messageCount = 0;
     let firstMessage = "";
+    let pendingDisplayText: string | undefined;
     let name;
     let lastActivityTime = 0;
 
@@ -162,6 +164,9 @@ async function buildSessionProjection(filePath, stat, identity: SessionFileIdent
       if (entry?.type === "session_info") {
         name = entry.name?.trim() || undefined;
       }
+      if (!firstMessage && entry?.type === "custom" && entry.customType === MESSAGE_PRESENTATION_RECORD_TYPE) {
+        pendingDisplayText = typeof entry.data?.displayText === "string" ? entry.data.displayText : undefined;
+      }
       if (entry?.type !== "message") continue;
       messageCount += 1;
       const message = entry.message;
@@ -169,7 +174,8 @@ async function buildSessionProjection(filePath, stat, identity: SessionFileIdent
       const activityTime = parseTimestamp(message.timestamp) ?? parseTimestamp(entry.timestamp);
       if (activityTime != null) lastActivityTime = Math.max(lastActivityTime, activityTime);
       if (!firstMessage && message.role === "user") {
-        firstMessage = stripSessionReminderBlocks(extractTextContent(message));
+        firstMessage = pendingDisplayText?.trim() ?? visiblePromptText(extractTextContent(message));
+        pendingDisplayText = undefined;
       }
     }
     if (!header) return null;

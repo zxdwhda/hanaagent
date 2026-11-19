@@ -1601,6 +1601,7 @@
     "usage": {
       "title": "用量統計",
       "note": "用量僅供參考，具體以供應商的統計為準。",
+      "historyMayBeIncomplete": "本機用量紀錄已達保留上限，所選日期範圍的統計可能不完整。",
       "refresh": "重新整理用量",
       "total": "全部",
       "requests": "請求數",

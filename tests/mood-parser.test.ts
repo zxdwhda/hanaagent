@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MoodParser } from "../packages/engine/core/events.ts";
+import { parseLeadingInternalMoodBlock } from "../packages/shared/internal-mood-block.ts";
 
 function collect(chunks: string[]) {
   const parser = new MoodParser();
@@ -76,6 +77,16 @@ describe("MoodParser", () => {
       { type: "mood_end" },
       { type: "text", data: "after" },
     ]);
+  });
+
+  it("recovers from the known mid closing typo across stream chunks and history", () => {
+    const chunks = ["<mood>Vibe: 好</m", "id>正文第一段。"];
+    expect(visibleText(collect(chunks))).toBe("正文第一段。");
+    expect(parseLeadingInternalMoodBlock(chunks.join(""))).toMatchObject({
+      tag: "mood",
+      content: "Vibe: 好",
+      rest: "正文第一段。",
+    });
   });
 
   it("preserves flush behavior for an unclosed valid leading block", () => {

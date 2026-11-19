@@ -122,6 +122,24 @@ describe("session-list-projection-cache revision", () => {
     expect(await readSessionSearchText(projection.path)).toBe("hello");
   });
 
+  it("uses the displayed text or strips session file markers from an untitled session preview", async () => {
+    const marker = '[SessionFile] {"fileId":"fixture-attachment"}';
+    writeSessionFile(tmpDir, "presented.jsonl", [
+      HEADER,
+      { type: "custom", customType: "hana-message-presentation", data: { displayText: "Summarize the notes" } },
+      { ...USER_MESSAGE, message: { role: "user", content: marker + "\n\nmodel-facing prompt" } },
+    ]);
+    writeSessionFile(tmpDir, "legacy.jsonl", [
+      HEADER,
+      { ...USER_MESSAGE, message: { role: "user", content: marker + "\n\nSummarize the old notes" } },
+    ]);
+    const projections = await new SessionListProjectionCache().list(tmpDir);
+    expect(projections.map(({ firstMessage }) => firstMessage)).toEqual(expect.arrayContaining([
+      "Summarize the notes",
+      "Summarize the old notes",
+    ]));
+  });
+
   it("includes jsonl files that are reached through a filesystem link", async () => {
     const realDir = path.join(tmpDir, "real");
     fs.mkdirSync(realDir, { recursive: true });

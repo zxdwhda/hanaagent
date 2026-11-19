@@ -67,19 +67,63 @@ export function inspectLeadingInternalMoodOpener(input: string): LeadingMoodInsp
   return { kind: "text" };
 }
 
-/** Parse one complete, correctly paired internal block at response start. */
+/** Include the known malformed closer emitted for the MOOD block. */
+export function internalMoodClosingTags(tag: InternalMoodTag): string[] {
+  return tag === "mood" ? ["</mood>", "</mid>"] : [`</${tag}>`];
+}
+
+export function findInternalMoodClose(input: string, tags: readonly string[]) {
+  let close: { index: number; length: number } | null = null;
+  for (const tag of tags) {
+    const index = input.indexOf(tag);
+    if (index >= 0 && (!close || index < close.index)) close = { index, length: tag.length };
+  }
+  return close;
+}
+
+/** Parse one complete internal block at response start. */
 export function parseLeadingInternalMoodBlock(input: string): LeadingInternalMoodBlock | null {
   const inspection = inspectLeadingInternalMoodOpener(input);
   if (inspection.kind !== "open") return null;
 
-  const closeTag = `</${inspection.tag}>`;
-  const closeIndex = inspection.remainder.indexOf(closeTag);
-  if (closeIndex < 0) return null;
+  const close = findInternalMoodClose(inspection.remainder, internalMoodClosingTags(inspection.tag));
+  if (!close) return null;
 
   return {
     prefix: inspection.prefix,
     tag: inspection.tag,
-    content: inspection.remainder.slice(0, closeIndex),
-    rest: inspection.remainder.slice(closeIndex + closeTag.length),
+    content: inspection.remainder.slice(0, close.index),
+    rest: inspection.remainder.slice(close.index + close.length),
   };
+}
+
+/** Recover an isolated, structured MOOD block after visible prose. */
+export function parseLateInternalMoodBlock(input: string, { requireLineBreak = false } = {}): LeadingInternalMoodBlock | null {
+  if (!input.includes("<mood>") || !input.includes("</mood>")) return null;
+  const lines = input.split("\n");
+  let offset = 0;
+  let fence: string | null = null;
+  let codeTicks: number | null = null;
+  for (const line of lines) {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (marker) {
+      if (!fence && codeTicks === null) fence = marker[1];
+      else if (fence && marker[1].startsWith(fence) && !marker[2].trim()) fence = null;
+    } else if (!fence) {
+      if (codeTicks === null && offset > 0 && /^ {0,3}<mood>/.test(line) && input.slice(0, offset).trim()) {
+        const candidate = input.slice(offset, offset + 4200);
+        const match = candidate.match(/^ {0,3}<mood>[ \t\r\n]*(Vibe[ \t]*[:：][\s\S]{1,4096}?)<\/mood>[ \t]*(?:\r?\n|$)/);
+        if (match && (match[0].endsWith("\n") || (!requireLineBreak && offset + match[0].length === input.length))) {
+          return { prefix: input.slice(0, offset), tag: "mood", content: match[1], rest: input.slice(offset + match[0].length) };
+        }
+      }
+      for (const tickRun of line.matchAll(/(?<!\\)`+/g)) {
+        if (codeTicks === null) codeTicks = tickRun[0].length;
+        else if (codeTicks === tickRun[0].length) codeTicks = null;
+      }
+      if (!line.trim()) codeTicks = null;
+    }
+    offset += line.length + 1;
+  }
+  return null;
 }

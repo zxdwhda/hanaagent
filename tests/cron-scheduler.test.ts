@@ -272,6 +272,37 @@ describe("cron-scheduler", () => {
     expect(store.getJob).toHaveBeenCalledWith(second.id);
   });
 
+  it("lets another assistant finish while serializing two jobs for the same assistant", async () => {
+    const due = new Date(Date.now() - 1000).toISOString();
+    const jobs = ["a-first", "a-second", "b-first"].map((id) => ({
+      id, actorAgentId: id[0], enabled: true, nextRunAt: due,
+    }));
+    let releaseFirst!: () => void;
+    const firstPending = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const store = {
+      listJobs: () => jobs,
+      getJob: (id: string) => jobs.find((job) => job.id === id),
+      markRun: vi.fn((_id: string) => true),
+      logRun: vi.fn(),
+    };
+    const executeJob = vi.fn(async (job) => {
+      if (job.id === "a-first") {
+        await firstPending;
+      }
+    });
+    const scheduler = createCronScheduler({ cronStore: store, executeJob } as any);
+    const check = scheduler.checkJobs();
+    try {
+      await vi.waitFor(() => expect(store.markRun).toHaveBeenCalledWith("b-first", expect.any(Object)));
+      expect(executeJob.mock.calls.map(([job]) => job.id)).toEqual(["a-first", "b-first"]);
+      expect(store.markRun.mock.calls.map(([id]) => id)).toEqual(["b-first"]);
+    } finally {
+      releaseFirst();
+      await check;
+    }
+    expect(executeJob.mock.calls.map(([job]) => job.id)).toEqual(["a-first", "b-first", "a-second"]);
+  });
+
   it("records a stale run without advancing a newer configuration revision", async () => {
     const job = {
       id: "job_stale",

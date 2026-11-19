@@ -65,12 +65,16 @@ export interface LoadLlmUsageEntriesOptions {
 }
 
 export async function loadLlmUsageEntries(options: number | LoadLlmUsageEntriesOptions = 500): Promise<UsageLedgerEntry[]> {
+  return (await loadLlmUsageWindow(options)).entries;
+}
+
+export async function loadLlmUsageWindow(options: number | LoadLlmUsageEntriesOptions) {
   const params = usageQueryParams(options);
   const query = params.toString();
   const res = await hanaFetch(`/api/usage/llm${query ? `?${query}` : ''}`);
   const data: unknown = await res.json();
-  if (!isUsageResponse(data)) return [];
-  return data.entries;
+  if (!isUsageResponse(data)) return { entries: [], historyMayBeIncomplete: false };
+  return { entries: data.entries, historyMayBeIncomplete: data.historyMayBeIncomplete === true };
 }
 
 function usageQueryParams(options: number | LoadLlmUsageEntriesOptions) {
@@ -102,7 +106,7 @@ function cleanDateParam(value: string | null | undefined) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function isUsageResponse(value: unknown): value is { entries: UsageLedgerEntry[] } {
+function isUsageResponse(value: unknown): value is { entries: UsageLedgerEntry[]; historyMayBeIncomplete?: boolean } {
   if (!value || typeof value !== 'object') return false;
   const entries = (value as { entries?: unknown }).entries;
   return Array.isArray(entries);

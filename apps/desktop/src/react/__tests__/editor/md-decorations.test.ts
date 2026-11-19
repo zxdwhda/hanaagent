@@ -103,9 +103,9 @@ describe('collectLivePreviewRanges', () => {
     expect(blockSpecs).toEqual([]);
   });
 
-  it('provides block math decorations through the direct state field', () => {
+  it.each(['$$y^2$$', '$$\ny^2\n$$'])('provides block math decorations for %s through the direct state field', (math) => {
     const state = EditorState.create({
-      doc: 'intro\n$$\ny^2\n$$',
+      doc: 'intro\n' + math,
       extensions: [markdownBlockDecoField],
     });
     const specs: unknown[] = [];
@@ -115,6 +115,12 @@ describe('collectLivePreviewRanges', () => {
     });
 
     expect(specs).toHaveLength(1);
+  });
+
+  it('keeps single-line display math editable on the active line and literal in code', () => {
+    const math = '$$y^2$$';
+    expect(collectLivePreviewRanges(math, new Set([1]))).toEqual([]);
+    expect(collectLivePreviewRanges('```md\n' + math + '\n```', new Set())).toEqual([]);
   });
 
   it('reveals block math source when the rendered block is clicked', () => {
