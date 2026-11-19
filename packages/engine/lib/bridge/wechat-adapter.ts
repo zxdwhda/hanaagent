@@ -116,19 +116,16 @@ async function apiPost(baseUrl, endpoint, body, token, timeoutMs, parentSignal) 
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    clearTimeout(timer);
     const text = await res.text();
     if (!res.ok) throw new Error(`${endpoint} HTTP ${res.status}: ${text}`);
     const json = JSON.parse(text);
-    // iLink API 业务错误：HTTP 200 但 ret != 0
-    if (json.ret !== undefined && json.ret !== 0) {
+    // iLink can report failure through either field even with HTTP 200.
+    if ((json.ret !== undefined && json.ret !== 0) || (json.errcode != null && json.errcode !== 0)) {
       throw new Error(`${endpoint} ret=${json.ret} errcode=${json.errcode ?? ""} errmsg=${json.errmsg ?? ""}`);
     }
     return json;
-  } catch (err) {
-    clearTimeout(timer);
-    throw err;
   } finally {
+    clearTimeout(timer);
     parentSignal?.removeEventListener("abort", onParentAbort);
   }
 }
@@ -387,7 +384,8 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
 
   // ── CDN 媒体上传 ──
 
-  async function uploadMedia(buffer, toUserId, mediaType) {
+  async function uploadMedia(buffer, toUserId, mediaType, signal: AbortSignal) {
+    signal.throwIfAborted();
     const rawsize = buffer.length;
     const rawfilemd5 = crypto.createHash("md5").update(buffer).digest("hex");
     const filesize = aesEcbPaddedSize(rawsize);
@@ -409,6 +407,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
     const cdnUrl = signedUrl || buildCdnUploadUrl(uploadResp.upload_param, filekey);
     const cdnRes = await fetch(cdnUrl, {
       method: "POST",
+      signal,
       ...(signedUrl ? { redirect: "error" } : {}),
       headers: { "Content-Type": "application/octet-stream" },
       body: new Uint8Array(ciphertext),
@@ -643,13 +642,15 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
     async sendMedia(chatId, url) {
       const ctx = getContextToken(chatId);
       if (!ctx) throw new Error("微信: 需要对方最近发过消息才能回复");
+      const signal = abortController.signal;
       // 下载远程文件
-      const res = await fetch(url);
+      const res = await fetch(url, { signal });
       if (!res.ok) throw new Error(`下载媒体失败: ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());
       const contentType = res.headers.get("content-type") || "";
       const isImage = contentType.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(url);
-      const uploaded = await uploadMedia(buffer, chatId, isImage ? UploadMediaType.IMAGE : UploadMediaType.FILE);
+      const uploaded = await uploadMedia(buffer, chatId, isImage ? UploadMediaType.IMAGE : UploadMediaType.FILE, signal);
+      signal.throwIfAborted();
       if (isImage) {
         await sendImageMessage(chatId, uploaded, ctx, "");
       } else {
@@ -661,10 +662,12 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
     async sendMediaBuffer(chatId, buffer, { mime, filename }) {
       const ctx = getContextToken(chatId);
       if (!ctx) throw new Error("微信: 需要对方最近发过消息才能回复");
+      const signal = abortController.signal;
       const isImage = mime?.startsWith("image/");
       const mediaType = isImage ? UploadMediaType.IMAGE : UploadMediaType.FILE;
       debugLog()?.log("bridge", `[wechat] sendMediaBuffer: mime=${mime}, filename=${filename}, size=${buffer.length}, mediaType=${mediaType}, isImage=${isImage}`);
-      const uploaded = await uploadMedia(buffer, chatId, mediaType);
+      const uploaded = await uploadMedia(buffer, chatId, mediaType, signal);
+      signal.throwIfAborted();
       debugLog()?.log("bridge", `[wechat] uploaded: filekey=${uploaded.filekey}, downloadParam=${!!uploaded.downloadParam}`);
       if (isImage) {
         await sendImageMessage(chatId, uploaded, ctx, "");

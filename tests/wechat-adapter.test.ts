@@ -77,6 +77,99 @@ describe("createWechatAdapter", () => {
     adapter.stop();
   });
 
+  it("reports an expired session even when iLink returns HTTP 200 and ret 0", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ ret: 0, errcode: -14, errmsg: "expired" }))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const onStatus = vi.fn();
+    const adapter = createWechatAdapter({ botToken: "wx-fixture", agentId: "hana", onMessage: vi.fn(), onStatus } as any);
+    try {
+      await vi.waitFor(() => expect(onStatus).toHaveBeenCalled());
+      expect(onStatus).toHaveBeenCalledWith("error", "session expired");
+      expect(onStatus).not.toHaveBeenCalledWith("connected");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      adapter.stop();
+    }
+  });
+
+  it("keeps the iLink request deadline until the entire response body is read", async () => {
+    let validationSignal: AbortSignal;
+    const fetchMock = vi.fn(async (url, options) => {
+      if (!String(url).includes("ilink/bot/getconfig")) return new Promise(() => {});
+      validationSignal = options.signal;
+      return {
+        ok: true,
+        text: () => new Promise((_, reject) => {
+          validationSignal.addEventListener("abort", () => reject(validationSignal.reason), { once: true });
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const adapter = createWechatAdapter({ botToken: "wx-fixture", agentId: "hana", onMessage: vi.fn(), onStatus: vi.fn() } as any);
+    try {
+      const validation = adapter.getMe().catch(error => error);
+      await vi.advanceTimersByTimeAsync(10_001);
+      expect(validationSignal.aborted).toBe(true);
+      expect(await validation).toBeInstanceOf(Error);
+    } finally {
+      adapter.stop();
+    }
+  });
+
+  it.each([
+    { caseName: "iLink rejects the file notification", stopDuringUpload: false },
+    { caseName: "the adapter stops during the CDN upload", stopDuringUpload: true },
+  ])("rejects file delivery when $caseName", async ({ stopDuringUpload }) => {
+    let completePoll = false;
+    let uploadSignal: AbortSignal | undefined;
+    let finishUpload: () => void;
+    const uploadGate = new Promise<void>(resolve => { finishUpload = resolve; });
+    const fetchMock = vi.fn(async (url, options?) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("ilink/bot/getupdates")) {
+        if (completePoll) return new Promise(() => {});
+        completePoll = true;
+        return jsonResponse({ ret: 0, msgs: [{
+          from_user_id: "user-fixture", context_token: "ctx-fixture",
+          item_list: [{ type: 1, text_item: { text: "fixture" } }],
+        }] });
+      }
+      if (requestUrl.includes("ilink/bot/getuploadurl")) return jsonResponse({ ret: 0, upload_param: "fixture-upload" });
+      if (requestUrl.includes("/c2c/upload")) {
+        uploadSignal = options?.signal;
+        if (stopDuringUpload) await uploadGate;
+        return cdnUploadResponse();
+      }
+      if (requestUrl.includes("ilink/bot/sendmessage")) {
+        return jsonResponse({ ret: 0, errcode: -14, errmsg: "expired" });
+      }
+      throw new Error("Unexpected fixture request: " + requestUrl);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onMessage = vi.fn();
+    const adapter = createWechatAdapter({ botToken: "wx-fixture", agentId: "hana", onMessage, onStatus: vi.fn() } as any);
+    try {
+      await vi.waitFor(() => expect(onMessage).toHaveBeenCalledOnce());
+      const send = adapter.sendMediaBuffer("user-fixture", Buffer.from("fixture"), {
+        mime: "text/plain", filename: "fixture.txt",
+      });
+      if (stopDuringUpload) {
+        await vi.waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/c2c/upload"))).toBe(true));
+        adapter.stop();
+        finishUpload();
+        await expect(send).rejects.toHaveProperty("name", "AbortError");
+        expect(uploadSignal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls.some(([url]) => String(url).includes("ilink/bot/sendmessage"))).toBe(false);
+      } else {
+        await expect(send).rejects.toThrow(/sendmessage.*errcode=-14/);
+      }
+    } finally {
+      adapter.stop();
+    }
+  });
+
   it.each([
     ["image/png", "image.png", 2, "image_item", "legacy"],
     ["text/plain", "note.txt", 4, "file_item", "legacy"],
