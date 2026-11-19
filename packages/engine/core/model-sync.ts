@@ -264,14 +264,14 @@ function buildModelEntry(
   const audio = userAudio !== undefined ? userAudio : (knownAudio === true);
   const userXhigh = isObj ? modelEntry.xhigh : undefined;
   const xhigh = userXhigh !== undefined ? userXhigh : (known?.xhigh === true);
+  const contextWindow = (isObj ? (modelEntry.context ?? modelEntry.contextWindow) : undefined)
+    ?? piProtocolBaseline?.contextWindow
+    ?? known?.context;
   const entry: Record<string, any> = {
     id,
     name: (isObj && modelEntry.name) || piProtocolBaseline?.name || known?.name || humanizeName(id),
     input: buildPiInputModalities({ image: image === true }),
-    contextWindow: (isObj ? (modelEntry.context ?? modelEntry.contextWindow) : undefined)
-      ?? piProtocolBaseline?.contextWindow
-      ?? known?.context
-      ?? DEFAULT_CONTEXT_WINDOW,
+    contextWindow: contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     reasoning: (isObj && modelEntry.reasoning !== undefined)
       ? modelEntry.reasoning
       : (
@@ -368,6 +368,7 @@ function buildModelEntry(
   }
   // Pi projects only its own model fields. Keep the configured tool capability
   // in compat so the request hooks still have it after model lookup.
+  if (contextWindow == null) entry.compat = { ...entry.compat, contextWindowEstimated: true };
   if (toolUse) entry.compat = { ...entry.compat, supportsTools: toolUse.supportsTools };
   if (requiresAnthropicAdaptiveThinking(entry, { api: modelApi })) {
     entry.compat = { ...entry.compat, forceAdaptiveThinking: true };

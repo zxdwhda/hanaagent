@@ -99,6 +99,23 @@ describe('ContextRing', () => {
     expect(queryByText('12k')).toBeNull();
   });
 
+  it('shows used tokens with no percentage when the model limit is unknown', async () => {
+    useStore.setState({
+      contextBySession: { sess_a: { tokens: 32_000, window: null, percent: null } },
+      contextWindow: 128_000,
+      contextPercent: 25,
+      compactingSessions: [],
+    } as never);
+    const { container } = render(<ContextRing />);
+
+    fireEvent.mouseEnter(container.querySelector('button') as HTMLButtonElement);
+
+    expect(await screen.findByText('input.contextWindowUnknown')).toBeInTheDocument();
+    expect(screen.getByText('input.tokensUsedWithoutPercent')).toBeInTheDocument();
+    expect(screen.queryByText('input.tokensUsed')).not.toBeInTheDocument();
+    expect(container.querySelector('circle[visibility="hidden"]')).toBeTruthy();
+  });
+
   it('keeps the token label hidden at high usage', async () => {
     useStore.setState({
       contextBySession: {

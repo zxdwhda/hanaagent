@@ -107569,6 +107569,11 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/pi-sdk/stream-guard.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/mcp/clients/http-client.ts",
           "kind": "import-statement"
         },
@@ -107603,7 +107608,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/mcp/clients/http-client.ts (import-statement); packages/engine/lib/bridge/outbound-http.ts (import-statement); apps/server/routes/bridge.ts (import-statement); +4 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/pi-sdk/stream-guard.ts (import-statement); packages/engine/core/mcp/clients/http-client.ts (import-statement); packages/engine/lib/bridge/outbound-http.ts (import-statement); +5 more importer(s)."
     },
     {
       "path": "packages/engine/lib/notifications/notification-service.ts",
@@ -112130,6 +112135,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "apps/server/routes/chat.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "apps/server/routes/sessions.ts",
           "kind": "import-statement"
         },
@@ -112139,7 +112149,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/message-sanitizer.ts (import-statement); packages/engine/core/provider-compat/reasoning-content-replay.ts (import-statement); packages/engine/core/provider-compat/deepseek.ts (import-statement); +26 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/message-sanitizer.ts (import-statement); packages/engine/core/provider-compat/reasoning-content-replay.ts (import-statement); packages/engine/core/provider-compat/deepseek.ts (import-statement); +27 more importer(s)."
     },
     {
       "path": "packages/shared/model-ref.ts",
@@ -112229,6 +112239,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/net/outbound-proxy.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/execution-router.ts",
           "kind": "import-statement"
         },
@@ -112238,7 +112253,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/shared/provider-auth.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); packages/engine/core/model-manager.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/shared/provider-auth.ts (import-statement); packages/engine/lib/net/outbound-proxy.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); +1 more importer(s)."
     },
     {
       "path": "packages/shared/network-proxy.ts",
@@ -112246,12 +112261,12 @@
       "provenance": [
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/core/preferences-manager.ts",
+          "from": "packages/engine/lib/net/outbound-proxy.ts",
           "kind": "import-statement"
         },
         {
           "root": "server-bootstrap",
-          "from": "packages/engine/lib/net/outbound-proxy.ts",
+          "from": "packages/engine/core/preferences-manager.ts",
           "kind": "import-statement"
         },
         {
@@ -112260,7 +112275,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/preferences-manager.ts (import-statement); packages/engine/lib/net/outbound-proxy.ts (import-statement); packages/engine/core/mcp/clients/http-client.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/net/outbound-proxy.ts (import-statement); packages/engine/core/preferences-manager.ts (import-statement); packages/engine/core/mcp/clients/http-client.ts (import-statement)."
     },
     {
       "path": "packages/shared/notification-preferences.ts",

@@ -87,6 +87,7 @@ import {
   modelSupportsAudioInput,
   modelSupportsDirectVideoInput,
   modelSupportsVideoInput,
+  contextUsageForDisplay,
 } from "../../shared/model-capabilities.ts";
 import {
   normalizeSessionThinkingLevel,
@@ -5818,7 +5819,7 @@ export class SessionCoordinator {
         ? [...entry.reminderAcceptedCatalogNames]
         : [],
       toolCatalogManifest: entry.toolCatalogManifest || null,
-      contextUsage: entry.session?.getContextUsage?.() || null,
+      contextUsage: contextUsageForDisplay(entry.session) ?? null,
       hibernatedAt: Date.now(),
     });
     const locator = path.resolve(sessionPath);
@@ -6046,7 +6047,7 @@ export class SessionCoordinator {
 
   getSessionContextUsage(sessionPath: any) {
     if (!sessionPath) return null;
-    const live = this._getSessionEntryByPath(sessionPath)?.session?.getContextUsage?.();
+    const live = contextUsageForDisplay(this._getSessionEntryByPath(sessionPath)?.session);
     if (live) return live;
     return this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath)?.contextUsage || null;
   }
@@ -7146,6 +7147,13 @@ export class SessionCoordinator {
   _renewCachePrefixContract(sessionPath: any, entry: any, reason: any, options: any = {}) {
     if (!entry?.session) return null;
     const contract = this._buildCachePrefixContract(entry, options);
+    if (options.context == null) {
+      // Preflight sees the base prompt. Extensions can change the actual request
+      // after preflight, so a request renewal must preserve the base contract.
+      entry.cachePrefixPreflightContract = contract;
+    } else {
+      entry.cachePrefixPreflightContract ??= this._buildCachePrefixContract(entry);
+    }
     entry.cachePrefixContract = contract;
     entry.cachePrefixContractRenewReason = reason;
     entry.cachePrefixContractRenewedAt = Date.now();
@@ -7174,6 +7182,9 @@ export class SessionCoordinator {
     let expected = entry.cachePrefixContract;
     if (!expected) {
       expected = this._renewCachePrefixContract(sessionPath, entry, "late_init", { model, context });
+    }
+    if (context == null) {
+      expected = entry.cachePrefixPreflightContract ?? expected;
     }
     const actual = this._buildCachePrefixContract(entry, { model, context });
     const diffs = diffCachePrefixContracts(expected, actual);

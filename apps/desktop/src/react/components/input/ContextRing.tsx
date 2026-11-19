@@ -35,9 +35,9 @@ export function ContextRing() {
   const globalContextTokens = useStore(s => s.contextTokens);
   const globalContextWindow = useStore(s => s.contextWindow);
   const globalContextPercent = useStore(s => s.contextPercent);
-  const storeContextTokens = contextEntry?.tokens ?? globalContextTokens;
-  const storeContextWindow = contextEntry?.window ?? globalContextWindow;
-  const storeContextPercent = contextEntry?.percent ?? globalContextPercent;
+  const storeContextTokens = contextEntry ? contextEntry.tokens : globalContextTokens;
+  const storeContextWindow = contextEntry ? contextEntry.window : globalContextWindow;
+  const storeContextPercent = contextEntry ? contextEntry.percent : globalContextPercent;
   const storeCompacting = useStore(s => isSessionCompacting(s, currentSessionPath));
   const compactionMode = useStore(s => getSessionCompactionMode(s, currentSessionPath));
   const refreshing = useStore(s => sessionScopedListIncludes(s, s.capabilityRefreshingSessions, currentSessionPath));
@@ -150,9 +150,13 @@ export function ContextRing() {
       {compacting && compactionMode === 'lossy_local' && (
         <div>{t('chat.instantSimpleCompaction')}</div>
       )}
-      <div>{t('input.contextWindow', { windowK })}</div>
+      <div>{contextWindow == null
+        ? t('input.contextWindowUnknown')
+        : t('input.contextWindow', { windowK })}</div>
       {tokens != null && (
-        <div>{t('input.tokensUsed', { tokensK, pct: Math.round(pct) })}</div>
+        <div>{percent == null
+          ? t('input.tokensUsedWithoutPercent', { tokensK })
+          : t('input.tokensUsed', { tokensK, pct: Math.round(percent) })}</div>
       )}
     </>
   );
@@ -189,6 +193,7 @@ export function ContextRing() {
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
                   transform={`rotate(-90 ${center} ${center})`}
+                  visibility={percent == null ? 'hidden' : undefined}
                   className={styles['context-ring-progress']}
                 />
               </svg>

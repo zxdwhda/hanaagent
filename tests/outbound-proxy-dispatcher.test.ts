@@ -2,9 +2,8 @@
  * tests/outbound-proxy-dispatcher.test.ts
  *
  * #1612：fetchDispatcherForUrl 是 npm undici fetch 的 per-URL 代理 dispatcher
- * 唯一来源，与 WS 的 webSocketOptionsForUrl 共享同一份代理配置（apply 注入的
- * currentConfig）。Node 内建 fetch 不读取 npm undici 的 global dispatcher，
- * 所以依赖代理的出站 fetch 必须显式从这里拿 dispatcher。
+ * 来源，与 WS 的 webSocketOptionsForUrl 共享 apply 注入的代理配置。
+ * 也覆盖 Node 24 的 SDK 请求经全局 dispatcher 应用本地模型等待时间。
  */
 
 import { once } from "node:events";
@@ -13,6 +12,8 @@ import https from "node:https";
 import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
+import { getGlobalDispatcher } from "undici";
+import { installAssistantStreamGuard } from "../packages/engine/lib/pi-sdk/stream-guard.ts";
 import { createOutboundProxyRuntime, fetchDispatcherForUrl, telegramBotOptions, webSocketOptionsForUrl } from "../packages/engine/lib/net/outbound-proxy.ts";
 
 describe("fetchDispatcherForUrl", () => {
@@ -68,6 +69,73 @@ describe("fetchDispatcherForUrl", () => {
     const resolved = fetchDispatcherForUrl("https://api.sgroup.qq.com/gateway", {});
     expect(resolved.proxyUrl).toBe("socks5://127.0.0.1:1080");
     expect(resolved.dispatcher).toBeTruthy();
+  });
+});
+
+describe("local model response header budget", () => {
+  it("applies the budget to the SDK completion request and preserves cancellation and other traffic", async () => {
+    const { stream } = await import("@earendil-works/pi-ai/api/openai-completions");
+    const dispatchSpy = vi.spyOn(getGlobalDispatcher(), "dispatch");
+    const runtime = createOutboundProxyRuntime({ env: { HANA_LLM_HEADERS_TIMEOUT_MS: "345000" } });
+    const server = http.createServer((request, response) => {
+      if (request.url === "/cancel/chat/completions") return;
+      if (request.url === "/health") {
+        response.end("ok");
+        return;
+      }
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      const chunk = {
+        id: "fixture", object: "chat.completion.chunk", created: 1, model: "local-fixture",
+        choices: [{ index: 0, delta: { content: "completed" }, finish_reason: "stop" }],
+      };
+      response.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+    });
+    server.listen(0, "127.0.0.1");
+
+    try {
+      await once(server, "listening");
+      runtime.apply({ mode: "direct" });
+      const { port } = server.address() as net.AddressInfo;
+      const origin = `http://127.0.0.1:${port}`;
+      const model: Parameters<typeof stream>[0] = {
+        id: "local-fixture", name: "Local fixture", provider: "openai", api: "openai-completions",
+        baseUrl: origin + "/v1", input: ["text"], reasoning: false,
+        contextWindow: 8192, maxTokens: 100, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      };
+      const context: Parameters<typeof stream>[1] = {
+        messages: [{ role: "user", content: "fixture", timestamp: 0 }],
+      };
+      const originalStream = vi.fn(stream);
+      const session = { agent: { streamFn: originalStream } };
+      installAssistantStreamGuard(session);
+
+      const completed = await session.agent.streamFn(model, context, { apiKey: "fixture" });
+      expect(originalStream.mock.calls[0]?.[2]?.timeoutMs).toBe(345_000);
+      expect((await completed.result()).content).toEqual([{ type: "text", text: "completed" }]);
+      const health = await fetch(origin + "/health", { method: "POST" });
+      expect(await health.text()).toBe("ok");
+
+      const cancel = new AbortController();
+      const cancelRequest = once(server, "request");
+      const cancelled = await session.agent.streamFn(
+        { ...model, baseUrl: origin + "/cancel" }, context, { apiKey: "fixture", signal: cancel.signal },
+      );
+      await cancelRequest;
+      cancel.abort();
+      expect((await cancelled.result()).stopReason).toBe("aborted");
+
+      const attempts = dispatchSpy.mock.calls.map(([options]) => [options.path, options.headersTimeout]);
+      expect(attempts).toEqual([
+        ["/v1/chat/completions", 345_000],
+        ["/health", undefined],
+        ["/cancel/chat/completions", 345_000],
+      ]);
+    } finally {
+      runtime.reset();
+      dispatchSpy.mockRestore();
+      server.closeAllConnections();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
   });
 });
 

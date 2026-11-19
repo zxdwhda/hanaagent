@@ -44,6 +44,18 @@ describe("chat route compaction lifecycle messages", () => {
     expect(getSessionByPath).toHaveBeenCalledWith("/session/a.jsonl");
   });
 
+  it("omits the window and ratio derived from an estimated model limit", () => {
+    expect(toCompactionLifecycleWsMessage(
+      { type: "compaction_end" },
+      "/session/a.jsonl",
+      () => ({
+        model: { compat: { contextWindowEstimated: true } },
+        getContextUsage: () => ({ tokens: 32_000, contextWindow: 128_000, percent: 25 }),
+      }),
+      () => "sess_a",
+    )).toMatchObject({ tokens: 32_000, contextWindow: null, percent: null });
+  });
+
   it("includes the resolved compaction mode so the session ring can label local compaction", () => {
     expect(toCompactionLifecycleWsMessage(
       { type: "compaction_start", reason: "threshold" },

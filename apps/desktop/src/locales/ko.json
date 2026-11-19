@@ -428,6 +428,8 @@
       "low": "가벼운 추론"
     },
     "contextWindow": "컨텍스트 {windowK}k",
+    "contextWindowUnknown": "컨텍스트 한도 알 수 없음",
+    "tokensUsedWithoutPercent": "사용 {tokensK}k",
     "tokensUsed": "사용 {tokensK}k ({pct}%)",
     "contextActions": "컨텍스트 작업",
     "refreshAndCompact": "압축 후 업데이트",

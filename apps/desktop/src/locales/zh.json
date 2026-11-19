@@ -428,6 +428,8 @@
       "low": "轻量推理"
     },
     "contextWindow": "上下文 {windowK}k",
+    "contextWindowUnknown": "上下文上限未知",
+    "tokensUsedWithoutPercent": "已用 {tokensK}k",
     "tokensUsed": "已用 {tokensK}k ({pct}%)",
     "contextActions": "上下文操作",
     "refreshAndCompact": "压缩并更新",

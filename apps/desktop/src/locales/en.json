@@ -433,6 +433,8 @@
       "max": "Maximum reasoning"
     },
     "contextWindow": "Context {windowK}k",
+    "contextWindowUnknown": "Context limit unknown",
+    "tokensUsedWithoutPercent": "Used {tokensK}k",
     "tokensUsed": "Used {tokensK}k ({pct}%)",
     "contextActions": "Context actions",
     "refreshAndCompact": "Compact and update",

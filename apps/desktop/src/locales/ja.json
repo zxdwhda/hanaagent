@@ -428,6 +428,8 @@
       "low": "軽量推論"
     },
     "contextWindow": "コンテキスト {windowK}k",
+    "contextWindowUnknown": "コンテキスト上限は不明",
+    "tokensUsedWithoutPercent": "使用済み {tokensK}k",
     "tokensUsed": "使用済み {tokensK}k ({pct}%)",
     "contextActions": "コンテキスト操作",
     "refreshAndCompact": "圧縮して更新",

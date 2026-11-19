@@ -1210,6 +1210,18 @@ describe('ws-message-handler compaction lifecycle', () => {
     ]);
   });
 
+  it('clears the previous model window and ratio when the new limit is unknown', () => {
+    const sessionPath = '/session/a.jsonl';
+    handleServerMessage({ type: 'context_usage', sessionPath, tokens: 32_000, contextWindow: 128_000, percent: 25 });
+    handleServerMessage({ type: 'context_usage', sessionPath, tokens: 32_000, contextWindow: null, percent: null });
+
+    expect(useStore.getState().contextBySession[sessionPath]).toEqual({
+      tokens: 32_000,
+      window: null,
+      percent: null,
+    });
+  });
+
   it('preserves context_usage window even when tokens are unknown', () => {
     handleServerMessage({
       type: 'context_usage',

@@ -49,6 +49,7 @@ import {
 import { resolveWsSessionContext } from "./ws-session-context.ts";
 import { visiblePromptText } from "../../../packages/engine/core/session-reminders.ts";
 import { AppError } from "../../../packages/shared/errors.ts";
+import { contextUsageForDisplay } from "../../../packages/shared/model-capabilities.ts";
 import { errorBus } from "../../../packages/shared/error-bus.ts";
 import { createRequestContext } from "../http/boundary.ts";
 import { buildDeferredResultInterludeBlock, resolveDeferredReceiverName } from "../deferred-result-interlude.ts";
@@ -217,7 +218,7 @@ export function toCompactionLifecycleWsMessage(
   }
   if (event.type !== "compaction_end") return null;
 
-  const usage = getSessionByPath?.(sessionPath)?.getContextUsage?.();
+  const usage = contextUsageForDisplay(getSessionByPath?.(sessionPath));
   return {
     type: "compaction_end",
     sessionId,
@@ -1850,7 +1851,7 @@ export function createChatRoute(engine: any, hub: any, {
               const usageCtx = requireWsSessionContext(msg, ws); if (!usageCtx) return;
               const usagePath = usageCtx.sessionPath;
               const usage = engine.getSessionContextUsage?.(usagePath)
-                || engine.getSessionByPath(usagePath)?.getContextUsage?.();
+                ?? contextUsageForDisplay(engine.getSessionByPath(usagePath));
               wsSend(ws, {
                 type: "context_usage",
                 sessionPath: usagePath,

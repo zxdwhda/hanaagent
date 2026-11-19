@@ -335,7 +335,7 @@ function updateCompactionContext(msg: any): void {
       || (sessionPath ? sessionScopedValue(state, state.contextBySession, sessionPath) : null);
     const value = {
       tokens: msg.tokens ?? null,
-      window: msg.contextWindow ?? existing?.window ?? null,
+      window: msg.contextWindow === undefined ? existing?.window ?? null : msg.contextWindow,
       percent: msg.percent ?? null,
     };
     const contextBySession = { ...(state.contextBySession || {}), [key]: value };
@@ -1019,8 +1019,8 @@ export function handleServerMessage(msg: any): void {
       const sp = msg.sessionPath;
       if (!sp) { console.warn('[ws] event missing sessionPath:', msg.type); break; }
       const existingWindow = sessionScopedValue(useStore.getState(), useStore.getState().contextBySession, sp)?.window ?? null;
-      const window = msg.contextWindow ?? existingWindow;
-      if (msg.tokens != null || window != null || msg.percent != null) {
+      const window = msg.contextWindow === undefined ? existingWindow : msg.contextWindow;
+      if (msg.contextWindow !== undefined || msg.tokens != null || window != null || msg.percent != null) {
         updateKeyed('contextBySession', sp,
           { tokens: msg.tokens ?? null, window, percent: msg.percent ?? null },
           (_s, d) => ({ contextTokens: d.tokens, contextWindow: d.window, contextPercent: d.percent }),

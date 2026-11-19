@@ -1,5 +1,6 @@
 // lib/net/outbound-proxy.ts
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   Agent as UndiciAgent,
   ProxyAgent as UndiciProxyAgent,
@@ -13,8 +14,30 @@ import {
   proxyConfigFromEnvironment,
   resolveProxyForUrl,
 } from "../../../shared/network-proxy.ts";
+import { isLocalBaseUrl } from "../../../shared/net-utils.ts";
 
 const originalGlobalDispatcher = getGlobalDispatcher();
+const modelHeaderBudget = new AsyncLocalStorage<{ origin: string; timeoutMs: number } | null>();
+const DEFAULT_LOCAL_MODEL_HEADERS_TIMEOUT_MS = 600_000;
+let currentLocalModelHeadersTimeout = DEFAULT_LOCAL_MODEL_HEADERS_TIMEOUT_MS;
+
+export function withLocalModelResponseHeaderBudget<T>(
+  model: { api?: string; baseUrl?: string },
+  request: (timeoutMs?: number) => T,
+): T {
+  const baseUrl = model?.baseUrl;
+  const budget = model?.api === "openai-completions" && baseUrl && isLocalBaseUrl(baseUrl)
+    ? { origin: new URL(baseUrl).origin, timeoutMs: currentLocalModelHeadersTimeout }
+    : null;
+  return modelHeaderBudget.run(budget, () => request(budget?.timeoutMs));
+}
+
+function localModelHeadersTimeout(env: NodeJS.ProcessEnv) {
+  const configured = Number(env.HANA_LLM_HEADERS_TIMEOUT_MS);
+  return Number.isSafeInteger(configured) && configured > 0 && configured <= 2_147_483_647
+    ? configured
+    : DEFAULT_LOCAL_MODEL_HEADERS_TIMEOUT_MS;
+}
 let currentConfig = normalizeNetworkProxyConfig(undefined);
 let currentDispatcher: any = null;
 let nodeProxyAgentCache: Map<string, any> = new Map();
@@ -56,27 +79,35 @@ function hasUsableProxy(config: any) {
 
 function createGlobalDispatcher(config: any, env = process.env) {
   const effective = buildEffectiveProxyConfig(config, env);
-  if (effective.mode === "direct" || !hasUsableProxy(effective)) return null;
-
-  const direct = new UndiciAgent();
-  const proxyUrls = collectUnique([effective.httpProxy, effective.httpsProxy]);
+  const useProxy = effective.mode !== "direct" && hasUsableProxy(effective);
+  const direct = useProxy ? new UndiciAgent() : null;
+  const proxyUrls = useProxy ? collectUnique([effective.httpProxy, effective.httpsProxy]) : [];
   const proxyDispatchers = new Map(proxyUrls.map(url => [url, createUndiciProxyDispatcher(url)]));
 
   return {
     dispatch(opts: any, handler: any) {
       const origin = opts?.origin ? String(opts.origin) : "";
-      const proxyUrl = origin ? resolveProxyForUrl(origin, effective, env) : "";
-      const dispatcher = proxyUrl ? proxyDispatchers.get(proxyUrl) : null;
-      return (dispatcher || direct).dispatch(opts, handler);
+      const proxyUrl = useProxy && origin ? resolveProxyForUrl(origin, effective, env) : "";
+      const dispatcher = (proxyUrl ? proxyDispatchers.get(proxyUrl) : null)
+        ?? direct ?? originalGlobalDispatcher;
+      // OpenAI's SDK uses global fetch. Match the model origin and POST so
+      // unrelated traffic and cross-origin redirects keep the default budget.
+      const budget = modelHeaderBudget.getStore();
+      const isLocalModelRequest = budget && opts.method === "POST" && origin === budget.origin
+        && opts.path?.split("?", 1)[0].endsWith("/chat/completions");
+      const request = isLocalModelRequest
+        ? { ...opts, headersTimeout: opts.headersTimeout ?? budget.timeoutMs }
+        : opts;
+      return dispatcher.dispatch(request, handler);
     },
     async close() {
       await Promise.allSettled([
-        direct.close?.(),
+        direct?.close?.(),
         ...[...proxyDispatchers.values()].map(dispatcher => dispatcher.close?.()),
       ]);
     },
     destroy(err: any) {
-      direct.destroy?.(err);
+      direct?.destroy?.(err);
       for (const dispatcher of proxyDispatchers.values()) {
         dispatcher.destroy?.(err);
       }
@@ -123,8 +154,9 @@ export function createOutboundProxyRuntime({ log = (..._args: any[]) => {}, warn
       resetNodeProxyAgentCache();
       resetUndiciProxyDispatcherCache();
       currentConfig = normalized;
+      currentLocalModelHeadersTimeout = localModelHeadersTimeout(env);
       currentDispatcher = nextDispatcher;
-      setGlobalDispatcher((nextDispatcher || originalGlobalDispatcher) as any);
+      setGlobalDispatcher(nextDispatcher as any);
       const modeDesc = describeProxyMode(normalized, env);
       log(`[proxy] outbound mode=${modeDesc}`);
       if (modeDesc === "system-env") {
@@ -145,6 +177,7 @@ export function createOutboundProxyRuntime({ log = (..._args: any[]) => {}, warn
       resetNodeProxyAgentCache();
       resetUndiciProxyDispatcherCache();
       currentConfig = normalizeNetworkProxyConfig(undefined);
+      currentLocalModelHeadersTimeout = DEFAULT_LOCAL_MODEL_HEADERS_TIMEOUT_MS;
       currentDispatcher = null;
       setGlobalDispatcher(originalGlobalDispatcher);
     },
@@ -170,11 +203,8 @@ export function getNodeProxyAgentForUrl(targetUrl, env = process.env) {
  * npm undici fetch 用的 per-URL 代理 dispatcher（与 WS 的 webSocketOptionsForUrl
  * 共享同一份 apply() 注入的代理配置）。
  *
- * 为什么不依赖 setGlobalDispatcher：Node 内建 fetch 与 npm undici 是两份拷贝，
- * 内建 fetch 不读取 npm 拷贝的 global dispatcher registry（Node v24 实测），
- * 上面 apply() 设置的 global dispatcher 只对 npm undici 的 fetch/request 生效。
- * 任何需要走代理的出站 fetch 必须显式拿这里的 dispatcher，并配合 npm undici
- * 的 fetch 使用（同一拷贝，dispatcher 契约锁定）。
+ * 使用 npm undici fetch 的调用可以显式选择与目标 URL 匹配的代理，
+ * 让 dispatcher 与 fetch 使用同一份 Undici API。
  */
 export function fetchDispatcherForUrl(targetUrl: any, env = process.env) {
   const proxyUrl = resolveProxyForUrl(targetUrl, currentConfig, env);

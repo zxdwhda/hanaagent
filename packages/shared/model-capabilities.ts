@@ -50,6 +50,20 @@ function getModelText(model: any, context: any = {}) {
   ].map(lower).filter(Boolean).join(" ");
 }
 
+export function contextUsageForDisplay(
+  session: {
+    model?: { compat?: unknown };
+    getContextUsage?: () => { tokens: number | null; contextWindow: number | null; percent: number | null } | undefined | null;
+  } | null | undefined,
+) {
+  const usage = session?.getContextUsage?.();
+  const compat = session?.model?.compat;
+  if (usage && isPlainObject(compat) && compat.contextWindowEstimated === true) {
+    return { ...usage, contextWindow: null, percent: null };
+  }
+  return usage;
+}
+
 function normalizeBoolean(value: unknown): boolean {
   return value === true;
 }

@@ -51,7 +51,7 @@ describe("Pi SDK stream guard", () => {
       const body = JSON.parse(String(init?.body));
       wirePayloads.push(body);
       const toolNames = body.tools.map((tool) => tool.function.name);
-      if (toolNames.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) {
+      if (body.model === model.id && toolNames.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) {
         return Response.json({ error: { message: "tools[].function.name is invalid" } }, { status: 400 });
       }
       const alias = toolNames[0];
@@ -106,8 +106,16 @@ describe("Pi SDK stream guard", () => {
     expect(wirePayloads[1].messages.find(({ role }) => role === "tool")?.tool_call_id).toBe("call_fixture");
     expect(toolCall.name).toBe(toolName);
 
-    await collect(await agent.streamFn({ ...model, id: "z-ai/glm-5.3" }, context, { apiKey: "fixture" }));
+    const otherModel = await collect(await agent.streamFn(
+      { ...model, id: "z-ai/glm-5.3" }, context, { apiKey: "fixture" },
+    ));
+    expect(otherModel.result.stopReason).toBe("toolUse");
     expect(wirePayloads[2].tools[0].function.name).toBe(toolName);
+
+    const unadapted = await streamSimple(model as any, context as any, { apiKey: "fixture" }).result();
+    expect(unadapted.stopReason).toBe("error");
+    expect(unadapted.errorMessage).toContain("tools[].function.name is invalid");
+    expect(wirePayloads[3].tools[0].function.name).toBe(toolName);
   });
 
   it("drops empty-name tool calls before the agent loop can execute them", async () => {

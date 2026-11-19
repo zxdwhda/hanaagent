@@ -564,6 +564,33 @@ describe("syncModels", () => {
     expect(sdk.find("custom", "text-only")?.compat).toMatchObject({ supportsTools: false });
   });
 
+  it("distinguishes the estimated window from configured and known catalog limits on SDK models", async () => {
+    const syncModels = await loadSync();
+    syncModels({
+      custom: {
+        api: "openai-completions", base_url: "https://example.test/v1", api_key: "fixture",
+        models: ["unknown-window", { id: "confirmed-window", context: 128_000 }],
+      },
+      dashscope: {
+        api: "openai-completions", base_url: "https://example.test/v1", api_key: "fixture",
+        models: ["qwen3.5-flash"],
+      },
+    }, { modelsJsonPath });
+    const { AuthStorage, createModelRegistry } = await import("../packages/engine/lib/pi-sdk/index.ts");
+    const sdk = createModelRegistry(AuthStorage.inMemory(), modelsJsonPath);
+    expect(sdk.find("custom", "unknown-window")).toMatchObject({
+      contextWindow: 128_000,
+      compat: { contextWindowEstimated: true },
+    });
+    const confirmed = sdk.find("custom", "confirmed-window");
+    expect(confirmed?.contextWindow).toBe(128_000);
+    expect(confirmed?.compat).not.toHaveProperty("contextWindowEstimated");
+
+    const catalog = sdk.find("dashscope", "qwen3.5-flash");
+    expect(catalog?.contextWindow).toBe(131_072);
+    expect(catalog?.compat).not.toHaveProperty("contextWindowEstimated");
+  });
+
   it("rejects malformed tool use contracts instead of silently falling back", async () => {
     const syncModels = await loadSync();
 
@@ -1120,7 +1147,7 @@ describe("syncModels", () => {
         base_url: "https://example.test/anthropic",
         api: "anthropic-messages",
         api_key: "sk-test",
-        models: [{ id: "plain-chat", reasoning: false }],
+        models: [{ id: "plain-chat", reasoning: false, context: 64_000 }],
       },
     };
 
@@ -2352,6 +2379,7 @@ describe("syncModels", () => {
     const model = result.providers.ollama.models[0];
     expect(model.compat).toEqual({
       supportsDeveloperRole: false,
+      contextWindowEstimated: true,
       thinkingFormat: "qwen",
       reasoningProfile: "mimo-openai",
       reasoningReplay: {
