@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { EventEmitter } from "node:events";
 import fs from "fs";
 import path from "path";
 
@@ -48,6 +49,32 @@ function ipcHandlerBody(source, channel) {
 }
 
 describe("desktop browser viewer window state", () => {
+  it("waits for native full-screen exit and respects a subsequent request to reopen", () => {
+    const source = fs.readFileSync(MAIN_PATH, "utf-8");
+    const { close, reopen } = new Function("process", `
+      let browserViewerVisibilityRequest = 0;
+      return {
+        close: (win) => {${functionBody(source, "hideBrowserViewerOnClose")}},
+        reopen: () => { browserViewerVisibilityRequest++; },
+      };
+    `)({ platform: "darwin" });
+    const win = Object.assign(new EventEmitter(), {
+      isFullScreen: () => true,
+      isDestroyed: () => false,
+      setFullScreen: vi.fn(),
+      hide: vi.fn(),
+    });
+    close(win);
+    expect(win.setFullScreen).toHaveBeenCalledWith(false);
+    expect(win.hide).not.toHaveBeenCalled();
+    win.emit("leave-full-screen");
+    expect(win.hide).toHaveBeenCalledOnce();
+    close(win);
+    reopen();
+    win.emit("leave-full-screen");
+    expect(win.hide).toHaveBeenCalledOnce();
+  });
+
   it("acknowledges showing a tab only after its view is found", () => {
     const show = caseBody(fs.readFileSync(MAIN_PATH, "utf-8"), "show");
     expect(show).toContain("const view = _getViewForSession(sp, tabId)");

@@ -31,6 +31,7 @@ export default defineConfig({
         "@node-rs/jieba",
         "better-sqlite3",
         "node-pty",
+        "@xterm/headless",
 
         // @firecrawl/anydoc: napi native addon. Its per-platform subpackage
         // declares the .node binary itself as "main", so bundling makes

@@ -75,7 +75,9 @@ async function waitForBrowserState(webContents, opts = {}) {
   let sameCount = 0;
 
   while (Date.now() - started <= timeoutMs) {
+    opts.signal?.throwIfAborted();
     last = await webContents.executeJavaScript(READ_BROWSER_STATE_SCRIPT);
+    opts.signal?.throwIfAborted();
     const ready = isReadyForState(last, state);
     if (ready && (state === "domcontentloaded" || state === "load")) {
       return buildDiagnostics({ state, started, last, timedOut: false, reason: "state-ready" });

@@ -51,6 +51,30 @@ describe("BrowserManager desktop host commands", () => {
     await expect(manager.show(SP1)).rejects.toThrow(t("error.browserShowUnavailable"));
     await expect(manager.show(SP1, "live-tab")).resolves.toBeUndefined();
   });
+
+  it("cancels the agent's command without interrupting the viewer or another session", async () => {
+    const manager = new BrowserManager({ desktopHostExpected: true, transport: new WsTransport() });
+    const sent: Array<{ type: string; id: string; cmd?: string }> = [];
+    const host = Object.assign(new EventEmitter(), {
+      readyState: 1,
+      send: (raw: string) => sent.push(JSON.parse(raw)),
+    });
+    manager.syncBrowserPreferences = vi.fn(async () => manager.getBrowserPreferences());
+    manager.setWsTransport(host);
+
+    const agent = manager.runAgentCommands(SP1, undefined, () => manager._sendCmd("wait", { sessionPath: SP1 }));
+    const viewer = manager._sendCmd("show", { sessionPath: SP1 });
+    const other = manager.runAgentCommands(SP2, undefined, () => manager._sendCmd("wait", { sessionPath: SP2 }));
+    manager.cancelAgentCommandsForSession(SP1);
+
+    expect(sent.slice(3)).toEqual([{ type: "browser-cancel", id: sent[0].id }]);
+    await expect(agent).rejects.toMatchObject({ name: "AbortError" });
+    for (const { id } of sent.slice(1, 3)) {
+      host.emit("message", JSON.stringify({ type: "browser-result", id, result: { ok: true } }));
+    }
+    await expect(Promise.all([viewer, other])).resolves.toEqual([{ ok: true }, { ok: true }]);
+    expect(manager._pending.size).toBe(0);
+  });
 });
 
 describe("BrowserManager URL tracking (per-session)", () => {

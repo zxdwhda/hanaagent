@@ -27,6 +27,7 @@ import os from "os";
 import path from "path";
 import fs from "fs";
 import { atomicWriteSync } from "../../../shared/safe-fs.ts";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { t } from "../i18n.ts";
 import { IpcTransport, WsTransport } from "./browser-transport.ts";
 import { createModuleLogger } from "../debug-log.ts";
@@ -153,6 +154,8 @@ export class BrowserManager {
   declare _headless: any;
   declare _lruOrder: any;
   declare _pending: any;
+  private _agentCommandSignal = new AsyncLocalStorage<AbortSignal>();
+  private _agentCommandScopes = new Map<string, Set<AbortController>>();
   declare _browserPreferences: any;
   declare _getSessionIdForPath: any;
   declare _desktopHostExpected: boolean;
@@ -201,8 +204,7 @@ export class BrowserManager {
       }
       if (msg?.type === "browser-result" && this._pending.has(msg.id)) {
         const entry = this._pending.get(msg.id);
-        this._pending.delete(msg.id);
-        clearTimeout(entry.timer);
+        entry.cleanup();
         if (msg.error) entry.reject(new Error(msg.error));
         else entry.resolve(msg.result);
       }
@@ -715,7 +717,7 @@ export class BrowserManager {
     if (transport instanceof WsTransport) {
       if (transport._ws && transport._ws !== ws) {
         for (const entry of this._pending.values()) {
-          clearTimeout(entry.timer);
+          entry.cleanup();
           entry.reject(new Error(t("error.browserHostDisconnected")));
         }
         this._pending.clear();
@@ -869,32 +871,59 @@ export class BrowserManager {
     };
   }
 
-  /**
-   * 向浏览器宿主发送命令并等待结果
-   * @param {string} cmd - 命令名
-   * @param {object} params - 参数
-   * @param {number} timeoutMs - 超时（默认 30s）
-   * @returns {Promise<any>}
-   */
+  /** Limit cancellation to browser commands issued by this tool execution. */
+  async runAgentCommands<T>(sessionPath: string, signal: AbortSignal | undefined, run: () => Promise<T>) {
+    const key = this._sessionKeyForPath(sessionPath);
+    const controller = new AbortController();
+    const scopes = this._agentCommandScopes.get(key) ?? new Set<AbortController>();
+    this._agentCommandScopes.set(key, scopes);
+    scopes.add(controller);
+    try {
+      const commandSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+      commandSignal.throwIfAborted();
+      return await this._agentCommandSignal.run(commandSignal, run);
+    } finally {
+      scopes.delete(controller);
+      if (scopes.size === 0) this._agentCommandScopes.delete(key);
+    }
+  }
+
+  cancelAgentCommandsForSession(sessionPath: string) {
+    for (const controller of this._agentCommandScopes.get(this._sessionKeyForPath(sessionPath)) ?? []) {
+      controller.abort();
+    }
+  }
+
+  /** 向浏览器宿主发送命令并等待结果。 */
   _sendCmd(cmd, params: any = {}, timeoutMs = 30000): Promise<any> {
+    const signal = this._agentCommandSignal.getStore();
+    signal?.throwIfAborted();
     if (!this._transport.connected) {
       const key = this._desktopHostExpected ? "error.browserHostDisconnected" : "error.browserDesktopOnly";
       throw new Error(t(key));
     }
     return new Promise((resolve, reject) => {
       const id = crypto.randomUUID();
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        this._pending.delete(id);
+      };
+      const onAbort = () => {
+        cleanup();
+        try { this._transport.send({ type: "browser-cancel", id }); } catch {}
+        reject(signal?.reason);
+      };
       const timer = setTimeout(() => {
-        if (this._pending.has(id)) {
-          this._pending.delete(id);
-          reject(new Error(t("error.browserCmdTimeout", { cmd })));
-        }
+        cleanup();
+        reject(new Error(t("error.browserCmdTimeout", { cmd })));
       }, timeoutMs);
-      this._pending.set(id, { resolve, reject, timer });
+      this._pending.set(id, { resolve, reject, cleanup });
+      signal?.addEventListener("abort", onAbort, { once: true });
       try {
         this._transport.send({ type: "browser-cmd", id, cmd, params });
       } catch (error) {
-        clearTimeout(timer);
-        this._pending.delete(id);
+        cleanup();
         reject(error);
       }
     });

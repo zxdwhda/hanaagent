@@ -5,7 +5,8 @@ import { spawn as spawnChild } from "child_process";
 import { resolveTerminalShell } from "./shell-resolver.ts";
 
 export async function createAsyncNodePtyBackend() {
-  const pty = await import("node-pty");
+  const [pty, xterm] = await Promise.all([import("node-pty"), import("@xterm/headless")]);
+  const { Terminal } = xterm.default ?? xterm;
   ensureUnixSpawnHelperExecutable();
   return {
     spawn({ command = "", cwd, cols = 80, rows = 24, env, onData, onExit }) {
@@ -17,13 +18,25 @@ export async function createAsyncNodePtyBackend() {
         env: resolved.env || env || process.env,
         name: "xterm-256color",
       });
-      proc.onData((data) => onData?.(data));
-      proc.onExit((event) => onExit?.({ exitCode: event.exitCode, signal: event.signal }));
+      const terminal = new Terminal({ cols, rows, scrollback: 0 });
+      const response = terminal.onData((data) => proc.write(data));
+      proc.onData((data) => {
+        terminal.write(data);
+        onData?.(data);
+      });
+      proc.onExit((event) => {
+        response.dispose();
+        terminal.dispose();
+        onExit?.({ exitCode: event.exitCode, signal: event.signal });
+      });
       return {
         write: (data) => proc.write(data),
         kill: () => proc.kill(),
         dispose: () => disposePtyProcess(proc),
-        resize: (nextCols, nextRows) => proc.resize(nextCols, nextRows),
+        resize: (nextCols, nextRows) => {
+          proc.resize(nextCols, nextRows);
+          terminal.resize(nextCols, nextRows);
+        },
       };
     },
   };
