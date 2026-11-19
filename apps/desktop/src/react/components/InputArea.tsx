@@ -920,16 +920,15 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   ]);
 
   useEffect(() => {
+    const seq = ++fileMentionSearchSeqRef.current;
+    setFileMentionSearchResults([]);
     if (!fileMenuOpen) {
-      setFileMentionSearchResults([]);
       setFileMentionBusy(false);
       return;
     }
 
     const query = fileMentionQuery.trim();
-    const seq = ++fileMentionSearchSeqRef.current;
     if (!query) {
-      setFileMentionSearchResults([]);
       setFileMentionBusy(false);
       return;
     }
@@ -950,7 +949,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
     }, 120);
 
     return () => window.clearTimeout(timer);
-  }, [fileMentionQuery, fileMenuOpen]);
+  }, [deskBasePath, fileMentionQuery, fileMenuOpen]);
 
   const sessionMentionItems = useMemo(() => buildSessionMentionItems({
     sessions,

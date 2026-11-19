@@ -726,6 +726,7 @@ export async function searchDeskFiles(query: string): Promise<DeskSearchResult[]
   if (!hasServerConnection(s)) return [];
   const trimmed = query.trim();
   if (!trimmed) return [];
+  const activationVersion = _deskActivationVersion;
   try {
     const params = new URLSearchParams();
     const mountId = activeDeskMountId(s);
@@ -739,6 +740,7 @@ export async function searchDeskFiles(query: string): Promise<DeskSearchResult[]
     params.set('q', trimmed);
     const res = await hanaFetch(`${mountId ? '/api/workbench/search' : '/api/desk/search-files'}?${params}`);
     const data = await res.json();
+    if (activationVersion !== _deskActivationVersion) return [];
     if (data.error) throw new Error(String(data.error));
     return Array.isArray(data.results) ? data.results : [];
   } catch (err) {

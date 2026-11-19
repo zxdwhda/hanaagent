@@ -1332,6 +1332,21 @@ describe('desk-actions workspace roots', () => {
     ]);
   });
 
+  it('discards a search response from the previous workspace', async () => {
+    useStore.setState({ deskBasePath: '/workspace/first' });
+    const oldSearchResponse = deferred<Response>();
+    mockHanaFetch.mockResolvedValueOnce(oldSearchResponse.promise);
+    const { activateWorkspaceDesk, searchDeskFiles } = await import('../../stores/desk-actions');
+
+    const search = searchDeskFiles('spec');
+    await activateWorkspaceDesk('/workspace/second', { reload: false });
+    oldSearchResponse.resolve(jsonResponse({
+      results: [{ name: 'spec.md', relativePath: 'docs/spec.md', parentSubdir: 'docs', isDir: false }],
+    }));
+
+    expect(await search).toEqual([]);
+  });
+
   it('jumps to a search result by expanding ancestors and selecting the real tree path', async () => {
     useStore.setState({
       deskBasePath: '/workspace',
