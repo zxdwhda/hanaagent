@@ -67,6 +67,26 @@ describe('streamBufferManager.snapshot', () => {
     expect(snapshotStreamBuffer(PATH)).toBeNull();
   });
 
+  it('renders and retains a long Markdown answer after the thinking stream ends', () => {
+    const table = ['| 项目 | 状态 |', '| --- | --- |', ...Array.from({ length: 240 }, (_, row) => `| Item ${row} | Ready |`)].join('\n');
+    const answer = table + '\n\n```ts\nconst finalValue = 42;\n```';
+    streamBufferManager.handle({ type: 'thinking_start', sessionPath: PATH });
+    streamBufferManager.handle({ type: 'thinking_delta', sessionPath: PATH, delta: '准备表格' });
+    streamBufferManager.handle({ type: 'thinking_end', sessionPath: PATH });
+    for (let from = 0; from < answer.length; from += 23) {
+      streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: answer.slice(from, from + 23) });
+    }
+    streamBufferManager.finishTurn(PATH);
+    const blocks = getAssistantMessage()?.blocks || [];
+    expect(blocks).toContainEqual(expect.objectContaining({ type: 'thinking', content: '准备表格', sealed: true }));
+    expect(blocks).toContainEqual(expect.objectContaining({ type: 'text', source: answer }));
+    const text = blocks.find((block) => block.type === 'text');
+    if (text?.type !== 'text') throw new Error('missing answer block');
+    expect(text.html).toContain('<table');
+    expect(text.html).toContain('Item 239');
+    expect(text.html).toContain('finalValue');
+  });
+
   it('moves a complete isolated late MOOD into its block and keeps the surrounding prose', () => {
     streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: '正文。\n<mo' });
     streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: 'od>Vibe: 好</mood>\n结论。' });
