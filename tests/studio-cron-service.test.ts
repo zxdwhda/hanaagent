@@ -285,6 +285,29 @@ describe("StudioCronService", () => {
     expect(restarted.listJobs()).toHaveLength(0);
   });
 
+  it("reports count changes after studio job writes are visible", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const observed: number[] = [];
+    const service = new StudioCronService({
+      hanakoHome: root,
+      agentsDir: path.join(root, "agents"),
+      getStudioId: () => "studio-main",
+      onJobCountChanged: (studioId) => observed.push(service.forStudio(studioId).listJobs().length),
+    });
+    const job = service.addJob({
+      type: "cron",
+      schedule: "0 9 * * *",
+      prompt: "planned from chat",
+      actorAgentId: "agent-a",
+      executionContext: { kind: "api_request", cwd: null, workspaceFolders: [] },
+    });
+    expect(observed).toEqual([1]);
+    expect(service.removeJob(job.id)).toBe(true);
+    expect(service.removeJob(job.id)).toBe(false);
+    expect(observed).toEqual([1, 0]);
+  });
+
   it("requires new jobs to carry actorAgentId and executionContext", () => {
     const root = makeRoot();
     roots.push(root);

@@ -168,7 +168,7 @@ function buildTurnState(items: ChatListItem[]): {
         pendingAssistantTurnInputEntryId = turnInputEntryId;
       }
       pendingAssistantIndex = i;
-      pendingAssistantTurnIds = [...pendingAssistantTurnIds, item.data.id];
+      pendingAssistantTurnIds.push(item.data.id);
       pendingAssistantTarget = item.data.sourceEntryId
         ? { role: 'assistant', entryId: item.data.sourceEntryId }
         : (turnInputEntryId

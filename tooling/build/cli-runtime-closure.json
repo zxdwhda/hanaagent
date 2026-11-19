@@ -101167,11 +101167,16 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/core/message-utils.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "apps/server/routes/chat.ts",
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by apps/server/routes/chat.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/message-utils.ts (import-statement); apps/server/routes/chat.ts (import-statement)."
     },
     {
       "path": "packages/engine/core/execution-boundary.ts",

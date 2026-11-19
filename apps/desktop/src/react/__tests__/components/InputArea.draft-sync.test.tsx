@@ -1,22 +1,26 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import type { JSONContent } from '@tiptap/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InputArea } from '../../components/InputArea';
 import { useStore } from '../../stores';
 
 const editorState = vi.hoisted(() => ({
-  doc: { type: 'doc', content: [] as unknown[] },
+  doc: { type: 'doc', content: [] } as JSONContent,
 }));
 
 const editorMocks = vi.hoisted(() => ({
   setContent: vi.fn(),
   clearContent: vi.fn(),
+  snapshot: vi.fn(),
+  update: null as (() => void) | null,
+  documentSize: 0,
 }));
 
 vi.mock('@tiptap/react', () => ({
-  useEditor: () => {
+  useEditor: () => React.useMemo(() => {
     const chain: Record<string, unknown> = {};
     chain.clearContent = vi.fn(() => chain);
     chain.deleteRange = vi.fn(() => chain);
@@ -53,12 +57,27 @@ vi.mock('@tiptap/react', () => ({
         return paragraph?.content?.[0]?.text || '';
       },
       getJSON: () => editorState.doc,
-      state: { tr: { setMeta: vi.fn(() => ({})) } },
+      get state() {
+        const snapshot = editorState.doc;
+        return {
+          tr: { setMeta: vi.fn(() => ({})) },
+          doc: {
+            content: { size: editorMocks.documentSize },
+            toJSON: () => {
+              editorMocks.snapshot();
+              return snapshot;
+            },
+            descendants: () => {},
+          },
+        };
+      },
       view: { dispatch: vi.fn() },
-      on: vi.fn(),
+      on: vi.fn((event: string, handler: () => void) => {
+        if (event === 'update') editorMocks.update = handler;
+      }),
       off: vi.fn(),
     };
-  },
+  }, []),
   EditorContent: () => React.createElement('div', { 'data-testid': 'editor' }),
 }));
 
@@ -279,8 +298,52 @@ describe('InputArea draft sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     editorState.doc = paragraphDoc('');
+    editorMocks.documentSize = 0;
+    editorMocks.update = null;
     window.platform = {} as typeof window.platform;
     delete (window as unknown as { hana?: unknown }).hana;
+  });
+
+  it('coalesces large draft edits and restores the final draft after a round trip', () => {
+    seedSessionComposer();
+    const { unmount } = render(<InputArea />);
+    const large = 'long draft text '.repeat(4000);
+    editorMocks.documentSize = large.length;
+    act(() => {
+      for (let index = 0; index < 25; index += 1) {
+        editorState.doc = paragraphDoc(large + index);
+        editorMocks.update?.();
+      }
+    });
+    expect(screen.getByTestId('input-control-bar').getAttribute('data-can-send')).toBe('true');
+    expect(useStore.getState().drafts.sess_draft_sync).toHaveLength(0);
+    expect(editorMocks.snapshot).not.toHaveBeenCalled();
+
+    act(() => {
+      useStore.setState({
+        currentSessionPath: '/session/other.jsonl',
+        currentSessionId: 'other',
+        sessionLocatorsById: {
+          sess_draft_sync: { path: '/session/draft-sync.jsonl' },
+          other: { path: '/session/other.jsonl' },
+        },
+      } as never);
+    });
+    expect(editorMocks.snapshot).toHaveBeenCalledOnce();
+    const savedDraft = useStore.getState().drafts.sess_draft_sync;
+    expect(savedDraft).toHaveLength(large.length + 2);
+    expect(savedDraft?.slice(-2)).toBe('24');
+    expect(useStore.getState().drafts.other).toBeUndefined();
+
+    act(() => {
+      useStore.setState({
+        currentSessionPath: '/session/draft-sync.jsonl',
+        currentSessionId: 'sess_draft_sync',
+      });
+    });
+    expect(editorState.doc.content?.[0]?.content?.[0]?.text).toHaveLength(large.length + 2);
+    expect(editorState.doc.content?.[0]?.content?.[0]?.text?.slice(-2)).toBe('24');
+    unmount();
   });
 
   it('clears the live editor when clearDraft is called externally', async () => {

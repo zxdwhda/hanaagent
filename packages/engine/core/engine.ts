@@ -367,6 +367,9 @@ export class HanaEngine {
     this._studioCronService = new StudioCronService({
       hanakoHome: this.hanakoHome,
       agentsDir: this.agentsDir,
+      onJobCountChanged: (studioId) => {
+        if (this._runtimeContext?.studioId === studioId) this._emitAppEvent("automation-jobs-changed");
+      },
       getStudioId: () => {
         const studioId = this._runtimeContext?.studioId;
         if (!studioId) throw new Error("runtime studioId unavailable");

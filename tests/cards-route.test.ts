@@ -1,6 +1,7 @@
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createCardsRoute } from "../apps/server/routes/cards.ts";
+import { authorizeHttpRoute } from "../apps/server/http/route-security.ts";
 
 function buildApp() {
   const app = new Hono();
@@ -17,6 +18,58 @@ function putCard(app: Hono, cardId: string, body: Record<string, unknown>) {
 }
 
 describe("cards route", () => {
+  it("registers private card views from a LAN chat without embedding its session credential", async () => {
+    const manifestPath = "/tmp/agents/a/sessions/sample.jsonl";
+    const principal = {
+      kind: "device", deviceId: "test-lan-device", studioId: "test-studio",
+      connectionKind: "lan", credentialKind: "device_credential", scopes: ["chat"],
+    };
+    const app = new Hono<{ Variables: { authPrincipal: typeof principal } }>();
+    app.use("*", async (c, next) => {
+      const caller = c.req.header("Authorization") === "Bearer test-lan-auth" ? principal : null;
+      const decision = authorizeHttpRoute({ method: c.req.method, path: c.req.path, principal: caller });
+      if (!decision.allowed) return c.text("unauthorized", 403);
+      if (caller) c.set("authPrincipal", caller);
+      await next();
+    });
+    app.route("/api", createCardsRoute({
+      agentsDir: "/tmp/agents",
+      getSessionManifest: (id: string) => id === "sess_sample" ? { currentLocator: { path: manifestPath } } : null,
+    }));
+    const register = (code: string, sessionId = "sess_sample", authenticated = true) => app.request("/api/cards/c_same/render", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authenticated ? { "Authorization": "Bearer test-lan-auth" } : {}),
+      },
+      body: JSON.stringify({ sessionId, code }),
+    });
+    expect((await register("<p>blocked</p>", "unavailable")).status).toBe(404);
+    expect((await register("<p>blocked</p>", "sess_sample", false)).status).toBe(403);
+    const first = await register("<p>First card</p>");
+    expect(first.status).toBe(200);
+    const { viewPath: firstPath } = await first.json();
+    const second = await register("<p>Second card</p>");
+    expect(second.status).toBe(200);
+    const { viewPath: secondPath } = await second.json();
+    expect(firstPath).not.toBe(secondPath);
+    const view = await app.request(firstPath);
+    expect(view.status).toBe(200);
+    expect(await view.text()).toContain("<p>First card</p>");
+    expect(view.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(view.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+    expect((await app.request("/api/cards/c_same")).status).toBe(403);
+    expect((await app.request(`/api/cards/view/${"0".repeat(32)}`)).status).toBe(404);
+
+    const expiredTime = Date.now() + 6 * 60 * 1000;
+    const clock = vi.spyOn(Date, "now").mockReturnValue(expiredTime);
+    try {
+      expect((await app.request(firstPath)).status).toBe(404);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("PUT registers code, then GET serves it as HTML", async () => {
     const app = buildApp();
     const code = '<button onclick="x()">开始</button>';

@@ -194,6 +194,26 @@ describe('streamBufferManager.thinking 流式刷新', () => {
     streamBufferManager.handle({ type: 'thinking_end', sessionPath: PATH });
     expect(getThinkingBlock()).toEqual({ type: 'thinking', content: '', sealed: true });
   });
+
+  it('keeps earlier thinking when another section starts before the same reply ends', () => {
+    const emit = (type: string, delta?: string) => streamBufferManager.handle({ type, delta, sessionPath: PATH });
+    emit('thinking_start');
+    emit('thinking_delta', 'First thought');
+    emit('thinking_end');
+    emit('thinking_start');
+    expect(getThinkingBlock()).toMatchObject({ content: 'First thought', sealed: false });
+    emit('thinking_delta', 'Second thought');
+    emit('thinking_end');
+    emit('thinking_start');
+    emit('thinking_end');
+    emit('text_delta', '| Key | Value |\n| --- | --- |\n| A | B |');
+    emit('turn_end');
+
+    expect(getThinkingBlock()).toEqual({ type: 'thinking', content: 'First thought\nSecond thought', sealed: true });
+    expect(getAssistantMessage()?.blocks?.find(block => block.type === 'text')).toMatchObject({
+      source: '| Key | Value |\n| --- | --- |\n| A | B |',
+    });
+  });
 });
 
 describe('streamBufferManager.ensureMessage 自愈', () => {

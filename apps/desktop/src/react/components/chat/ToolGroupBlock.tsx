@@ -94,14 +94,25 @@ function handleDetailClick(e: React.MouseEvent, detail: ToolDetail) {
 }
 
 const ToolIndicator = memo(function ToolIndicator({ tool, agentName }: { tool: ToolCall; agentName: string }) {
+  if (tool.name === 'session') {
+    return <SessionToolIndicator tool={tool} agentName={agentName} />;
+  }
+  return <ToolIndicatorView tool={tool} agentName={agentName} />;
+});
+
+function SessionToolIndicator({ tool, agentName }: { tool: ToolCall; agentName: string }) {
+  const targetName = useStore(s => sessionToolTargetName(s, tool.args));
+  const targetPath = useStore(s => sessionToolTargetPath(s, tool.args));
+  return <ToolIndicatorView tool={tool} agentName={agentName} sessionTargetName={targetName} sessionTargetPath={targetPath} />;
+}
+
+function ToolIndicatorView({ tool, agentName, sessionTargetName, sessionTargetPath }: {
+  tool: ToolCall;
+  agentName: string;
+  sessionTargetName?: string | null;
+  sessionTargetPath?: string | null;
+}) {
   const [linkMenu, setLinkMenu] = useState<LinkContextMenuState | null>(null);
-
-  // session 工具指向另一个会话，把它的名字显示出来并支持点过去。两个 selector 各返回
-  // 字符串或 null，引用稳定，不会让每个工具行都因为 sessions 变动而重渲染。
-  const isSessionTool = tool.name === 'session';
-  const sessionTargetName = useStore(s => (isSessionTool ? sessionToolTargetName(s, tool.args) : null));
-  const sessionTargetPath = useStore(s => (isSessionTool ? sessionToolTargetPath(s, tool.args) : null));
-
   const rawDetail = extractToolDetail(tool.name, tool.args);
   const detail = sessionTargetName ? { ...rawDetail, text: sessionTargetName } : rawDetail;
   const detailTitle = detail.title || detail.href;
@@ -171,4 +182,4 @@ const ToolIndicator = memo(function ToolIndicator({ tool, agentName }: { tool: T
       )}
     </>
   );
-});
+}

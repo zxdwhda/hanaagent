@@ -23,7 +23,7 @@ import { refreshPluginUI } from './stores/plugin-ui-actions';
 import { openSettingsModal } from './stores/settings-modal-actions';
 import { initQuotedSelectionLifecycle } from './stores/selection-actions';
 import { hydrateInputDrafts, initInputDraftPersistence } from './stores/input-draft-persistence';
-import { configureAppEventActions, handleAppEvent, readConfigCwdHistory, readConfigHomeFolder, readConfigMemoryMasterEnabled } from './services/app-event-actions';
+import { configureAppEventActions, handleAppEvent, readConfigCwdHistory, readConfigHomeFolder, readConfigMemoryMasterEnabled, refreshAutomationCount } from './services/app-event-actions';
 import { configureWsMessageHandler } from './services/ws-message-handler';
 import { applyChatLayout } from './chat/layout';
 import { applyEditorTypography } from './editor/typography';
@@ -271,12 +271,7 @@ export async function initApp(): Promise<void> {
   updateLayout();
 
   // 14. 任务计划 badge 初始值
-  try {
-    const res = await hanaFetch('/api/desk/cron');
-    const data = await res.json();
-    const count = (data.jobs || []).length;
-    useStore.setState({ automationCount: count });
-  } catch { /* ignore */ }
+  await refreshAutomationCount();
 
   // 15. Bridge 状态指示点（启动时就查一次，不等用户打开面板）
   //     agent 身份用 bootstrap 给出的那个，和上面的头像同源

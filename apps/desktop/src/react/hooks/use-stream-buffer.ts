@@ -37,6 +37,7 @@ interface Buffer {
   sessionPath: string;
   textAcc: string;
   thinkingAcc: string;
+  thinkingSectionEnded: boolean;
   moodAcc: string;
   moodYuan: string;
   inThinking: boolean;
@@ -56,6 +57,7 @@ function createBuffer(sessionPath: string): Buffer {
     sessionPath,
     textAcc: '',
     thinkingAcc: '',
+    thinkingSectionEnded: false,
     moodAcc: '',
     moodYuan: 'hanako',
     inThinking: false,
@@ -170,6 +172,7 @@ class StreamBufferManager {
     }
     buf.textAcc = '';
     buf.thinkingAcc = '';
+    buf.thinkingSectionEnded = false;
     buf.hasThinkingBlock = false;
     buf.moodAcc = '';
     buf.inThinking = false;
@@ -323,13 +326,16 @@ class StreamBufferManager {
         this.ensureMessage(buf);
         buf.inThinking = true;
         buf.hasThinkingBlock = true;
-        buf.thinkingAcc = '';
         this.flush(buf);
         break;
 
       case 'thinking_delta':
         buf.hasThinkingBlock = true;
-        buf.thinkingAcc += msg.delta || '';
+        if (msg.delta) {
+          if (buf.thinkingSectionEnded && buf.thinkingAcc) buf.thinkingAcc += '\n';
+          buf.thinkingAcc += msg.delta;
+          buf.thinkingSectionEnded = false;
+        }
         // 与 text/mood 共用时间节流，避免思考流只能在结束后显示。
         this.scheduleFlush(buf);
         break;
@@ -337,6 +343,7 @@ class StreamBufferManager {
       case 'thinking_end':
         buf.hasThinkingBlock = true;
         buf.inThinking = false;
+        buf.thinkingSectionEnded = true;
         this.flush(buf);
         break;
 

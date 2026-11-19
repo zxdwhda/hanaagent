@@ -3,7 +3,7 @@
 import { Editor } from '@tiptap/core';
 import type { DecorationSet } from '@tiptap/pm/view';
 import { describe, expect, it } from 'vitest';
-import { createInputEditorExtensions } from '../../components/input/input-editor-extensions';
+import { createInputEditorOptions } from '../../components/input/input-editor-extensions';
 import { serializeEditor } from '../../utils/editor-serializer';
 
 function typeText(editor: Editor, value: string): void {
@@ -37,9 +37,23 @@ function readPlaceholderDecoration(editor: Editor): string | undefined {
 }
 
 describe('input editor extensions', () => {
+  it.each(['text', 'html'] as const)('keeps literal code punctuation when pasting %s', (format) => {
+    const editor = new Editor(createInputEditorOptions(''));
+    const original = 'int *a, *b; *dst = *src * 2;';
+    try {
+      const event = new Event('paste') as ClipboardEvent;
+      if (format === 'text') editor.view.pasteText(original, event);
+      else editor.view.pasteHTML(`<p>${original}</p>`, event);
+
+      expect(serializeEditor(editor.getJSON()).text).toBe(original);
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it('does not register TipTap link marks for the chat input', () => {
     const editor = new Editor({
-      extensions: createInputEditorExtensions(''),
+      ...createInputEditorOptions(''),
       content: '<p><a href="https://example.com/article">Example Article</a></p>',
     });
 
@@ -59,7 +73,7 @@ describe('input editor extensions', () => {
   it('allows placeholder decorations to read the latest supplied label', () => {
     let placeholder = 'input.placeholder';
     const editor = new Editor({
-      extensions: createInputEditorExtensions(() => placeholder),
+      ...createInputEditorOptions(() => placeholder),
     });
 
     expect(readPlaceholderDecoration(editor)).toBe('input.placeholder');
@@ -74,7 +88,7 @@ describe('input editor extensions', () => {
 
   it('serializes file badges as readable text and attachment references', () => {
     const editor = new Editor({
-      extensions: createInputEditorExtensions(''),
+      ...createInputEditorOptions(''),
       content: {
         type: 'doc',
         content: [{
@@ -112,7 +126,7 @@ describe('input editor extensions', () => {
   });
 
   it('registers Session and Agent mention badges as inline atoms', () => {
-    const editor = new Editor({ extensions: createInputEditorExtensions('') });
+    const editor = new Editor(createInputEditorOptions(''));
 
     expect(editor.schema.nodes.sessionBadge?.spec.atom).toBe(true);
     expect(editor.schema.nodes.agentBadge?.spec.atom).toBe(true);
@@ -122,7 +136,7 @@ describe('input editor extensions', () => {
 
   it('keeps text after markdown bold outside the bold mark even if stored marks are cleared', () => {
     const editor = new Editor({
-      extensions: createInputEditorExtensions(''),
+      ...createInputEditorOptions(''),
     });
 
     typeText(editor, '**foo**');
@@ -146,7 +160,7 @@ describe('input editor extensions', () => {
 
   it('does not carry markdown bold onto the next paragraph', () => {
     const editor = new Editor({
-      extensions: createInputEditorExtensions(''),
+      ...createInputEditorOptions(''),
     });
 
     typeText(editor, '**foo**');
@@ -173,7 +187,7 @@ describe('input editor extensions', () => {
 
   it('keeps markdown list input as rich list structure and serializes it as markdown text', () => {
     const ordered = new Editor({
-      extensions: createInputEditorExtensions(''),
+      ...createInputEditorOptions(''),
     });
     typeText(ordered, '1. first');
 
@@ -192,7 +206,7 @@ describe('input editor extensions', () => {
     ordered.destroy();
 
     const bullet = new Editor({
-      extensions: createInputEditorExtensions(''),
+      ...createInputEditorOptions(''),
     });
     typeText(bullet, '- first');
 

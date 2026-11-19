@@ -5,13 +5,13 @@
  *   卡片 HTML 由本地 Hana server 经 http 提供（server/routes/cards.ts），
  *   iframe 用 src 加载，**不用 srcdoc/blob**。原因：srcdoc/blob 会继承渲染进程
  *   的 `script-src 'self'` CSP，导致 iframe 内所有内联脚本（高度上报 + agent 的
- *   onclick/addEventListener）被静默阻断，卡片既点不动也撑不开高度。真实 http
- *   响应不带 CSP，iframe 文档拿到自己的（空）CSP 上下文，内联脚本才能执行。
+ *   onclick/addEventListener）被静默阻断。真实 HTTP 响应使用卡片专属 CSP，
+ *   允许内联脚本在受限 iframe 中运行。
  *   这与插件 surface（PluginCardBlock 等）走的是同一条经过验证的路径。
  *
  * 数据流：
  *   挂载 → 采集当前主题变量 → PUT /api/cards/:cardId {code,title,varsCss} 注册
- *        → iframe src 指向 GET /api/cards/:cardId（带 token query）
+ *        → 本机沿用卡片 URL，远端使用经过会话授权后返回的短期预览地址。
  *   直播与历史走同一条路（两者 block 都带 cardId+code），server 缓存为瞬态 LRU，
  *   重启后下次渲染自动回填。
  *
@@ -23,6 +23,8 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import s from './InteractiveCard.module.css';
 import { useStore } from '../../stores';
 import { hanaFetch, hanaUrl } from '../../hooks/use-hana-fetch';
+import { sessionIdForPathFromLocatorState } from '../../stores/session-slice';
+import { buildConnectionUrl, isLocalOwnerConnection } from '../../services/server-connection';
 
 // ── 宿主注入 iframe 的主题 CSS 变量 ──
 // 从 document root 的 computed style 中提取，随注册 PUT 给 server 注入到 iframe :root。
@@ -51,6 +53,7 @@ function collectThemeVars(): string {
 const HEIGHT_CAP = 900;
 
 interface InteractiveCardProps {
+  sessionPath?: string;
   block: {
     type: 'interactive_card';
     cardId: string;
@@ -59,7 +62,7 @@ interface InteractiveCardProps {
   };
 }
 
-export const InteractiveCard = memo(function InteractiveCard({ block }: InteractiveCardProps) {
+export const InteractiveCard = memo(function InteractiveCard({ block, sessionPath }: InteractiveCardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [explicitHeight, setExplicitHeight] = useState<number | null>(null);
   const [src, setSrc] = useState<string | null>(null);
@@ -70,34 +73,46 @@ export const InteractiveCard = memo(function InteractiveCard({ block }: Interact
 
   // 注册卡片代码 → 拿到可加载的 http URL
   useEffect(() => {
-    let cancelled = false;
+    setSrc(null);
     const cardId = block.cardId;
-    if (!cardId || !connection) {
-      setSrc(null);
-      return;
-    }
+    if (!cardId || !connection) return;
+    const local = isLocalOwnerConnection(connection);
+    if (!local && !sessionPath) return;
+    const sessionId = sessionPath && sessionIdForPathFromLocatorState(useStore.getState(), sessionPath);
+    const sessionTarget = sessionId ? { sessionId } : { sessionPath };
+    const route = `/api/cards/${encodeURIComponent(cardId)}`;
     const varsCss = collectThemeVars();
+    const controller = new AbortController();
     (async () => {
       try {
-        await hanaFetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+        const response = await hanaFetch(local ? route : `${route}/render`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: block.code, title: block.title, varsCss }),
+          body: JSON.stringify({ code: block.code, title: block.title, varsCss, ...(local ? {} : sessionTarget) }),
+          signal: controller.signal,
         });
-        if (cancelled) return;
-        const base = hanaUrl(`/api/cards/${encodeURIComponent(cardId)}`);
+        if (controller.signal.aborted) return;
+        if (!local) {
+          const { viewPath } = await response.json();
+          if (typeof viewPath !== 'string' || !/^\/api\/cards\/view\/[A-Za-z0-9_-]{32}$/.test(viewPath)) {
+            throw new Error('Unexpected card preview URL');
+          }
+          if (!controller.signal.aborted) setSrc(buildConnectionUrl(connection, viewPath));
+          return;
+        }
+        const base = hanaUrl(route);
         verRef.current += 1;
         const sep = base.includes('?') ? '&' : '?';
         setSrc(`${base}${sep}v=${verRef.current}`);
       } catch (err) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           console.error('[InteractiveCard] register failed:', err);
           setSrc(null);
         }
       }
     })();
-    return () => { cancelled = true; };
-  }, [block.cardId, block.code, block.title, connection]);
+    return () => controller.abort();
+  }, [block.cardId, block.code, block.title, connection, sessionPath]);
 
   // 监听 iframe 内容高度上报
   const handleMessage = useCallback((e: MessageEvent) => {
@@ -148,6 +163,7 @@ export const InteractiveCard = memo(function InteractiveCard({ block }: Interact
             ref={iframeRef}
             src={src}
             sandbox="allow-scripts"
+            referrerPolicy="no-referrer"
             title={block.title || 'Interactive card'}
           />
         )}

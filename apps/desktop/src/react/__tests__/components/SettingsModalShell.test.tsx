@@ -66,6 +66,9 @@ describe('SettingsModalShell', () => {
     window.t = globalThis.t as typeof window.t;
     useStore.setState({
       settingsModal: { open: false, activeTab: 'agent' },
+      currentSessionPath: null,
+      currentTab: 'chat',
+      inputFocusTrigger: 0,
     } as never);
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => (
       window.setTimeout(() => cb(performance.now()), 0)
@@ -167,6 +170,34 @@ describe('SettingsModalShell', () => {
     expect(useStore.getState().settingsModal).toEqual({
       open: false,
       activeTab: 'bridge',
+    });
+  });
+
+  it('hands focus to the new composer after settings closes over a restored conversation', async () => {
+    const { SettingsModalShell } = await import('../../components/SettingsModalShell');
+    vi.useFakeTimers();
+    useStore.setState({ currentSessionPath: '/sessions/before.jsonl' });
+    const oldComposer = render(<textarea aria-label="Previous composer" />);
+    screen.getByLabelText('Previous composer').focus();
+    render(<SettingsModalShell />);
+    act(() => {
+      useStore.setState({ settingsModal: { open: true, activeTab: 'security' } });
+    });
+    act(() => {
+      useStore.setState({ currentSessionPath: '/sessions/restored.jsonl' });
+      oldComposer.unmount();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    expect(useStore.getState().inputFocusTrigger).toBe(0);
+
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(useStore.getState()).toMatchObject({
+      inputFocusTrigger: 1,
+      inputFocusTriggerSource: 'restore',
     });
   });
 

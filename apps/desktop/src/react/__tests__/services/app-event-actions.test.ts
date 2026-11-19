@@ -154,6 +154,26 @@ describe('handleAppEvent', () => {
     expect(mockLoadModels).toHaveBeenCalledTimes(1);
   });
 
+  it('refreshes the closed automation panel badge and discards an earlier count', async () => {
+    let finishEarlier: (response: Response) => void = () => {};
+    mockHanaFetch.mockImplementationOnce(() => new Promise<Response>(resolve => { finishEarlier = resolve; }))
+      .mockResolvedValueOnce(jsonResponse({ jobs: [{ id: 'new-job' }] }));
+    const { handleAppEvent, refreshAutomationCount } = await import('../../services/app-event-actions');
+    const earlier = refreshAutomationCount();
+
+    handleAppEvent('automation-jobs-changed');
+    await flushPromises();
+    expect(mockState.automationCount).toBe(1);
+    finishEarlier(jsonResponse({ jobs: [] }));
+    await earlier;
+    expect(mockState.automationCount).toBe(1);
+
+    mockHanaFetch.mockResolvedValueOnce(jsonResponse({ jobs: [] }));
+    handleAppEvent('automation-jobs-changed');
+    await flushPromises();
+    expect(mockState.automationCount).toBe(0);
+  });
+
   it('models-changed requests context usage through the injected callback', async () => {
     Object.assign(mockState, { currentSessionPath: '/session/a.jsonl' });
     const requestContextUsage = vi.fn();
