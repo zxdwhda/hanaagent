@@ -99,15 +99,20 @@ export class LocalFsProvider {
   async read(ref: ResourceRef | unknown): Promise<ResourceReadResult> {
     const filePath = this.resolvePath(ref);
     this.assertAllowed(filePath, "read");
-    const stat = fs.statSync(filePath);
-    if (!stat.isFile()) throw new Error(`resource is not a file: ${filePath}`);
-    return {
-      resourceKey: localResourceKey(filePath),
-      resource: this.resourceForPath(filePath),
-      content: fs.readFileSync(filePath),
-      version: versionFromStat(stat),
-      filePath,
-    };
+    const file = await fs.promises.open(filePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    try {
+      const stat = await file.stat();
+      if (!stat.isFile()) throw new Error(`resource is not a file: ${filePath}`);
+      return {
+        resourceKey: localResourceKey(filePath),
+        resource: this.resourceForPath(filePath),
+        content: await file.readFile(),
+        version: versionFromStat(stat),
+        filePath,
+      };
+    } finally {
+      await file.close();
+    }
   }
 
   async write(ref: ResourceRef | unknown, content: string | Buffer): Promise<ResourceMutationResult> {
@@ -337,29 +342,30 @@ export class LocalFsProvider {
   async list(ref: ResourceRef | unknown): Promise<ResourceListResult> {
     const dirPath = this.resolvePath(ref);
     this.assertAllowed(dirPath, "read");
-    const items = fs.readdirSync(dirPath, { withFileTypes: true })
-      .map((entry) => {
-        const fullPath = path.join(dirPath, entry.name);
-        let stat = fs.lstatSync(fullPath);
-        if (stat.isSymbolicLink()) {
-          try {
-            const target = fs.realpathSync(fullPath);
-            this.assertAllowed(target, "read");
-            stat = fs.statSync(target);
-          } catch {
-            // A dangling, cyclic, or inaccessible link is still a visible entry.
-            // Preserve its own metadata without disclosing the target metadata.
-          }
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+    const items: ResourceListResult["items"] = [];
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      let stat = await fs.promises.lstat(fullPath);
+      if (stat.isSymbolicLink()) {
+        try {
+          const target = await fs.promises.realpath(fullPath);
+          this.assertAllowed(target, "read");
+          stat = await fs.promises.stat(target);
+        } catch {
+          // A dangling, cyclic, or inaccessible link is still a visible entry.
+          // Preserve its own metadata without disclosing the target metadata.
         }
-        const isDirectory = stat.isDirectory();
-        return {
-          name: entry.name,
-          isDirectory,
-          size: isDirectory ? null : stat.size,
-          mtimeMs: stat.mtimeMs,
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      }
+      const isDirectory = stat.isDirectory();
+      items.push({
+        name: entry.name,
+        isDirectory,
+        size: isDirectory ? null : stat.size,
+        mtimeMs: stat.mtimeMs,
+      });
+    }
+    items.sort((a, b) => a.name.localeCompare(b.name));
     return {
       resourceKey: localResourceKey(dirPath),
       resource: this.resourceForPath(dirPath),
