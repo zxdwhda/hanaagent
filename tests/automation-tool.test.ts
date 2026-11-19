@@ -35,6 +35,36 @@ function makeSuggestionStore(id = "automation_suggestion_1", shortCode = "3827")
 }
 
 describe("automation tool", () => {
+  it("pages task summaries and reconstructs a task larger than the model result budget", async () => {
+    const prompt = "配置`\\\n".repeat(9000);
+    const store = makeStore(Array.from({ length: 23 }, (_, index) => ({
+      id: `job-${index}`, label: `task ${index}`, type: "every", schedule: 60000, prompt,
+    })));
+    const tool = createAutomationTool(store);
+    const call = (params: Record<string, any>) => tool.execute("read", params, undefined, undefined, {});
+    const first = JSON.parse((await call({ action: "list" })).content[0].text);
+    const second = JSON.parse((await call({ action: "list", offset: first.nextOffset })).content[0].text);
+    expect(first.jobs.concat(second.jobs).map(({ id }) => id)).toEqual(store.listJobs().map(({ id }) => id));
+    expect(first.jobs[0]).not.toHaveProperty("prompt");
+    expect(second.nextOffset).toBeNull();
+    expect(tool.sessionPermission.resolveInvocation({ action: "get" })).toMatchObject({
+      kind: "read", capability: "automation.list",
+    });
+
+    let offset = 0;
+    let serialized = "";
+    for (let page = 0; page < 100; page++) {
+      const { content } = await call({ action: "get", id: "job-22", offset });
+      expect(Buffer.byteLength(content[0].text)).toBeLessThan(32768);
+      const detail = JSON.parse(content[0].text);
+      serialized += detail.fragment;
+      if (detail.nextOffset === null) break;
+      offset = detail.nextOffset;
+    }
+    expect(JSON.parse(serialized)).toEqual(store.getJob("job-22"));
+    expect(store.addJob).not.toHaveBeenCalled();
+  });
+
   it("creates generic Agent-run automation suggestions by default", async () => {
     const store = makeStore();
     const { store: suggestionStore } = makeSuggestionStore();
@@ -294,7 +324,8 @@ describe("automation tool", () => {
     }));
   });
 
-  it("stores every suggestions in milliseconds before the desktop card applies them", async () => {
+  it.each([["120", 7200000], ["1.5", 90000], ["1e3", 60000000]])(
+    "stores every suggestion %s as %i milliseconds before the desktop card applies it", async (schedule, milliseconds) => {
     const store = makeStore();
     const { store: suggestionStore, created } = makeSuggestionStore("automation_suggestion_every", "7200");
     const tool = createAutomationTool(store, {
@@ -310,7 +341,7 @@ describe("automation tool", () => {
       {
         action: "create",
         scheduleType: "every",
-        schedule: "120",
+        schedule,
         label: "Two hour reminder",
         prompt: "remind me every two hours",
       },
@@ -324,14 +355,14 @@ describe("automation tool", () => {
 
     expect(result.details.jobData).toMatchObject({
       type: "every",
-      schedule: 7_200_000,
+      schedule: milliseconds,
     });
 
     await created[0].apply();
 
     expect(store.addJob).toHaveBeenCalledWith(expect.objectContaining({
       type: "every",
-      schedule: 7_200_000,
+      schedule: milliseconds,
     }));
   });
 

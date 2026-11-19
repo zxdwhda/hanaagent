@@ -130,9 +130,13 @@ export function createUsageLedger({
       const limit = normalizeLimit(filter.limit);
       const filtered = entries.filter(entry => matchesFilter(entry, filter));
       const limited = limit ? filtered.slice(Math.max(0, filtered.length - limit)) : filtered;
+      const oldestEndedAt = entries[0]?.endedAt;
+      const historyMayBeIncomplete = entries.length >= maxEntries
+        && oldestEndedAt && typeof filter.since === "string" && filter.since <= oldestEndedAt;
       return {
         entries: limited.map(clone),
         nextCursor: null,
+        ...(historyMayBeIncomplete ? { historyMayBeIncomplete: true } : {}),
       };
     },
 

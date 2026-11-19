@@ -9,10 +9,15 @@ import '@testing-library/jest-dom/vitest';
 
 const mocks = vi.hoisted(() => ({
   loadLlmUsageEntries: vi.fn(),
+  historyMayBeIncomplete: false,
 }));
 
 vi.mock('../../settings/tabs/providers/usage-ledger-actions', () => ({
   loadLlmUsageEntries: () => mocks.loadLlmUsageEntries(),
+  loadLlmUsageWindow: async () => ({
+    entries: await mocks.loadLlmUsageEntries(),
+    historyMayBeIncomplete: mocks.historyMayBeIncomplete,
+  }),
 }));
 
 vi.mock('../../settings/helpers', () => ({
@@ -20,6 +25,7 @@ vi.mock('../../settings/helpers', () => ({
     const labels: Record<string, string> = {
       'settings.usage.title': 'Usage',
       'settings.usage.note': 'Usage is for reference only.',
+      'settings.usage.historyMayBeIncomplete': 'The date range may be incomplete.',
       'settings.usage.refresh': 'Refresh',
       'settings.usage.total': 'All',
       'settings.usage.requests': 'Requests',
@@ -57,7 +63,16 @@ import { UsageLedgerSection } from '../../settings/tabs/providers/UsageLedgerSec
 describe('UsageLedgerSection', () => {
   afterEach(() => {
     cleanup();
+    mocks.historyMayBeIncomplete = false;
     vi.clearAllMocks();
+  });
+
+  it('indicates when a date range reaches beyond retained usage records', async () => {
+    mocks.loadLlmUsageEntries.mockResolvedValue([]);
+    mocks.historyMayBeIncomplete = true;
+    render(<UsageLedgerSection />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Date' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('The date range may be incomplete.');
   });
 
   it('groups usage by category and model', async () => {

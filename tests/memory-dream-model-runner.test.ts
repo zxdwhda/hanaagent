@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const callTextMock = vi.fn();
 
@@ -31,6 +31,19 @@ const current = {
 
 describe("Memory Dream five-stage model boundary", () => {
   beforeEach(() => callTextMock.mockReset());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([[undefined, 180000], ["300000", 300000], ["invalid", 180000]])(
+    "uses the configured Dream request budget %s and preserves cancellation", async (configured, timeoutMs) => {
+      vi.stubEnv("HANA_DREAM_MODEL_TIMEOUT_MS", configured);
+      const { signal } = new AbortController();
+      const timeout = new Error("request expired");
+      callTextMock.mockRejectedValueOnce(timeout);
+
+      await expect(atomizeDreamMemory({ current, resolvedModel, trigger: "manual", signal })).rejects.toBe(timeout);
+      expect(callTextMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ timeoutMs, signal }));
+    },
+  );
 
   it("repairs non-atomic output and sends only resident Facts/Longterm blocks", async () => {
     callTextMock

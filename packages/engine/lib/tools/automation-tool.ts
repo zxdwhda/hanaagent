@@ -12,6 +12,9 @@ import { createAgentSessionAutomationExecutor } from "../desk/agent-run-automati
 import { applyConfirmedAutomationDraft } from "./automation-draft.ts";
 import { parseSessionKey } from "../bridge/session-key.ts";
 
+const JOB_LIST_PAGE_SIZE = 20;
+const JOB_DETAIL_PAGE_SIZE = 3000;
+
 function normalizeSchedule(params, existing: any = null) {
   const type = params.scheduleType || params.type || existing?.type;
   let schedule = params.schedule ?? existing?.schedule;
@@ -19,11 +22,13 @@ function normalizeSchedule(params, existing: any = null) {
     throw new Error("scheduleType and schedule are required");
   }
   if (type === "every" && params.schedule !== undefined) {
-    const minutes = parseInt(schedule, 10);
-    if (isNaN(minutes) || minutes <= 0) {
-      throw new Error("every schedule must be a positive number of minutes");
+    const input = String(schedule).trim();
+    const decimal = /^\+?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+    const ms = Math.round(Number(input) * 60_000);
+    if (!decimal.test(input) || !Number.isSafeInteger(ms) || ms < 60_000 || ms + Date.now() > 8.64e15) {
+      throw new Error("every schedule must be a valid interval of at least one minute");
     }
-    schedule = minutes * 60_000;
+    schedule = ms;
   }
   return { type, schedule };
 }
@@ -326,8 +331,8 @@ export function createAutomationTool(cronStore, {
     description: "Create and update scheduled automation suggestions. The suggestion is presented to the user for confirmation — an interactive card on desktop, or a reply-with-/apply text instruction on text-only bridge platforms — and the task is written only after the user applies it. Automations run as background Agent sessions.",
     sessionPermission: {
       resolveInvocation: (params: any = {}) => {
-        if (params.action === "list") {
-          return { action: "list", kind: "read", capability: "automation.list" };
+        if (params.action === "list" || params.action === "get") {
+          return { action: params.action, kind: "read", capability: "automation.list" };
         }
         if (isDraftMutationAction(params)) {
           const directlyCommits = getAutoApprove ? getAutoApprove() === true : autoApprove === true;
@@ -349,16 +354,20 @@ export function createAutomationTool(cronStore, {
       },
     },
     parameters: Type.Object({
-      action: StringEnum(["list", "create", "update"], {
-        description: "Action to perform. create and update produce a pending suggestion instead of directly saving.",
+      action: StringEnum(["list", "get", "create", "update"], {
+        description: "List task summaries, get a task's full settings by id, or suggest a create/update.",
       }),
-      id: Type.Optional(Type.String({ description: "Automation job id for update." })),
+      id: Type.Optional(Type.String({ description: "Automation job id for get or update." })),
+      offset: Type.Optional(Type.Integer({
+        minimum: 0,
+        description: "Continue a list or a long task's settings with the previous response's nextOffset.",
+      })),
       agentId: Type.Optional(Type.String({ description: "Target Agent id. Defaults to the current Agent." })),
       scheduleType: Type.Optional(StringEnum(["at", "every", "cron"], {
         description: "Trigger type for create/update actions.",
       })),
       schedule: Type.Optional(Type.String({
-        description: "Trigger schedule. For every, use minutes. For cron, use a 5-field cron expression.",
+        description: "For every, use a number of minutes (minimum 1, decimals supported). For cron, use a 5-field cron expression.",
       })),
       label: Type.Optional(Type.String({ description: "Short display label." })),
       prompt: Type.Optional(Type.String({ description: "What the target Agent should do when this automation runs." })),
@@ -370,8 +379,27 @@ export function createAutomationTool(cronStore, {
         : cronStore;
       try {
         if (params.action === "list") {
-          const jobs = activeCronStore.listJobs();
-          return { content: [{ type: "text", text: JSON.stringify(jobs, null, 2) }], details: { action: "list", jobs } };
+          const allJobs = activeCronStore.listJobs();
+          const offset = params.offset ?? 0;
+          const jobs = allJobs.slice(offset, offset + JOB_LIST_PAGE_SIZE).map(({ id, label, type, schedule, enabled, nextRunAt }) => ({
+            id, label, type, schedule, enabled, nextRunAt,
+          }));
+          const end = offset + jobs.length;
+          const page = { jobs, total: allJobs.length, nextOffset: end < allJobs.length ? end : null };
+          return { content: [{ type: "text", text: JSON.stringify(page, null, 2) }], details: { action: "list", ...page } };
+        }
+
+        if (params.action === "get") {
+          if (!params.id) throw new Error("id is required");
+          const job = activeCronStore.getJob(params.id);
+          if (!job) throw new Error(`Automation not found: ${params.id}`);
+          const serialized = JSON.stringify(job, null, 2);
+          const offset = params.offset ?? 0;
+          const end = offset + JOB_DETAIL_PAGE_SIZE;
+          const detail = serialized.length <= JOB_DETAIL_PAGE_SIZE && offset === 0
+            ? { job, nextOffset: null }
+            : { id: params.id, fragment: serialized.slice(offset, end), nextOffset: end < serialized.length ? end : null };
+          return { content: [{ type: "text", text: JSON.stringify(detail, null, 2) }], details: { action: "get", ...detail } };
         }
 
         if (!["create", "update"].includes(params.action)) {

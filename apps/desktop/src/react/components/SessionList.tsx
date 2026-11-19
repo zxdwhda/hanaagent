@@ -473,10 +473,12 @@ function SessionListInner() {
   }, [dragState]);
 
   const handlePinnedDragLeave = useCallback((event: React.DragEvent) => {
+    const row = event.currentTarget as HTMLElement;
     const next = event.relatedTarget as Node | null;
-    if (next && event.currentTarget.contains(next)) return;
+    if (next && row.contains(next)) return;
+    const sessionPath = row.dataset.pinnedSessionPath;
     setPinnedDropTarget(current => (
-      current && current.sessionPath === (event.currentTarget as HTMLElement).dataset.pinnedSessionPath
+      current && current.sessionPath === sessionPath
         ? null
         : current
     ));

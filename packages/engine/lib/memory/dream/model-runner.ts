@@ -32,6 +32,15 @@ import type { DreamRunTrigger } from "./state-store.ts";
 export const DREAM_MEMORY_HARD_MAX_CHARS = 5_000;
 export const DREAM_COMPOSE_SOFT_TARGETS = Object.freeze({ facts: 400, longterm: 800 });
 
+const DEFAULT_DREAM_MODEL_TIMEOUT_MS = 180_000;
+
+function dreamModelTimeoutMs() {
+  const ms = Number(process.env.HANA_DREAM_MODEL_TIMEOUT_MS);
+  return Number.isSafeInteger(ms) && ms > 0 && ms <= 600_000
+    ? ms
+    : DEFAULT_DREAM_MODEL_TIMEOUT_MS;
+}
+
 function stripJsonFence(raw: string) {
   const text = String(raw || "").trim();
   const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
@@ -75,7 +84,7 @@ async function callStructured(options: {
       systemPrompt: layout.systemPrompt,
       temperature: 0.1,
       maxTokens: withMemoryReasoningBuffer(options.maxTokens, options.resolvedModel),
-      timeoutMs: 90_000,
+      timeoutMs: dreamModelTimeoutMs(),
       signal: options.signal,
       usageLedger: options.resolvedModel?.usageLedger,
       usageContext: usageContext(operation, options.trigger, options.resolvedModel, layout),

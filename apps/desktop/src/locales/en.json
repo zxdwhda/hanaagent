@@ -1671,6 +1671,7 @@
     "usage": {
       "title": "Usage",
       "note": "Usage is for reference only. Final totals are determined by the provider.",
+      "historyMayBeIncomplete": "The local usage history reached its retention limit. Totals for this date range may be incomplete.",
       "refresh": "Refresh usage",
       "total": "All usage",
       "requests": "Requests",

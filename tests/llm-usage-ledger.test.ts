@@ -29,6 +29,23 @@ describe("Usage ledger", () => {
     tmpDir = null;
   });
 
+  it("marks a date range that reaches the retention boundary after reloading", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-usage-retention-"));
+    const storagePath = path.join(tmpDir, "usage.json");
+    let now = 0;
+    const ledger = createUsageLedger({ maxEntries: 2, now: () => now, storagePath });
+    for (const time of [1000, 2000, 3000]) {
+      now = time;
+      ledger.record({ usageContext: sessionContext(), usage: { total_tokens: 8 } });
+    }
+    const reloaded = createUsageLedger({ maxEntries: 2, storagePath });
+    expect(reloaded.list({ since: new Date(1000).toISOString() })).toMatchObject({
+      historyMayBeIncomplete: true,
+      entries: [expect.any(Object), expect.any(Object)],
+    });
+    expect(reloaded.list({ since: new Date(2500).toISOString() })).not.toHaveProperty("historyMayBeIncomplete");
+  });
+
   it("records a completed request with normalized usage and emits llm_usage", () => {
     const events = [];
     const ledger = createUsageLedger({

@@ -7,7 +7,7 @@
  * 节点行（workflow_agent）：头像 + 名 + token，可展开实时流；
  * 节点行（workflow_step）：几何形状图标 + 名，不可展开。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Collapse } from '@/ui';
 import { useStore } from '../../stores';
 import { selectAgentActivities, type AgentActivityEntry } from '../../stores/agent-activity-slice';
@@ -42,6 +42,19 @@ function durationLabel(w: AgentActivityEntry, now: number, t: (k: string, v?: Re
     return t('activity.duration', { text: formatElapsed(w.finishedAt - w.startedAt) });
   }
   return '';
+}
+
+function WorkflowDuration({ workflow }: { workflow: AgentActivityEntry }) {
+  const [now, setNow] = useState(() => Date.now());
+  const running = workflow.status === 'running' && Boolean(workflow.startedAt);
+  useEffect(() => {
+    if (!running) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  const label = durationLabel(workflow, now, window.t ?? ((key: string) => key));
+  return label ? <span className={styles.duration}>{label}</span> : null;
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -146,7 +159,6 @@ function PhaseSection({ phaseLabel, nodes, agents, expandedNodes, onToggleNode }
   phaseLabel: string | null;
   nodes: AgentActivityEntry[];
   agents: Agent[];
-  now: number;
   expandedNodes: Record<string, boolean>;
   onToggleNode: (id: string) => void;
 }) {
@@ -210,18 +222,16 @@ function PhaseSection({ phaseLabel, nodes, agents, expandedNodes, onToggleNode }
 }
 
 /** workflow 行（父）：状态 + 名 + agent 数 + tokens 总计 + 时长，可展开 Phase 分组。 */
-function WorkflowRow({ wf, nodes, agents, now, open, onToggle, expandedNodes, onToggleNode }: {
+function WorkflowRow({ wf, nodes, agents, open, onToggle, expandedNodes, onToggleNode }: {
   wf: AgentActivityEntry;
   nodes: AgentActivityEntry[];
   agents: Agent[];
-  now: number;
   open: boolean;
   onToggle: () => void;
   expandedNodes: Record<string, boolean>;
   onToggleNode: (id: string) => void;
 }) {
   const t: (k: string, v?: Record<string, string | number>) => string = window.t ?? ((k: string) => k);
-  const dur = durationLabel(wf, now, t);
   const agentNodes = nodes.filter((n) => n.kind === 'workflow_agent');
   const totalTokens = nodes.reduce((sum, n) => sum + (typeof n.tokens === 'number' ? n.tokens : 0), 0);
   const phases = groupByPhase(nodes);
@@ -233,7 +243,7 @@ function WorkflowRow({ wf, nodes, agents, now, open, onToggle, expandedNodes, on
         <span className={styles.name} title={wf.summary || ''}>{wf.summary || wf.id}</span>
         {agentNodes.length > 0 && <span className={styles.agentCount}>{t('rightWorkspace.workflow.agents', { n: agentNodes.length })}</span>}
         {totalTokens > 0 && <span className={styles.tokenSum}>{formatTokens(totalTokens)}</span>}
-        {dur && <span className={styles.duration}>{dur}</span>}
+        <WorkflowDuration workflow={wf} />
       </button>
       <Collapse open={open && nodes.length > 0}>
         <div className={styles.nodeList}>
@@ -243,7 +253,6 @@ function WorkflowRow({ wf, nodes, agents, now, open, onToggle, expandedNodes, on
               phaseLabel={group.phaseLabel}
               nodes={group.nodes}
               agents={agents}
-              now={now}
               expandedNodes={expandedNodes}
               onToggleNode={onToggleNode}
             />
@@ -261,48 +270,41 @@ export function WorkflowCard() {
   const sessionPath = useStore((s) => s.currentSessionPath);
   const all = useStore(selectAgentActivities(sessionPath));
   const agents = useStore((s) => s.agents);
-  const [now, setNow] = useState(() => Date.now());
-
-  const workflows = all.filter((a) => a.kind === 'workflow');
-  const hasRunning = all.some((a) => (a.kind === 'workflow' || a.kind === 'workflow_agent' || a.kind === 'workflow_step') && a.status === 'running');
-
-  // running 时每秒 tick 刷新「已运行」时长；无 running 不开定时器，卸载/终态清理。
-  useEffect(() => {
-    if (!hasRunning) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [hasRunning]);
+  const { workflows, nodesByWorkflow } = useMemo(() => {
+    const workflows: AgentActivityEntry[] = [];
+    const nodesByWorkflow = new Map<string, AgentActivityEntry[]>();
+    for (const activity of all) {
+      if (activity.kind === 'workflow') {
+        workflows.push(activity);
+      } else if (activity.parentTaskId && (activity.kind === 'workflow_agent' || activity.kind === 'workflow_step')) {
+        const list = nodesByWorkflow.get(activity.parentTaskId) ?? [];
+        list.push(activity);
+        nodesByWorkflow.set(activity.parentTaskId, list);
+      }
+    }
+    workflows.sort((a, b) => rank(a.status) - rank(b.status) || (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    for (const nodes of nodesByWorkflow.values()) nodes.sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
+    return { workflows, nodesByWorkflow };
+  }, [all]);
 
   if (!workflows.length) return null;
-
   const t = window.t ?? ((k: string) => k);
-  const sorted = [...workflows].sort((a, b) => {
-    const r = rank(a.status) - rank(b.status);
-    if (r !== 0) return r;
-    return (b.startedAt ?? 0) - (a.startedAt ?? 0);
-  });
-
-  // 每个 workflow 的子节点（workflow_agent + workflow_step，按 parentTaskId 归属，启动序排列）。
-  const nodesOf = (wfId: string) =>
-    all.filter((a) => (a.kind === 'workflow_agent' || a.kind === 'workflow_step') && a.parentTaskId === wfId)
-      .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
 
   return (
     <section className={`universal-card ${styles.card}`} aria-label="Workflow" data-collapsed={collapsed || undefined}>
       <button className={styles.header} type="button" onClick={() => setCollapsed((c) => !c)} aria-expanded={!collapsed}>
         <span className={styles.title}>{t('rightWorkspace.workflow.title')}</span>
-        <span className={styles.count}>{sorted.length}</span>
+        <span className={styles.count}>{workflows.length}</span>
         <Chevron open={!collapsed} />
       </button>
       <Collapse open={!collapsed}>
         <div className={styles.list}>
-          {sorted.map((wf) => (
+          {workflows.map((wf) => (
             <WorkflowRow
               key={wf.id}
               wf={wf}
-              nodes={nodesOf(wf.id)}
+              nodes={nodesByWorkflow.get(wf.id) ?? []}
               agents={agents}
-              now={now}
               open={expandedWf[wf.id] === true}
               onToggle={() => setExpandedWf((p) => ({ ...p, [wf.id]: !p[wf.id] }))}
               expandedNodes={expandedNodes}

@@ -151,6 +151,16 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<a href="https://example.com/readme">README.md</a>');
   });
 
+  it('keeps bare Hong Kong stock codes as text and honors explicit links to numeric domains', () => {
+    const markdown = '港股 2097.HK、01405.hk、`0005.HK`，访问 https://2097.hk 和 [行情](https://1405.hk)';
+    for (const html of [renderMarkdown(markdown), renderMarkdownPreview(markdown)]) {
+      expect(html).toContain('港股 2097.HK、01405.hk、<code>0005.HK</code>');
+      expect(html).toMatch(/<a href="https:\/\/2097\.hk"[^>]*>https:\/\/2097\.hk<\/a>/);
+      expect(html).toMatch(/<a href="https:\/\/1405\.hk"[^>]*>行情<\/a>/);
+      expect(html).not.toContain('href="http://');
+    }
+  });
+
   it('renders filtered HTML in markdown preview mode', () => {
     const html = renderMarkdownPreview([
       '<div style="background: #f0f7ff; border: 1px solid #bee1e6; border-radius: 8px; padding: 16px; margin: 12px 0;">',
