@@ -44,6 +44,7 @@ vi.mock("../packages/engine/lib/bridge/outbound-http.ts", () => ({
 }));
 
 import { createQQAdapter, deriveQQPrincipal } from "../packages/engine/lib/bridge/qq-adapter.ts";
+import { QQ_FILE_TYPE, uploadQQLocalFile } from "../packages/engine/lib/bridge/qq-local-upload.ts";
 
 function jsonResponse(body) {
   return {
@@ -232,6 +233,27 @@ describe("createQQAdapter media delivery", () => {
       media: { file_info: "file-info" },
     });
     adapter.stop();
+  });
+
+  it("rejects a staged file truncated after upload preparation before sending the short part", async () => {
+    const filePath = makeTempFile("shrinking.txt", "helloworld");
+    const apiRequest = vi.fn(async (_method, _endpoint, _body, { stage }) => {
+      if (stage !== "upload_prepare") return {};
+      fs.truncateSync(filePath, 3);
+      return {
+        upload_id: "upload-shrinking",
+        block_size: 10,
+        parts: [{ index: 1, presigned_url: "https://cos.example.com/part" }],
+      };
+    });
+    const outboundHttp = { request: vi.fn(async () => emptyResponse()) };
+
+    await expect(uploadQQLocalFile({
+      apiRequest, outboundHttp, chatId: "fixture-user", filePath,
+      fileType: QQ_FILE_TYPE.FILE, metadata: { isGroup: false },
+    })).rejects.toThrow("QQ 文件在上传期间大小发生变化");
+    expect(outboundHttp.request).not.toHaveBeenCalled();
+    expect(apiRequest).toHaveBeenCalledOnce();
   });
 
   it("sends QQ group replies as markdown passive replies with msg_id and distinct msg_seq values", async () => {

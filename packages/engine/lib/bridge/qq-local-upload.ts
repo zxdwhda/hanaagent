@@ -29,6 +29,7 @@ const PART_FINISH_RETRYABLE_INTERVAL_MS = 1000;
 const MAX_PART_FINISH_RETRY_TIMEOUT_MS = 10 * 60 * 1000;
 const COMPLETE_UPLOAD_MAX_RETRIES = 2;
 const COMPLETE_UPLOAD_BASE_DELAY_MS = 2000;
+const FILE_SIZE_CHANGED = "QQ 文件在上传期间大小发生变化，请重新选择文件后再发送";
 
 export class QQApiError extends Error {
   declare status: any;
@@ -190,6 +191,10 @@ async function computeLocalFileHashes(filePath: any, fileSize: any): Promise<{ m
     });
     stream.on("error", reject);
     stream.on("end", () => {
+      if (bytesRead !== fileSize) {
+        reject(new Error(FILE_SIZE_CHANGED));
+        return;
+      }
       const md5Hex = md5.digest("hex");
       resolve({
         md5: md5Hex,
@@ -204,8 +209,13 @@ async function readFileChunk(filePath, offset, length) {
   const fd = await fs.promises.open(filePath, "r");
   try {
     const buffer = Buffer.alloc(length);
-    const { bytesRead } = await fd.read(buffer, 0, length, offset);
-    return bytesRead === length ? buffer : buffer.subarray(0, bytesRead);
+    let received = 0;
+    while (received < length) {
+      const { bytesRead } = await fd.read(buffer, received, length - received, offset + received);
+      if (bytesRead === 0) throw new Error(FILE_SIZE_CHANGED);
+      received += bytesRead;
+    }
+    return buffer;
   } finally {
     await fd.close();
   }
