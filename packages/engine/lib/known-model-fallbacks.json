@@ -2282,6 +2282,14 @@
     "maxOutput": 8192,
     "image": true
   },
+  "gemma-4-e4b": {
+    "name": "Gemma 4 E4B",
+    "reasoning": true
+  },
+  "gemma-4-e4b-it": {
+    "name": "Gemma 4 E4B",
+    "reasoning": true
+  },
   "gemma-7b": {
     "name": "Gemma 7b",
     "context": 8192,

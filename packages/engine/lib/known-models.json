@@ -3412,6 +3412,10 @@
       "maxOutput": 8192,
       "image": true
     },
+    "gemma4:e4b": {
+      "name": "Gemma 4 E4B",
+      "reasoning": true
+    },
     "mistral": {
       "name": "Mistral",
       "context": 32768,
