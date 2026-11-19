@@ -7,7 +7,11 @@ vi.mock('../../hooks/use-hana-fetch', () => ({
 
 vi.mock('../../stores', () => ({
   useStore: {
-    getState: () => ({ setSessionMetaRecovery: vi.fn() }),
+    getState: () => ({
+      currentSessionId: 'sess_archived',
+      currentSessionPath: '/x/restored.jsonl',
+      setSessionMetaRecovery: vi.fn(),
+    }),
     setState: vi.fn(),
   },
 }));

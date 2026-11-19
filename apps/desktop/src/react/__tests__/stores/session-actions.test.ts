@@ -300,6 +300,7 @@ import {
   reconcileCurrentSessionMessages,
   refreshSessionCapabilities,
   switchSession,
+  restoreSession,
   upsertOptimisticSessionFirstMessage,
 } from '../../stores/session-actions';
 import { snapshotStreamBuffer } from '../../stores/stream-invalidator';
@@ -1815,6 +1816,48 @@ function mockPermissionDefault(mode = 'ask') {
       });
       expect((mockState.sessions as any[])[0]._optimisticFirstMessage).toBeUndefined();
     });
+  });
+
+  it('opens restored history and requests input focus even when the sidebar list omits it', async () => {
+    Object.assign(mockState, { currentSessionPath: '/a' });
+    const path = '/restored.jsonl';
+    const sessionId = 'sess_restored';
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/sessions/restore') return jsonResponse({ ok: true, restoredPath: path, sessionId });
+      if (url === '/api/sessions/switch') return jsonResponse({ ok: true, path, sessionId });
+      if (String(url).startsWith('/api/sessions/messages')) return jsonResponse({ messages: [{ text: 'restored history' }] });
+      if (url === '/api/sessions') return jsonResponse([{ path: '/a' }]);
+      return jsonResponse({});
+    });
+
+    await expect(restoreSession({ path: '/archived.jsonl', sessionId })).resolves.toMatchObject({ status: 'ok', sessionId });
+    expect(mockState.currentSessionPath).toBe(path);
+    expect(mockState.currentSessionId).toBe(sessionId);
+    expect(mockState.requestInputFocus).toHaveBeenCalledOnce();
+    const calls = mockFetch.mock.calls;
+    const switchIndex = calls.findIndex(([url]) => url === '/api/sessions/switch');
+    expect(switchIndex).toBeGreaterThan(0);
+    expect(switchIndex).toBeLessThan(calls.findIndex(([url]) => url === '/api/sessions'));
+    expect(JSON.parse(String(calls[switchIndex][1]?.body))).toMatchObject({ path, sessionId });
+  });
+
+  it('keeps a newer chat selection when a pending archive restore completes', async () => {
+    Object.assign(mockState, { currentSessionPath: '/a' });
+    const { promise, resolve } = Promise.withResolvers<Response>();
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/sessions/restore') return promise;
+      if (url === '/api/sessions/switch') return jsonResponse({ ok: true, sessionId: 'sess_current' });
+      if (String(url).startsWith('/api/sessions/messages')) return jsonResponse({ messages: [] });
+      if (url === '/api/sessions') return jsonResponse([{ path: '/b', sessionId: 'sess_current' }]);
+      return jsonResponse({});
+    });
+
+    const pending = restoreSession({ path: '/archived.jsonl', sessionId: 'sess_restored' });
+    await switchSession('/b');
+    resolve(jsonResponse({ ok: true, restoredPath: '/restored.jsonl', sessionId: 'sess_restored' }));
+    await expect(pending).resolves.toMatchObject({ status: 'ok' });
+    expect(mockState.currentSessionPath).toBe('/b');
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/sessions/switch')).toHaveLength(1);
   });
 
   describe('switchSession 的 hasData 语义（#405 直接回归）', () => {
