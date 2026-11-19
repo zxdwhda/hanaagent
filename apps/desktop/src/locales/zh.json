@@ -1842,6 +1842,8 @@
       "video": "视频",
       "audio": "音频",
       "reasoning": "推理",
+      "promptCacheKey": "发送提示缓存键",
+      "adaptiveThinking": "使用自适应思考",
       "videoTransportUnavailable": "已声明支持视频，但当前协议无法直接发送视频。",
       "capability": {
         "image": "支持图像输入",

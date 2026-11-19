@@ -194,7 +194,7 @@ export function normalizeModelProtocolCompat(value: any): Record<string, any> | 
   if (value.hanaAudioInput === true) out.hanaAudioInput = true;
   if (value.supportsTemperature === false) out.supportsTemperature = false;
   if (typeof value.supportsPromptCacheKey === "boolean") out.supportsPromptCacheKey = value.supportsPromptCacheKey;
-  if (value.forceAdaptiveThinking === true) out.forceAdaptiveThinking = true;
+  if (typeof value.forceAdaptiveThinking === "boolean") out.forceAdaptiveThinking = value.forceAdaptiveThinking;
   if (value.outputCapRequired === true) out.outputCapRequired = true;
   if (typeof value.outputCapField === "string" && OUTPUT_CAP_FIELDS.has(value.outputCapField)) {
     out.outputCapField = value.outputCapField;
@@ -275,6 +275,13 @@ function isAnthropicAdaptiveOnlyModelId(id: string): boolean {
     || id === "anthropic/claude-sonnet-5"
     || id === "anthropic/claude-fable-5"
     || id === "anthropic/claude-mythos-5";
+}
+
+export function supportsResponsesPromptCacheKey(model: any, context: any = {}): boolean {
+  if (getApi(model, context) !== "openai-responses") return false;
+  const baseUrl = getBaseUrl(model, context);
+  return model?.compat?.supportsPromptCacheKey
+    ?? (URL.parse(baseUrl)?.origin === "https://api.openai.com");
 }
 
 export function requiresAnthropicAdaptiveThinking(model: any, context: any = {}): boolean {

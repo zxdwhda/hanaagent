@@ -1842,6 +1842,8 @@
       "video": "Video",
       "audio": "Audio",
       "reasoning": "Reasoning",
+      "promptCacheKey": "Send prompt cache key",
+      "adaptiveThinking": "Use adaptive thinking",
       "videoTransportUnavailable": "Video input is declared, but the current protocol cannot send video directly.",
       "capability": {
         "image": "Supports image input",

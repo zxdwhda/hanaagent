@@ -1235,12 +1235,14 @@ describe("updateModelEntry type field", () => {
     writeAddedModels({
       "test-provider": {
         api_key: "key-123",
-        models: [{ id: "model-a", compat: { hanaVideoInput: true } }],
+        models: [{ id: "model-a", compat: { hanaVideoInput: true, forceAdaptiveThinking: true } }],
       },
     });
     const reg = makeRegistry();
     reg.updateModelEntry("test-provider", "model-a", {
       compat: {
+        forceAdaptiveThinking: false,
+        supportsPromptCacheKey: true,
         thinkingFormat: "qwen",
         reasoningProfile: "mimo-openai",
         unsupportedWireFlag: "drop-me",
@@ -1263,6 +1265,8 @@ describe("updateModelEntry type field", () => {
     );
     expect(entry.compat).toEqual({
       hanaVideoInput: true,
+      forceAdaptiveThinking: false,
+      supportsPromptCacheKey: true,
       thinkingFormat: "qwen",
       reasoningProfile: "mimo-openai",
     });

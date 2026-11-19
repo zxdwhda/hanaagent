@@ -43,6 +43,7 @@ import {
 import {
   MODEL_AUDIO_TRANSPORTS,
   resolveModelAudioInputTransport,
+  supportsResponsesPromptCacheKey,
 } from "../../shared/model-capabilities.ts";
 import {
   getReasoningProfile as getDeclaredReasoningProfile,
@@ -134,8 +135,7 @@ function stripUnsupportedResponsesCacheFields(payload, model) {
   if (model?.api !== "openai-responses") return payload;
   if (!Object.hasOwn(payload, "prompt_cache_key") && !Object.hasOwn(payload, "prompt_cache_retention")) return payload;
 
-  const nativeEndpoint = URL.parse(model.baseUrl || "")?.origin === "https://api.openai.com";
-  if (model.compat?.supportsPromptCacheKey ?? nativeEndpoint) return payload;
+  if (supportsResponsesPromptCacheKey(model)) return payload;
 
   const result = { ...payload };
   delete result.prompt_cache_key;

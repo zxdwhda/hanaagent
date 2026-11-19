@@ -426,6 +426,49 @@ describe('ProviderModelList', () => {
     });
   });
 
+  it.each([
+    ['openai-responses', 'supportsPromptCacheKey', 'promptCacheKey', undefined, true],
+    ['openai-responses', 'supportsPromptCacheKey', 'promptCacheKey', true, false],
+    ['anthropic-messages', 'forceAdaptiveThinking', 'adaptiveThinking', undefined, true],
+    ['anthropic-messages', 'forceAdaptiveThinking', 'adaptiveThinking', true, false],
+  ] as const)('edits the %s compatibility flag %s (%s, existing value %s)', async (
+    api, flag, label, saved, next,
+  ) => {
+    mocks.hanaFetch.mockResolvedValue(jsonResponse({ models: [] }));
+
+    render(
+      <ProviderModelList
+        providerId="custom"
+        summary={{
+          type: 'api-key',
+          auth_type: 'api-key',
+          display_name: 'Custom',
+          base_url: 'https://gateway.example/v1',
+          api: 'openai-completions',
+          api_key: 'sk-test',
+          models: [{ id: 'custom-model', api, compat: { [flag]: saved } }],
+          custom_models: [],
+          has_credentials: true,
+          supports_oauth: false,
+          can_delete: true,
+        }}
+        onRefresh={vi.fn(async () => {})}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'settings.api.editModel' }));
+    const toggle = screen.getByRole('switch', { name: `settings.api.${label}` });
+    expect(toggle).toHaveAttribute('aria-checked', String(!next));
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: 'settings.api.save' }));
+
+    await waitFor(() => {
+      const update = mocks.hanaFetch.mock.calls.find(([url, options]) =>
+        url === '/api/providers/custom/models/custom-model' && options?.method === 'PUT');
+      expect(JSON.parse(String(update?.[1]?.body)).compat).toEqual({ [flag]: next });
+    });
+  });
+
   it.each(['maxOutput', 'maxTokens', 'maxOutputTokens'] as const)(
     'reopens the editor with persisted user %s metadata overriding known defaults',
     async (outputField) => {

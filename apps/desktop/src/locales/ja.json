@@ -1772,6 +1772,8 @@
       "video": "動画",
       "audio": "音声",
       "reasoning": "推論",
+      "promptCacheKey": "プロンプトキャッシュキーを送信",
+      "adaptiveThinking": "適応型思考を使用",
       "videoTransportUnavailable": "動画入力は設定されていますが、現在のプロトコルでは動画を直接送信できません。",
       "capability": {
         "image": "画像入力に対応",
