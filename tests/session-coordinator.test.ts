@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
+import { submitDesktopSessionMessage } from "../packages/engine/core/desktop-session-submit.ts";
 
 const {
   createAgentSessionMock,
@@ -4621,7 +4622,7 @@ Continue the restored transcript.
     expect(idleSession.abort).not.toHaveBeenCalled();
   });
 
-  it("immediately publishes a terminal status when stopping pre-prompt preparation", async () => {
+  it("stops preparation and admits a replacement before the old provider settles", async () => {
     const sessionFile = path.join(tempDir, "cancel-pre-prompt.jsonl");
     const emitEvent = vi.fn();
     const coordinator = new SessionCoordinator({
@@ -4644,11 +4645,31 @@ Continue the restored transcript.
       listAgents: () => [],
     });
     const pending = new AbortController();
-    coordinator._setRuntimeValueForPath(coordinator._prePromptAbortControllers, sessionFile, pending);
-
-    await expect(coordinator.abortSession(sessionFile, { reason: "user_abort" })).resolves.toBe(true);
-
-    expect(pending.signal.aborted).toBe(true);
+    const oldProvider = Promise.withResolvers<void>();
+    const engine = {
+      ensureSessionLoaded: async () => ({}),
+      isSessionStreaming: (path: string) => coordinator.isSessionStreaming(path),
+      preflightSessionInput: () => {},
+      promptSession: vi.fn()
+        .mockImplementationOnce(async () => {
+          coordinator._setRuntimeValueForPath(coordinator._prePromptAbortControllers, sessionFile, pending);
+          await oldProvider.promise;
+        })
+        .mockResolvedValueOnce(undefined),
+    };
+    const first = submitDesktopSessionMessage(engine, { sessionPath: sessionFile, text: "original" });
+    const originalCanceled = expect(first).rejects.toMatchObject({ name: "AbortError" });
+    try {
+      await vi.waitFor(() => expect(engine.promptSession).toHaveBeenCalledTimes(1));
+      await expect(coordinator.abortSession(sessionFile, { reason: "user_abort" })).resolves.toBe(true);
+      expect(pending.signal.aborted).toBe(true);
+      await expect(submitDesktopSessionMessage(engine, { sessionPath: sessionFile, text: "replacement" }))
+        .resolves.toMatchObject({ text: null });
+      expect(engine.promptSession).toHaveBeenLastCalledWith(sessionFile, "replacement", undefined, expect.anything());
+    } finally {
+      oldProvider.resolve();
+    }
+    await originalCanceled;
     expect(emitEvent).toHaveBeenCalledWith({
       type: "session_status",
       isStreaming: false,

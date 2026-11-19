@@ -424,6 +424,7 @@ async function retrySessionTurnInternal(engine, opts, deps, compatibility) {
         preservePromptEnvelope: true,
         projectUserMessage,
         beforeInputSideEffects: commitRetryBranch,
+        onCanceled: releaseOperation,
       });
     }
     // Focused test doubles may not invoke the commit hook. A successful delivery

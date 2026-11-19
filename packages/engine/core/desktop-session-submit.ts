@@ -25,6 +25,7 @@
  * @param {boolean} [opts.projectUserMessage] - persist/emit a visible user projection for this model input
  * @param {() => void} [opts.beforeInputSideEffects] - synchronous commit hook after cache/model preflight, before UI or prompt persistence
  * @param {() => void} [opts.onInputAccepted] - synchronous receipt after full prompt preflight and input side effects
+ * @param {() => void} [opts.onCanceled] - release caller-owned state when an active turn is stopped
  * @returns {Promise<{ text: string | null, toolMedia: string[] }>}
  */
 import path from "path";
@@ -54,7 +55,15 @@ export const MESSAGE_ORIGIN_RECORD_TYPE = "hana-message-origin";
 export const MESSAGE_PRESENTATION_RECORD_TYPE = "hana-message-presentation";
 export const AGENT_REVIEW_RECORD_TYPE = "hana-agent-review-result";
 
-const pendingDesktopSessionSubmissions = new Set();
+const pendingDesktopSessionSubmissions = new Map<string, AbortController>();
+
+export function cancelDesktopSessionSubmission(sessionPath: string, sessionId?: string | null) {
+  const key = sessionId && pendingDesktopSessionSubmissions.has(sessionId) ? sessionId : sessionPath;
+  const submission = pendingDesktopSessionSubmissions.get(key);
+  if (!submission) return;
+  pendingDesktopSessionSubmissions.delete(key);
+  submission.abort();
+}
 
 function renderPendingReminderBlock(engine: any, sessionPath: string) {
   if (typeof engine.renderSessionReminderBlock === "function") {
@@ -193,6 +202,7 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
   projectUserMessage?: boolean;
   beforeInputSideEffects?: () => unknown;
   onInputAccepted?: () => unknown;
+  onCanceled?: () => void;
 } = {}) {
   const {
     sessionId: requestedSessionId,
@@ -215,6 +225,7 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
     projectUserMessage = true,
     beforeInputSideEffects,
     onInputAccepted,
+    onCanceled,
   } = opts;
 
   if (!engine || typeof engine.ensureSessionLoaded !== "function" || typeof engine.promptSession !== "function") {
@@ -232,9 +243,12 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
 
   liftBrowserAuthorizationRevocation(sessionPath);
 
-  pendingDesktopSessionSubmissions.add(submissionKey);
+  const submission = new AbortController();
+  if (onCanceled) submission.signal.addEventListener("abort", onCanceled, { once: true });
+  pendingDesktopSessionSubmissions.set(submissionKey, submission);
   try {
     const session = await engine.ensureSessionLoaded(sessionPath);
+    submission.signal.throwIfAborted();
     if (!session) throw new Error(`desktop-session-submit: failed to load session ${sessionPath}`);
 
     if (uiContext !== undefined) {
@@ -317,6 +331,7 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
 
     let inputSideEffectsStarted = false;
     const afterCachePreflight = () => {
+      submission.signal.throwIfAborted();
       const commitResult = beforeInputSideEffects?.();
       if (commitResult && typeof (commitResult as any).then === "function") {
         throw new TypeError("desktop-session-submit: beforeInputSideEffects must be synchronous");
@@ -365,6 +380,7 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
     const visibleText = createVisibleTextAccumulator();
     const toolMedia = [];
     const unsub = session.subscribe?.((event) => {
+      if (submission.signal.aborted) return;
       const visible = visibleText.appendAssistantEvent(event);
       if (visible) {
         try { onDelta?.(visible.emittedDelta, visible.text); } catch {}
@@ -407,10 +423,11 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
         afterCachePreflight();
         await engine.promptSession(sessionPath, promptText, promptOpts);
       }
+      submission.signal.throwIfAborted();
       consumeRenderedReminderBlock(engine, sessionPath, reminderBlock);
     } finally {
       try { unsub?.(); } catch {}
-      if (inputSideEffectsStarted) {
+      if (inputSideEffectsStarted && !submission.signal.aborted) {
         engine.emitEvent?.({ type: "session_status", isStreaming: false }, sessionPath);
       }
     }
@@ -419,8 +436,13 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
       text: visibleText.getText().trim() || null,
       toolMedia,
     };
+  } catch (err) {
+    submission.signal.throwIfAborted();
+    throw err;
   } finally {
-    pendingDesktopSessionSubmissions.delete(submissionKey);
+    if (pendingDesktopSessionSubmissions.get(submissionKey) === submission) {
+      pendingDesktopSessionSubmissions.delete(submissionKey);
+    }
   }
 }
 

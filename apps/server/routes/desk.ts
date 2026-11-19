@@ -616,7 +616,7 @@ export function createDeskRoute(engine, hub) {
         mount: root,
       };
     }
-    const dir = body?.dir || (c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine));
+    const dir = body?.dir || c.req.query("dir") || defaultDeskDir(engine);
     return { dir, mountId: null, mount: null };
   }
 
@@ -1423,9 +1423,10 @@ export function createDeskRoute(engine, hub) {
   /** 工作台路径 */
   route.get("/desk/path", async (c) => {
     const agentId = c.req.query("agentId") || null;
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
+    const explicitDir = c.req.query("dir");
+    const dir = explicitDir || defaultDeskDir(engine);
     if (!dir) return c.json({ path: null });
-    if (c.req.query("dir") && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
+    if (explicitDir && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
     fs.mkdirSync(dir, { recursive: true });
     return c.json({ path: dir });
   });
@@ -1433,9 +1434,10 @@ export function createDeskRoute(engine, hub) {
   /** 列出工作台文件（支持 ?subdir=xxx 浏览子目录, ?dir=xxx 覆盖基目录） */
   route.get("/desk/files", async (c) => {
     const agentId = c.req.query("agentId") || null;
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
+    const explicitDir = c.req.query("dir");
+    const dir = explicitDir || defaultDeskDir(engine);
     if (!dir) return c.json({ files: [], subdir: "", basePath: null });
-    if (c.req.query("dir") && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
+    if (explicitDir && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
     const subdir = c.req.query("subdir") || "";
     // 安全：禁止路径穿越
     if (subdir && (subdir.includes("\\") || subdir.includes("..") || subdir.startsWith("."))) {
@@ -1454,9 +1456,10 @@ export function createDeskRoute(engine, hub) {
   /** 搜索工作台文件名（递归，默认跳过隐藏目录和常见依赖/构建目录） */
   route.get("/desk/search-files", async (c) => {
     const agentId = c.req.query("agentId") || null;
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
+    const explicitDir = c.req.query("dir");
+    const dir = explicitDir || defaultDeskDir(engine);
     if (!dir) return c.json({ results: [], basePath: null, query: c.req.query("q") || "" });
-    if (c.req.query("dir") && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
+    if (explicitDir && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
     const query = c.req.query("q") || "";
     const limitRaw = Number.parseInt(c.req.query("limit") || "", 10);
     const limit = Number.isFinite(limitRaw) && limitRaw > 0
@@ -1475,9 +1478,10 @@ export function createDeskRoute(engine, hub) {
   /** 读取指定目录的 jian.md */
   route.get("/desk/jian", async (c) => {
     const agentId = c.req.query("agentId") || null;
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
+    const explicitDir = c.req.query("dir");
+    const dir = explicitDir || defaultDeskDir(engine);
     if (!dir) return c.json({ content: null });
-    if (c.req.query("dir") && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
+    if (explicitDir && !isApprovedDir(dir, engine, { agentId })) return c.json({ error: t("error.dirNotAllowed") });
     const subdir = c.req.query("subdir") || "";
     if (subdir && (subdir.includes("\\") || subdir.includes("..") || subdir.startsWith("."))) {
       return c.json({ error: "invalid subdir" });
