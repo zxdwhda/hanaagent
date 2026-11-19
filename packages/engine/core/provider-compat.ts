@@ -130,6 +130,65 @@ function stripEmptyTools(payload) {
   return payload;
 }
 
+function stripUnsupportedResponsesCacheFields(payload, model) {
+  if (model?.api !== "openai-responses") return payload;
+  if (!Object.hasOwn(payload, "prompt_cache_key") && !Object.hasOwn(payload, "prompt_cache_retention")) return payload;
+
+  const nativeEndpoint = URL.parse(model.baseUrl || "")?.origin === "https://api.openai.com";
+  if (model.compat?.supportsPromptCacheKey ?? nativeEndpoint) return payload;
+
+  const result = { ...payload };
+  delete result.prompt_cache_key;
+  delete result.prompt_cache_retention;
+  return result;
+}
+
+function normalizeOpenAIToolParameters(payload, model) {
+  const completions = model?.api === "openai-completions";
+  if (!completions && model?.api !== "openai-responses") return payload;
+  if (!Array.isArray(payload.tools)) return payload;
+
+  let changed = false;
+  const tools = payload.tools.map(tool => {
+    if (tool?.type !== "function") return tool;
+    const definition = completions ? tool.function : tool;
+    if (!definition || typeof definition !== "object") return tool;
+    const schema = definition.parameters ?? {};
+    if (typeof schema !== "object" || Array.isArray(schema)) return tool;
+    if (schema.type !== undefined && schema.type !== "object") return tool;
+    if (Object.hasOwn(schema, "properties") || Object.hasOwn(schema, "$ref")) return tool;
+
+    changed = true;
+    const normalized = { ...definition, parameters: { ...schema, type: "object", properties: {} } };
+    return completions ? { ...tool, function: normalized } : normalized;
+  });
+  return changed ? { ...payload, tools } : payload;
+}
+
+function modelDisablesTools(model) {
+  return (model?.toolUse?.supportsTools ?? model?.compat?.supportsTools) === false;
+}
+
+function omitToolControls(payload) {
+  const fields = ["tools", "tool_choice", "parallel_tool_calls", "functions", "function_call", "toolConfig", "toolChoice"];
+  if (!fields.some(field => Object.hasOwn(payload, field))) return payload;
+
+  const result = { ...payload };
+  for (const field of fields) delete result[field];
+  return result;
+}
+
+function projectToolFreeHistory(messages) {
+  return messages.flatMap(message => {
+    if (isToolResultMessage(message)) return [];
+    if (message?.role !== "assistant" || !Array.isArray(message.content)) return [message];
+    const content = message.content.filter(block => block?.type !== "toolCall");
+    if (content.length === message.content.length) return [message];
+    if (!content.some(block => block?.type === "text" && typeof block.text === "string" && block.text.trim())) return [];
+    return [{ ...message, content }];
+  });
+}
+
 function stripIncompatibleThinking(payload, model) {
   if (!payload.thinking) return payload;
   // payload.thinking 只对 Anthropic-style / DeepSeek-style / Kimi-style 等请求体有效。
@@ -352,6 +411,14 @@ export function normalizeProviderPayload(payload, model, options = {}) {
 
   const normalizedOptions = normalizeProviderOptions(options, model);
   let result = payload;
+  if (modelDisablesTools(model)) {
+    result = omitToolControls(result);
+    const config = result.config;
+    if (config && typeof config === "object" && !Array.isArray(config)) {
+      const toolFreeConfig = omitToolControls(config);
+      if (toolFreeConfig !== config) result = { ...result, config: toolFreeConfig };
+    }
+  }
 
   // 1. 通用补丁（与 provider 无关）
   result = stripEmptyTools(result);
@@ -385,6 +452,8 @@ export function normalizeProviderPayload(payload, model, options = {}) {
   // 子模块决定本轮 thinking 开关后，中心层再校验最终请求状态。
   result = normalizeReasoningReplayPayload(result, model, normalizedOptions);
 
+  result = stripUnsupportedResponsesCacheFields(result, model);
+  result = normalizeOpenAIToolParameters(result, model);
   return normalizeGeminiOpenAIModelId(result, model, normalizedOptions);
 }
 
@@ -402,7 +471,9 @@ export function normalizeProviderContextMessages(messages, model, options = {}) 
   if (!Array.isArray(messages)) return messages;
 
   const normalizedOptions = normalizeProviderOptions(options, model);
-  let result = projectToolResultResourcesForModel(messages);
+  let result = modelDisablesTools(model)
+    ? projectToolFreeHistory(messages)
+    : projectToolResultResourcesForModel(messages);
   result = normalizeReasoningReplayContextMessages(result, model, normalizedOptions);
   for (const mod of PROVIDER_MODULES) {
     if (mod.matches(model)) {

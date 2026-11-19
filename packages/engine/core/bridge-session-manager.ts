@@ -1122,6 +1122,8 @@ export class BridgeSessionManager {
     // 捕获状态提升到 try 外：错误路径（含 transport throw）也必须拿得到已生成内容（#1607）
     const visibleText = createVisibleTextAccumulator();
     let providerErrorMessage = null;
+    let assistantStopReason = null;
+    let completedToolCall = false;
     // 工具 details.media 收集器（被动提取 tool_execution_end 事件）
     const toolMediaUrls = [];
     const binding = Symbol();
@@ -1328,6 +1330,10 @@ export class BridgeSessionManager {
 
       // 捕获文本输出（visibleText / providerErrorMessage 声明见方法顶部）
       const unsub = session.subscribe((event) => {
+        if (event.type === "message_end" && event.message?.role === "assistant") {
+          assistantStopReason = event.message.stopReason;
+        }
+        if (event.type === "tool_execution_end") completedToolCall = true;
         recordBridgeAssistantUsage({
           ledger: this._deps.getUsageLedger?.(),
           event,
@@ -1464,10 +1470,13 @@ export class BridgeSessionManager {
       if (toolMediaUrls.length) {
         debugLog()?.log("bridge-session", `tool media → ${toolMediaUrls.length} url(s) via details.media`);
       }
+      const capturedText = visibleText.getText();
+      const emptyCompletion = (assistantStopReason === "stop" || assistantStopReason === "length")
+        && !capturedText.trim() && !completedToolCall && toolMediaUrls.length === 0;
       return buildExternalMessageResult({
-        capturedText: visibleText.getText(),
+        capturedText,
         toolMedia: toolMediaUrls,
-        error: providerErrorMessage,
+        error: providerErrorMessage || (emptyCompletion ? t("error.modelNoResponse") : null),
       });
     } catch (err) {
       if (isAbortLikeError(err)) return null;

@@ -49,6 +49,8 @@ export const ERROR_CODE_MESSAGE_KEYS: Readonly<Record<string, string>> = Object.
   // 模型 / 工作区 / 权限
   no_available_model: 'error.code.noAvailableModel',
   agent_model_not_available: 'error.code.agentModelNotAvailable',
+  model_no_response: 'error.code.modelNoResponse',
+  reply_stream_incomplete: 'error.code.replyStreamIncomplete',
   workspace_not_found: 'error.code.workspaceNotFound',
   capability_denied: 'error.code.capabilityDenied',
 

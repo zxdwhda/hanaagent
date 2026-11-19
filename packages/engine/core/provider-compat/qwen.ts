@@ -2,6 +2,7 @@
  * Qwen-style provider 兼容层
  *
  * 处理 provider:
+ *   - OpenAI Completions 模型显式声明 compat.thinkingFormat=qwen
  *   - 任何 model.quirks 包含 "enable_thinking" 的模型（known-models.json 声明）
  *   - DashScope OpenAI-compatible 视频模型（Hana compat 声明 video，且 shared 层确认可走 video_url）
  *
@@ -32,6 +33,7 @@ import { normalizeOpenAIVideoUrlPayload } from "./openai-video-url.ts";
 
 export function matches(model) {
   if (!model || typeof model !== "object") return false;
+  if (model.api === "openai-completions" && model.compat?.thinkingFormat === "qwen") return true;
   if (
     isDashScopeProvider(model)
     && modelSupportsVideoInput(model)

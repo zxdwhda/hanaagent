@@ -433,6 +433,8 @@
       "max": "Maximum reasoning"
     },
     "contextWindow": "Context {windowK}k",
+    "contextWindowUnknown": "Context limit unknown",
+    "tokensUsedWithoutPercent": "Used {tokensK}k",
     "tokensUsed": "Used {tokensK}k ({pct}%)",
     "contextActions": "Context actions",
     "refreshAndCompact": "Compact and update",
@@ -3179,6 +3181,8 @@
       "fileTooLarge": "The file is larger than the allowed size",
       "invalidUpload": "The uploaded content could not be read",
       "invalidPath": "That path is not valid",
+      "modelNoResponse": "Model returned no content. Please check API configuration and network connection.",
+      "replyStreamIncomplete": "Reply interrupted — the content above may be incomplete",
       "noAvailableModel": "No chat model is available. Configure a model and its credentials in settings first.",
       "agentModelNotAvailable": "The model this assistant is set to use is unavailable. Pick a different one in settings.",
       "workspaceNotFound": "That workspace could not be found",

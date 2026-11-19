@@ -7,7 +7,7 @@
  */
 
 import { modelSupportsAnthropicMaxEffort } from "../session-thinking-level.ts";
-import { getReasoningProfile, getThinkingFormat } from "../../../shared/model-capabilities.ts";
+import { getReasoningProfile, getThinkingFormat, requiresAnthropicAdaptiveThinking } from "../../../shared/model-capabilities.ts";
 
 const CACHE_CONTROL = { type: "ephemeral" };
 const MAX_EFFORT_MIN_OUTPUT_TOKENS = 64000;
@@ -256,6 +256,18 @@ function normalizeStandardThinking(payload, options) {
   return next;
 }
 
+function normalizeEnabledAdaptiveThinking(payload, model, options) {
+  if (payload.thinking?.type !== "enabled" || !requiresAnthropicAdaptiveThinking(model)) return payload;
+  return {
+    ...payload,
+    thinking: normalizeAdaptiveThinking(payload.thinking),
+    output_config: {
+      ...payload.output_config,
+      effort: payload.output_config?.effort ?? adaptiveEffortForLevel(options?.reasoningLevel),
+    },
+  };
+}
+
 export function apply(payload, model, options = {}) {
   let result = payload;
 
@@ -269,9 +281,8 @@ export function apply(payload, model, options = {}) {
     if (messages.changed) result = { ...result, messages: messages.value };
   }
 
-  result = isAdaptiveOnlyProfile(model)
-    ? normalizeAdaptiveOnlyThinking(result, model, options)
-    : normalizeMaxEffort(normalizeStandardThinking(result, options), model, options);
-
-  return result;
+  if (isAdaptiveOnlyProfile(model)) return normalizeAdaptiveOnlyThinking(result, model, options);
+  result = normalizeStandardThinking(result, options);
+  result = normalizeEnabledAdaptiveThinking(result, model, options);
+  return normalizeMaxEffort(result, model, options);
 }

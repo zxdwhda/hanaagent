@@ -1,9 +1,102 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { once } from "node:events";
+import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HanaEngine } from "../packages/engine/core/engine.ts";
 import { autoProjectIdForCwd, UNCATEGORIZED_PROJECT_ID } from "../packages/shared/session-projects.ts";
+import { normalizeProviderPayload } from "../packages/engine/core/provider-compat.ts";
+import {
+  AuthStorage,
+  createAgentSession,
+  createModelRegistry,
+  DefaultResourceLoader,
+  SessionManager,
+  SettingsManager,
+} from "../packages/engine/lib/pi-sdk/index.ts";
+
+it("uses the restored runtime thinking level on new and replayed turns with a stale history event", async () => {
+  const requests: any[] = [];
+  const fixture = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const payload = JSON.parse(Buffer.concat(chunks).toString());
+    requests.push(payload);
+    response.writeHead(200, { "Content-Type": "text/event-stream" });
+    const chunk = {
+      id: "fixture", object: "chat.completion.chunk", created: 1, model: payload.model,
+      choices: [{ index: 0, delta: { content: "answer" }, finish_reason: "stop" }],
+    };
+    response.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+  });
+  fixture.listen(0, "127.0.0.1");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "hana-legacy-thinking-"));
+  let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
+
+  try {
+    await once(fixture, "listening");
+    const address = fixture.address();
+    if (!address || typeof address === "string") throw new Error("Missing fixture port");
+    const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+    const model = {
+      id: "glm-5.3", provider: "zhipu-coding", name: "GLM 5.3", reasoning: true,
+      api: "openai-completions", baseUrl, input: ["text" as const], maxTokens: 4096, contextWindow: 100_000,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as const;
+    const history = SessionManager.create(directory, path.join(directory, "sessions"));
+    history.appendModelChange(model.provider, model.id);
+    history.appendThinkingLevelChange("off");
+    history.appendMessage({ role: "user", content: "previous turn", timestamp: 1 });
+    const previousAnswerId = history.appendMessage({
+      role: "assistant", api: model.api, provider: model.provider, model: model.id, timestamp: 2,
+      stopReason: "stop", content: [{ type: "text", text: "previous answer" }],
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { ...model.cost, total: 0 } },
+    });
+    const sessionPath = history.getSessionFile();
+    if (!sessionPath) throw new Error("Missing fixture session path");
+    const sessionManager = SessionManager.open(sessionPath);
+    const authStorage = AuthStorage.inMemory();
+    authStorage.setRuntimeApiKey(model.provider, "local-fixture");
+    const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } });
+
+    const engine = Object.create(HanaEngine.prototype);
+    engine._models = { resolveThinkingLevel: (level: string) => level };
+    engine._prefs = { getThinkingLevel: () => "high" };
+    engine._sessionCoord = { getSessionByPath: (locator: string) => locator === sessionPath ? session : null };
+    const resourceLoader = new DefaultResourceLoader({
+      cwd: directory, agentDir: directory, settingsManager, noSkills: true, noContextFiles: true,
+      extensionFactories: [
+        (pi) => pi.on("before_provider_request", (event, ctx) => normalizeProviderPayload(event.payload, ctx.model, {
+          mode: "chat", reasoningLevel: engine.resolveRequestReasoningLevel(ctx),
+        })),
+      ],
+    });
+    await resourceLoader.reload();
+    ({ session } = await createAgentSession({
+      cwd: directory, agentDir: directory, sessionManager, settingsManager, resourceLoader, authStorage, tools: [],
+      model: { ...model, input: ["text"] }, modelRegistry: createModelRegistry(authStorage, path.join(directory, "models.json")),
+      thinkingLevel: "high",
+    }));
+    expect(sessionManager.buildSessionContext().thinkingLevel).toBe("off");
+    expect(session.thinkingLevel).toBe("high");
+
+    await session.prompt("new turn");
+    sessionManager.branch(previousAnswerId);
+    session.agent.state.messages = sessionManager.buildSessionContext().messages;
+    await session.prompt("new turn");
+
+    session.setThinkingLevel("off");
+    await session.prompt("explicitly off");
+
+    expect(requests.map(request => request.thinking?.type)).toEqual(["enabled", "enabled", "disabled"]);
+  } finally {
+    session?.dispose();
+    fixture.closeAllConnections();
+    await new Promise<void>(resolve => fixture.close(() => resolve()));
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Computer Use lazy runtime

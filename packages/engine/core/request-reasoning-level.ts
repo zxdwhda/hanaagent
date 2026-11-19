@@ -50,12 +50,12 @@ export function resolveRequestReasoningLevel({
  * The live pipeline's assembly: session context plus the user's preference,
  * with the model's own default standing in for an unset preference.
  */
-export function resolveRequestReasoningLevelForContext(models, prefs, ctx) {
+export function resolveRequestReasoningLevelForContext(models, prefs, ctx, runtimeThinkingLevel?: string | null) {
   const defaultThinkingLevel = typeof models.getModelDefaultThinkingLevel === "function"
     ? models.getModelDefaultThinkingLevel(ctx?.model || null, prefs.getThinkingLevel())
     : prefs.getThinkingLevel();
   return resolveRequestReasoningLevel({
-    sessionThinkingLevel: readSessionThinkingLevel(ctx),
+    sessionThinkingLevel: runtimeThinkingLevel ?? readSessionThinkingLevel(ctx),
     preferenceThinkingLevel: models.resolveThinkingLevel(defaultThinkingLevel),
   });
 }

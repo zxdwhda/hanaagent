@@ -50,6 +50,20 @@ function getModelText(model: any, context: any = {}) {
   ].map(lower).filter(Boolean).join(" ");
 }
 
+export function contextUsageForDisplay(
+  session: {
+    model?: { compat?: unknown };
+    getContextUsage?: () => { tokens: number | null; contextWindow: number | null; percent: number | null } | undefined | null;
+  } | null | undefined,
+) {
+  const usage = session?.getContextUsage?.();
+  const compat = session?.model?.compat;
+  if (usage && isPlainObject(compat) && compat.contextWindowEstimated === true) {
+    return { ...usage, contextWindow: null, percent: null };
+  }
+  return usage;
+}
+
 function normalizeBoolean(value: unknown): boolean {
   return value === true;
 }
@@ -179,6 +193,8 @@ export function normalizeModelProtocolCompat(value: any): Record<string, any> | 
   if (value.hanaVideoInput === true) out.hanaVideoInput = true;
   if (value.hanaAudioInput === true) out.hanaAudioInput = true;
   if (value.supportsTemperature === false) out.supportsTemperature = false;
+  if (typeof value.supportsPromptCacheKey === "boolean") out.supportsPromptCacheKey = value.supportsPromptCacheKey;
+  if (value.forceAdaptiveThinking === true) out.forceAdaptiveThinking = true;
   if (value.outputCapRequired === true) out.outputCapRequired = true;
   if (typeof value.outputCapField === "string" && OUTPUT_CAP_FIELDS.has(value.outputCapField)) {
     out.outputCapField = value.outputCapField;
@@ -259,6 +275,13 @@ function isAnthropicAdaptiveOnlyModelId(id: string): boolean {
     || id === "anthropic/claude-sonnet-5"
     || id === "anthropic/claude-fable-5"
     || id === "anthropic/claude-mythos-5";
+}
+
+export function requiresAnthropicAdaptiveThinking(model: any, context: any = {}): boolean {
+  if (getApi(model, context) !== "anthropic-messages") return false;
+  if (model?.compat?.forceAdaptiveThinking === true) return true;
+  const id = getModelId(model, context);
+  return id === "claude-opus-4-7" || id === "claude-opus-4.7";
 }
 
 function isDeepSeekThinkingModelId(id: string): boolean {

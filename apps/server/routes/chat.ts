@@ -49,6 +49,7 @@ import {
 import { resolveWsSessionContext } from "./ws-session-context.ts";
 import { visiblePromptText } from "../../../packages/engine/core/session-reminders.ts";
 import { AppError } from "../../../packages/shared/errors.ts";
+import { contextUsageForDisplay } from "../../../packages/shared/model-capabilities.ts";
 import { errorBus } from "../../../packages/shared/error-bus.ts";
 import { createRequestContext } from "../http/boundary.ts";
 import { buildDeferredResultInterludeBlock, resolveDeferredReceiverName } from "../deferred-result-interlude.ts";
@@ -65,7 +66,7 @@ import { buildAutomationSuggestionBlock } from "../suggestion-blocks.ts";
 import { isAllowedChatImageMime, isChatImageBase64WithinLimit } from "../../../packages/shared/image-mime.ts";
 import { isAllowedChatVideoMime, isChatVideoBase64WithinLimit } from "../../../packages/shared/video-mime.ts";
 import { isAllowedChatAudioMime, isChatAudioBase64WithinLimit } from "../../../packages/shared/audio-mime.ts";
-import { getAssistantTextPhase, getMissingCompletedAssistantText } from "../../../packages/shared/text-signature.ts";
+import { getMissingCompletedAssistantText, projectAssistantTextUpdate } from "../../../packages/shared/text-signature.ts";
 import { summarizeToolArgs } from "../../../packages/shared/tool-arg-summary.ts";
 import { projectLiveToolResultOutcome } from "../../../packages/shared/tool-outcome.ts";
 import fs from "fs";
@@ -217,7 +218,7 @@ export function toCompactionLifecycleWsMessage(
   }
   if (event.type !== "compaction_end") return null;
 
-  const usage = getSessionByPath?.(sessionPath)?.getContextUsage?.();
+  const usage = contextUsageForDisplay(getSessionByPath?.(sessionPath));
   return {
     type: "compaction_end",
     sessionId,
@@ -426,10 +427,8 @@ export function createChatRoute(engine: any, hub: any, {
         _cardHints: [],
         _cardEmitted: false,
         isThinking: false,
-        hasOutput: false,
+        hasVisibleResult: false,
         streamedAssistantMessageText: "",
-        hasToolCall: false,
-        hasThinking: false,
         hasError: false,
         assistantStopReason: null,
         isAborted: false,
@@ -583,6 +582,13 @@ export function createChatRoute(engine: any, hub: any, {
   }
 
   function emitStreamEvent(sessionPath, ss, event) {
+    if (
+      (event.type === "text_delta" && typeof event.delta === "string" && event.delta.trim())
+      || event.type === "tool_end"
+      || event.type === "card_end"
+    ) {
+      ss.hasVisibleResult = true;
+    }
     const entry = appendSessionStreamEvent(ss, event);
     // Phase 4: 始终广播所有事件，前端按 sessionPath 路由到对应 panel
     broadcast(createSessionStreamEventWsMessage({
@@ -593,6 +599,13 @@ export function createChatRoute(engine: any, hub: any, {
       seq: entry.seq,
     }));
     return entry;
+  }
+
+  function emitProviderStreamError(sessionPath, ss, message) {
+    if (ss.hasError) return;
+    ss.hasError = true;
+    const code = message === "Stream ended without finish_reason" ? "reply_stream_incomplete" : null;
+    broadcast({ type: "error", message, sessionPath, ...(code ? { code } : {}) });
   }
 
   function buildDeferredResultContentEvents(sessionPath, event) {
@@ -667,10 +680,8 @@ export function createChatRoute(engine: any, hub: any, {
     ss._cardHints = [];
     ss._cardEmitted = false;
     ss.isThinking = false;
-    ss.hasOutput = false;
+    ss.hasVisibleResult = false;
     ss.streamedAssistantMessageText = "";
-    ss.hasToolCall = false;
-    ss.hasThinking = false;
     ss.hasError = false;
     ss.assistantStopReason = null;
     ss.isAborted = false;
@@ -1158,40 +1169,6 @@ export function createChatRoute(engine: any, hub: any, {
       });
     };
 
-    const phaseTextBuffer = () => {
-      if (!(ss.pendingPhaseTextByIndex instanceof Map)) ss.pendingPhaseTextByIndex = new Map();
-      return ss.pendingPhaseTextByIndex;
-    };
-
-    const textEventBufferKey = (subEvent) => (
-      Number.isInteger(subEvent?.contentIndex) ? String(subEvent.contentIndex) : "__default"
-    );
-
-    const textBlockFromEvent = (subEvent) => {
-      const partialContent = subEvent?.partial?.content;
-      const messageContent = event.message?.content;
-      const content = Array.isArray(partialContent)
-        ? partialContent
-        : Array.isArray(messageContent)
-          ? messageContent
-          : null;
-      if (!content) return null;
-      if (Number.isInteger(subEvent?.contentIndex)) {
-        return content[subEvent.contentIndex] || null;
-      }
-      return content.find((block) => block?.type === "text") || null;
-    };
-
-    const shouldBufferPhaseText = (subEvent) => {
-      const message = subEvent?.partial || event.message || {};
-      const api = typeof message?.api === "string" ? message.api.toLowerCase() : "";
-      const provider = typeof message?.provider === "string" ? message.provider.toLowerCase() : "";
-      return provider === "openai-codex"
-        || api === "openai-codex-responses"
-        || api === "openai-responses"
-        || api === "azure-openai-responses";
-    };
-
     const thinkingDeltaFromEvent = (subEvent) => {
       for (const key of ["delta", "reasoning_content", "reasoning_text", "thinking", "thinking_text", "reasoning", "text"]) {
         const value = subEvent?.[key];
@@ -1204,7 +1181,6 @@ export function createChatRoute(engine: any, hub: any, {
       const text = typeof delta === "string" ? delta : "";
       if (!text) return;
       flushPendingTurnInputConsumptions(sessionPath, ss, event.message);
-      ss.hasOutput = true;
       ss.streamedAssistantMessageText += text;
       if (ss.isThinking) {
         ss.isThinking = false;
@@ -1235,29 +1211,10 @@ export function createChatRoute(engine: any, hub: any, {
       if (!ss) return;
       const sub = event.assistantMessageEvent?.type;
 
-      if (sub === "text_delta") {
-        const subEvent = event.assistantMessageEvent;
-        const delta = subEvent.delta || "";
-        if (shouldBufferPhaseText(subEvent)) {
-          const pending = phaseTextBuffer();
-          const key = textEventBufferKey(subEvent);
-          pending.set(key, `${pending.get(key) || ""}${delta}`);
-          return;
-        }
-        emitVisibleTextDelta(delta);
-      } else if (sub === "text_end") {
-        const subEvent = event.assistantMessageEvent;
-        if (!shouldBufferPhaseText(subEvent)) return;
-        const pending = phaseTextBuffer();
-        const key = textEventBufferKey(subEvent);
-        const block = textBlockFromEvent(subEvent);
-        const buffered = pending.get(key);
-        pending.delete(key);
-        if (getAssistantTextPhase(block) === "commentary") return;
-        emitVisibleTextDelta(buffered ?? subEvent.content ?? block?.text ?? "");
+      if (sub === "text_delta" || sub === "text_end") {
+        emitVisibleTextDelta(projectAssistantTextUpdate(event.message, event.assistantMessageEvent, ss.pendingPhaseTextByIndex));
       } else if (sub === "thinking_delta") {
         flushPendingTurnInputConsumptions(sessionPath, ss, event.message);
-        ss.hasThinking = true;
         if (!ss.isThinking) {
           ss.isThinking = true;
           emitStreamEvent(sessionPath, ss, { type: "thinking_start" });
@@ -1269,13 +1226,13 @@ export function createChatRoute(engine: any, hub: any, {
       } else if (sub === "toolcall_start") {
         // 不在这里关闭 thinking 状态
       } else if (sub === "error") {
-        ss.hasError = true;
-        broadcast({ type: "error", message: event.assistantMessageEvent.error || "Unknown error", sessionPath });
+        const error = event.assistantMessageEvent.error;
+        const message = typeof error === "string" ? error : error?.errorMessage;
+        if (message) emitProviderStreamError(sessionPath, ss, message);
       }
     } else if (event.type === "tool_execution_start") {
       if (!ss) return;
       flushPendingTurnInputConsumptions(sessionPath, ss, event.message);
-      ss.hasToolCall = true;
       if (ss.isThinking) {
         ss.isThinking = false;
         emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
@@ -1582,16 +1539,17 @@ export function createChatRoute(engine: any, hub: any, {
         for (const block of blocks) {
           emitStreamEvent(sessionPath, ss, { type: "content_block", block });
         }
+        if (blocks.length > 0) ss.hasVisibleResult = true;
       }
       if (event.message?.stopReason === "error") {
-        ss.hasError = true;
-        broadcast({ type: "error", message: event.message.errorMessage || "Unknown error", sessionPath });
+        emitProviderStreamError(sessionPath, ss, event.message.errorMessage || "Unknown error");
       }
       if (event.message?.role === "assistant" && typeof event.message.stopReason === "string") {
         if (!ss.isAborted) {
           emitVisibleTextDelta(getMissingCompletedAssistantText(event.message, ss.streamedAssistantMessageText));
         }
         ss.streamedAssistantMessageText = "";
+        ss.pendingPhaseTextByIndex.clear();
         ss.assistantStopReason = event.message.stopReason;
       }
     } else if (event.type === "turn_end") {
@@ -1603,19 +1561,12 @@ export function createChatRoute(engine: any, hub: any, {
       const turnStreamId = ss.streamId || null;
       flushTerminalParsers();
 
-      // 空回复检测：本轮没有文本输出也没有工具调用，提示用户检查配置
-      // 被 abort 的 turn 不弹此提示（用户主动停止 / WS 断开 / 连接超时）；
-      // 合成中止事件同样豁免
-      const truncatedWithoutVisibleResult = turnWasTruncated && !ss.hasOutput && !ss.hasToolCall;
-      if (
-        ((!ss.hasOutput && !ss.hasToolCall && !ss.hasThinking) || truncatedWithoutVisibleResult)
-        && !ss.hasError
-        && !turnWasAborted
-      ) {
+      // 只把用户收到的正文、卡片或已结束的工具调用视为结果。
+      if (!ss.hasVisibleResult && !ss.hasError && !turnWasAborted) {
         ss.hasError = true;
-        broadcast({ type: "error", message: t("error.modelNoResponse"), sessionPath });
+        broadcast({ type: "error", code: "model_no_response", message: t("error.modelNoResponse"), sessionPath });
       }
-      const turnWasSuccessful = !turnWasAborted && !ss.hasError && (ss.hasOutput || ss.hasToolCall || ss.hasThinking);
+      const turnWasSuccessful = !turnWasAborted && !ss.hasError && ss.hasVisibleResult;
 
       const persistedEntries = persistedTurnEntryIds(engine, sessionPath);
 
@@ -1665,10 +1616,8 @@ export function createChatRoute(engine: any, hub: any, {
         wasSuccessful: turnWasSuccessful,
         streamId: turnStreamId,
       });
-      ss.hasOutput = false;
+      ss.hasVisibleResult = false;
       ss.streamedAssistantMessageText = "";
-      ss.hasToolCall = false;
-      ss.hasThinking = false;
       ss.hasError = false;
       ss.assistantStopReason = null;
       ss.isAborted = false;
@@ -1902,7 +1851,7 @@ export function createChatRoute(engine: any, hub: any, {
               const usageCtx = requireWsSessionContext(msg, ws); if (!usageCtx) return;
               const usagePath = usageCtx.sessionPath;
               const usage = engine.getSessionContextUsage?.(usagePath)
-                || engine.getSessionByPath(usagePath)?.getContextUsage?.();
+                ?? contextUsageForDisplay(engine.getSessionByPath(usagePath));
               wsSend(ws, {
                 type: "context_usage",
                 sessionPath: usagePath,

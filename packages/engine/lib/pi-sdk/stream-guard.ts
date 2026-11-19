@@ -1,5 +1,6 @@
 import type { AssistantMessageEvent, AssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
+import { withLocalModelResponseHeaderBudget } from "../net/outbound-proxy.ts";
 import { isToolProtocolFragment } from "../tool-protocol-sanitizer.ts";
 import { adaptQiniuKimiToolNames } from "./qiniu-kimi-tool-names.ts";
 
@@ -11,7 +12,10 @@ export function installAssistantStreamGuard(session) {
   const originalStreamFn = agent.streamFn;
   agent.streamFn = async (model, context, options) => {
     const toolNames = adaptQiniuKimiToolNames(model, context);
-    const inner = await originalStreamFn(model, toolNames?.context ?? context, options);
+    const inner = await withLocalModelResponseHeaderBudget(model, (timeoutMs) =>
+      originalStreamFn(model, toolNames?.context ?? context, timeoutMs != null && options?.timeoutMs == null
+        ? { ...options, timeoutMs }
+        : options));
     return guardAssistantMessageStream(inner, toolNames?.decodeEvent);
   };
   agent[STREAM_GUARD_FLAG] = true;

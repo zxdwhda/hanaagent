@@ -428,6 +428,8 @@
       "low": "轻量推理"
     },
     "contextWindow": "上下文 {windowK}k",
+    "contextWindowUnknown": "上下文上限未知",
+    "tokensUsedWithoutPercent": "已用 {tokensK}k",
     "tokensUsed": "已用 {tokensK}k ({pct}%)",
     "contextActions": "上下文操作",
     "refreshAndCompact": "壓縮並更新",
@@ -3174,6 +3176,8 @@
       "fileTooLarge": "檔案太大，超出允許的大小",
       "invalidUpload": "上傳的內容無法辨識",
       "invalidPath": "路徑無效",
+      "modelNoResponse": "模型未回傳任何內容，請檢查 API 設定和網路連線。",
+      "replyStreamIncomplete": "回覆中斷，以上內容可能不完整",
       "noAvailableModel": "目前沒有可用的對話模型，先去設定裡設定模型和憑證",
       "agentModelNotAvailable": "這個助手設定的模型目前無法使用，去設定裡幫它換一個",
       "workspaceNotFound": "找不到這個工作台",

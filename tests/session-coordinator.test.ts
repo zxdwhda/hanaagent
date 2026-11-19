@@ -3277,6 +3277,11 @@ describe("SessionCoordinator", () => {
     expect(violations()).toHaveLength(4);
     expect(violations()[3].drift.systemPrompt.actualExcerpt).toContain("MUTATED CACHE PREFIX");
 
+    // A later input is checked against the unchanged base prompt, even though
+    // the provider stream was last checked against the extension's final prompt.
+    expect(() => coordinator.preflightSessionInput(sessionFile)).not.toThrow();
+    expect(violations()).toHaveLength(4);
+
     // 续签之后同一个前缀不再重复告警
     await expect((session.agent.streamFn as any)(model, {
       systemPrompt: "MUTATED CACHE PREFIX",

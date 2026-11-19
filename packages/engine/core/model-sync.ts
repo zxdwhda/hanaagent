@@ -13,6 +13,7 @@ import {
   getEndpointDefaultReasoningCapability,
   normalizeModelProtocolCompat,
   normalizeToolUseContract,
+  requiresAnthropicAdaptiveThinking,
   normalizeVisionCapabilities,
   withHanaAudioInputCompat,
   withHanaVideoInputCompat,
@@ -207,6 +208,7 @@ function buildModelOverride(modelEntry, modelDefaults = {}, executionHeaders = {
     throw new Error(`invalid toolUse contract for model "${getModelId(modelEntry) || "unknown"}"`);
   }
   if (toolUse) override.toolUse = toolUse;
+  if (toolUse) override.compat = { ...override.compat, supportsTools: toolUse.supportsTools };
   const visionCapabilities = image === true
     ? normalizeVisionCapabilities(modelEntry.visionCapabilities)
     : null;
@@ -262,14 +264,14 @@ function buildModelEntry(
   const audio = userAudio !== undefined ? userAudio : (knownAudio === true);
   const userXhigh = isObj ? modelEntry.xhigh : undefined;
   const xhigh = userXhigh !== undefined ? userXhigh : (known?.xhigh === true);
+  const contextWindow = (isObj ? (modelEntry.context ?? modelEntry.contextWindow) : undefined)
+    ?? piProtocolBaseline?.contextWindow
+    ?? known?.context;
   const entry: Record<string, any> = {
     id,
     name: (isObj && modelEntry.name) || piProtocolBaseline?.name || known?.name || humanizeName(id),
     input: buildPiInputModalities({ image: image === true }),
-    contextWindow: (isObj ? (modelEntry.context ?? modelEntry.contextWindow) : undefined)
-      ?? piProtocolBaseline?.contextWindow
-      ?? known?.context
-      ?? DEFAULT_CONTEXT_WINDOW,
+    contextWindow: contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     reasoning: (isObj && modelEntry.reasoning !== undefined)
       ? modelEntry.reasoning
       : (
@@ -356,8 +358,20 @@ function buildModelEntry(
       compat.supportsReasoningEffort = false;
     }
     entry.compat = compat;
-  } else if (explicitCompat?.supportsTemperature === false) {
-    entry.compat = { ...entry.compat, supportsTemperature: false };
+  } else {
+    if (explicitCompat?.supportsTemperature === false) {
+      entry.compat = { ...entry.compat, supportsTemperature: false };
+    }
+    if (typeof explicitCompat?.supportsPromptCacheKey === "boolean") {
+      entry.compat = { ...entry.compat, supportsPromptCacheKey: explicitCompat.supportsPromptCacheKey };
+    }
+  }
+  // Pi projects only its own model fields. Keep the configured tool capability
+  // in compat so the request hooks still have it after model lookup.
+  if (contextWindow == null) entry.compat = { ...entry.compat, contextWindowEstimated: true };
+  if (toolUse) entry.compat = { ...entry.compat, supportsTools: toolUse.supportsTools };
+  if (requiresAnthropicAdaptiveThinking(entry, { api: modelApi })) {
+    entry.compat = { ...entry.compat, forceAdaptiveThinking: true };
   }
 
   let mediaAwareEntry = video === true ? withHanaVideoInputCompat(entry, true) : entry;

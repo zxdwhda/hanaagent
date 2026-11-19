@@ -31,6 +31,32 @@ function feedBridgeEvents(events) {
 }
 
 describe("createVisibleTextAccumulator — hidden tool paragraph boundary (#2356)", () => {
+  it("omits raw reasoning tags split across Bridge updates", () => {
+    const acc = createVisibleTextAccumulator();
+    const sendDelta = (delta: string) => acc.appendAssistantEvent({
+      type: "message_update", assistantMessageEvent: { type: "text_delta", delta },
+    });
+    expect(sendDelta("<thi")).toBeNull();
+    expect(sendDelta("nk>private</think>")).toBeNull();
+    expect(sendDelta("Visible answer")).toEqual({ emittedDelta: "Visible answer", text: "Visible answer" });
+  });
+
+  it("keeps commentary out of Bridge output and recovers final text from the completed message", () => {
+    const acc = createVisibleTextAccumulator();
+    const commentary = { type: "text", text: "internal", textSignature: '{"phase":"commentary"}' };
+    const event = { role: "assistant", api: "openai-responses" };
+
+    expect(acc.appendAssistantEvent({
+      type: "message_update", message: event,
+      assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: commentary.text, partial: { content: [] } },
+    })).toBeNull();
+
+    expect(acc.appendAssistantEvent({
+      type: "message_end",
+      message: { ...event, stopReason: "stop", content: [commentary, { type: "text", text: "Final answer" }] },
+    })).toEqual({ emittedDelta: "Final answer", text: "Final answer" });
+  });
+
   it("inserts a paragraph break between prose segments separated only by a hidden tool", () => {
     const { text, streamed } = feedBridgeEvents([
       { type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "工具前输出。" } },

@@ -14,6 +14,13 @@ describe("known-models dictionary", () => {
     expect(lookupKnown(undefined, undefined)).toBeNull();
   });
 
+  it("recognizes Gemma 4 E4B reasoning for local utility model IDs", () => {
+    expect(lookupKnown("local-llama", "google/gemma-4-E4B-it")).toMatchObject({ reasoning: true });
+    expect(lookupKnown("local-llama", "gemma-4-e4b")).toMatchObject({ reasoning: true });
+    expect(lookupKnown("ollama", "gemma4:e4b")).toMatchObject({ reasoning: true });
+    expect(lookupKnown("ollama", "gemma3")?.reasoning).not.toBe(true);
+  });
+
   it("keeps current OpenAI GPT-5.4 API context metadata", () => {
     expect(lookupKnown("openai", "gpt-5.4")).toMatchObject({
       name: "GPT-5.4",
