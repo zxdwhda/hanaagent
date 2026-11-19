@@ -436,8 +436,9 @@ function readPatrolLogText(filePath) {
  * @param {string} filePath
  * @returns {string|null} 截断后的内容（null = 文件不存在或为空）
  */
-function readRecentPatrolLog(filePath) {
-  const raw = readPatrolLogText(filePath);
+async function readRecentPatrolLog(filePath) {
+  const buffer = await fs.promises.readFile(filePath).catch(() => null);
+  const raw = buffer ? decodePatrolLogBuffer(buffer) : "";
   if (!raw.trim()) return null;
 
   const lines = raw.split("\n");
@@ -507,70 +508,40 @@ function createPatrolLogTool({ patrolLogPath, isZh }) {
 /**
  * 列出目录下的文件（排除 . 开头和 jian.md 本身）
  */
-function listDirFiles(dir, ignoreNames = new Set()) {
-  try {
-    return fs.readdirSync(dir, { withFileTypes: true })
-      .filter(e => !e.name.startsWith(".") && e.name !== "jian.md" && !ignoreNames.has(e.name))
-      .map(e => {
-        const fp = path.join(dir, e.name);
-        let stat;
-        try { stat = fs.lstatSync(fp); } catch { return null; }
-        if (stat.isSymbolicLink()) return null; // 跳过 symlink
-        return {
-          name: e.name,
-          isDir: e.isDirectory(),
-          size: stat.size,
-          mtime: stat.mtime.toISOString(),
-        };
-      })
-      .filter(Boolean);
-  } catch {
-    return [];
+async function listDirFiles(dir, ignoreNames = new Set<string>()) {
+  const entries = await fs.promises.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const files = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || entry.name === "jian.md" || ignoreNames.has(entry.name)) continue;
+    const stat = await fs.promises.lstat(path.join(dir, entry.name)).catch(() => null);
+    if (!stat || stat.isSymbolicLink()) continue;
+    files.push({
+      name: entry.name,
+      isDir: entry.isDirectory(),
+      size: stat.size,
+      mtime: stat.mtime.toISOString(),
+    });
   }
+  return files;
 }
 
 /**
  * 扫描工作台，找到所有含 jian.md 的目录（根目录 + 一级子目录）
  */
-function scanJianDirs(wsPath) {
-  if (!wsPath || !fs.existsSync(wsPath)) return [];
-
+async function scanJianDirs(wsPath) {
   const dirs = [];
-
-  // 根目录
-  const rootIgnoreNames = new Set([WORKSPACE_OUTPUT_ROOT_DIRNAME]);
-
-  if (fs.existsSync(path.join(wsPath, "jian.md"))) {
-    try {
-      dirs.push({
-        name: ".",
-        absPath: wsPath,
-        jianContent: fs.readFileSync(path.join(wsPath, "jian.md"), "utf-8"),
-        files: listDirFiles(wsPath, rootIgnoreNames),
-      });
-    } catch {}
+  async function scan(name, absPath, ignoreNames?: Set<string>) {
+    const jianContent = await fs.promises.readFile(path.join(absPath, "jian.md"), "utf-8").catch(() => null);
+    if (jianContent === null) return;
+    const files = await listDirFiles(absPath, ignoreNames);
+    dirs.push({ name, absPath, jianContent, files });
   }
-
-  // 一级子目录
-  try {
-    const entries = fs.readdirSync(wsPath, { withFileTypes: true });
-    for (const e of entries) {
-      if (!e.isDirectory() || e.name.startsWith(".")) continue;
-      if (e.name === WORKSPACE_OUTPUT_ROOT_DIRNAME) continue;
-      const subPath = path.join(wsPath, e.name);
-      const jianFile = path.join(subPath, "jian.md");
-      if (!fs.existsSync(jianFile)) continue;
-      try {
-        dirs.push({
-          name: e.name,
-          absPath: subPath,
-          jianContent: fs.readFileSync(jianFile, "utf-8"),
-          files: listDirFiles(subPath),
-        });
-      } catch {}
-    }
-  } catch {}
-
+  await scan(".", wsPath, new Set([WORKSPACE_OUTPUT_ROOT_DIRNAME]));
+  const entries = await fs.promises.readdir(wsPath, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === WORKSPACE_OUTPUT_ROOT_DIRNAME) continue;
+    await scan(entry.name, path.join(wsPath, entry.name));
+  }
   return dirs;
 }
 
@@ -626,10 +597,10 @@ export function createHeartbeat({
 
   // ── 指纹注册表 ──
 
-  function loadRegistry() {
+  async function loadRegistry() {
     if (!registryPath) return {};
     try {
-      return JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+      return JSON.parse(await fs.promises.readFile(registryPath, "utf-8"));
     } catch {
       return {};
     }
@@ -682,7 +653,7 @@ export function createHeartbeat({
       let overwatch = null;
       if (overwatchPath) {
         try {
-          const content = fs.readFileSync(overwatchPath, "utf-8").trim();
+          const content = (await fs.promises.readFile(overwatchPath, "utf-8")).trim();
           if (content) overwatch = content;
         } catch {}
       }
@@ -691,8 +662,8 @@ export function createHeartbeat({
       const wsPath = getWorkspacePath?.();
       const agentName = getAgentName?.() || "Hanako";
       const relativeOutputDirs = resolveAgentWorkspaceOutputRelativeDirs(agentName, locale);
-      const jianDirs = (onJianBeat && wsPath) ? scanJianDirs(wsPath) : [];
-      const jianChanges = _detectJianChanges(jianDirs);
+      const jianDirs = onJianBeat && wsPath ? await scanJianDirs(wsPath) : [];
+      const jianChanges = await _detectJianChanges(jianDirs);
 
       // 汇总日志
       const changeCount = changedFiles.added.length + changedFiles.modified.length + changedFiles.removed.length;
@@ -709,7 +680,7 @@ export function createHeartbeat({
         const patrolLogPath = wsPath
           ? path.join(resolveAgentWorkspaceOutputDirs(wsPath, agentName, locale).patrolDir, "patrol-log.md")
           : null;
-        const patrolLog = patrolLogPath ? readRecentPatrolLog(patrolLogPath) : null;
+        const patrolLog = patrolLogPath ? await readRecentPatrolLog(patrolLogPath) : null;
         const patrolLogTool = patrolLogPath ? createPatrolLogTool({ patrolLogPath, isZh }) : null;
         const prompt = buildHeartbeatContext({
           deskChanged,
@@ -749,10 +720,10 @@ export function createHeartbeat({
   /**
    * 对比注册表，找出有变化的笺目录
    */
-  function _detectJianChanges(jianDirs) {
+  async function _detectJianChanges(jianDirs) {
     if (jianDirs.length === 0) return [];
 
-    const registry = loadRegistry();
+    const registry = await loadRegistry();
     const result = [];
 
     for (const dir of jianDirs) {
@@ -775,7 +746,7 @@ export function createHeartbeat({
    * 逐个执行有变化的笺目录
    */
   async function _processJianChanges(changes) {
-    const registry = loadRegistry();
+    const registry = await loadRegistry();
 
     for (const dir of changes) {
       const label = dir.name === "." ? (isZh ? "根目录" : "root") : dir.name;
@@ -805,11 +776,11 @@ export function createHeartbeat({
 
         // 执行成功 → 重新扫描目录，用执行后的指纹存入 registry
         // 避免任务自身修改文件导致下次心跳重复触发（自激振荡）
-        const postFiles = listDirFiles(dir.absPath);
+        const postFiles = await listDirFiles(dir.absPath);
         const postFilesHash = quickHash(postFiles.map(f => `${f.name}:${f.mtime}`).join("|"));
         let postJianHash = dir.jianHash;
         try {
-          const postJian = fs.readFileSync(path.join(dir.absPath, "jian.md"), "utf-8");
+          const postJian = await fs.promises.readFile(path.join(dir.absPath, "jian.md"), "utf-8");
           postJianHash = quickHash(postJian);
         } catch {}
 

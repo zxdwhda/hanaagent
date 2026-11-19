@@ -15,7 +15,44 @@ describe("heartbeat workspace output directories", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it("keeps timers responsive while a jian file's metadata is pending", async () => {
+    const dataFile = path.join(tempRoot, "report.md");
+    fs.writeFileSync(path.join(tempRoot, "jian.md"), "Check the report.\n");
+    fs.writeFileSync(dataFile, "Fixture report.\n");
+    const started = Promise.withResolvers<"metadata pending">();
+    const release = Promise.withResolvers<void>();
+    const originalLstat = fs.promises.lstat;
+    vi.spyOn(fs.promises, "lstat").mockImplementation(async (...args) => {
+      if (args[0] === dataFile) {
+        started.resolve("metadata pending");
+        await release.promise;
+      }
+      return originalLstat(...args);
+    });
+    const onJianBeat = vi.fn(async (_prompt: string) => {});
+    const heartbeat = createHeartbeat({
+      getWorkspacePath: () => tempRoot,
+      onBeat: async () => {},
+      onJianBeat,
+      locale: "en",
+    } as any);
+
+    const beat = heartbeat.beat();
+    try {
+      expect(await Promise.race([started.promise, beat.then(() => "beat finished")]))
+        .toBe("metadata pending");
+      await new Promise<void>((resolve) => setTimeout(resolve, 5));
+      expect(onJianBeat).not.toHaveBeenCalled();
+    } finally {
+      release.resolve();
+      await beat;
+    }
+    expect(onJianBeat).toHaveBeenCalledOnce();
+    expect(onJianBeat.mock.calls[0]?.[0]).toContain("report.md");
   });
 
   it("limits prompt history to the last 50 entries without rewriting the patrol log", async () => {
@@ -43,9 +80,11 @@ describe("heartbeat workspace output directories", () => {
     fs.writeFileSync(path.join(tempRoot, "jian.md"), "Inspect this directory.\n");
     const registryPath = path.join(tempRoot, "jian-registry.json");
     const cleanup = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
     let patrolSignal: AbortSignal | undefined;
     const runPatrol = vi.fn(async (opts: { signal?: AbortSignal }) => {
       patrolSignal = opts.signal;
+      entered.resolve();
       await cleanup.promise;
     });
     const onBeat = vi.fn(async (_prompt, opts) => {
@@ -59,6 +98,7 @@ describe("heartbeat workspace output directories", () => {
 
     const beat = heartbeat.beat();
     try {
+      await entered.promise;
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
       expect(patrolSignal?.aborted).toBe(true);
       await heartbeat.beat();
