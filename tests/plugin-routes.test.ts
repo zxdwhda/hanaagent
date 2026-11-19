@@ -2247,6 +2247,43 @@ export default function register(app) {
 }
 `;
 
+it("opens the HTML routes of a registered minimal plugin page and widget using their surface tickets", async () => {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-page-widget-"));
+  try {
+    const { pm } = await loadRealPluginWithRoutes({
+      tmpHome,
+      pluginId: "surface-probe",
+      manifestExtra: { contributes: { page: { route: "/page" }, widget: { route: "/widget" } } },
+      routeSource: `export default (app) => {
+        app.get("/page", (c) => c.html("<main>probe page</main>"));
+        app.get("/widget", (c) => c.html("<main>probe widget</main>"));
+      };`,
+    });
+    const engine = mockEngine({ hanakoHome: tmpHome });
+    (engine as any).pluginManager = pm;
+    const app = createAppWithProductionPluginSurfaceAuth(engine);
+
+    for (const [kind, list] of [["page", pm.getPages()], ["widget", pm.getWidgets()]] as const) {
+      const registration = list.find(({ pluginId }) => pluginId === "surface-probe");
+      expect(registration?.route).toBe(`/${kind}`);
+      const routeUrl = `/api/plugins/surface-probe${registration?.route}`;
+      const ticketRes = await app.request("/api/plugins/iframe-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routeUrl }),
+      });
+      expect(ticketRes.status).toBe(200);
+      const { ticket } = await ticketRes.json();
+      const surface = await app.request(`${routeUrl}?pluginIframeTicket=${encodeURIComponent(ticket)}`);
+      expect(surface.status).toBe(200);
+      expect(surface.headers.get("content-type")).toContain("text/html");
+      expect(await surface.text()).toContain(`<main>probe ${kind}</main>`);
+    }
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
+});
+
 describe("plugin route request-level principal and capability context", () => {
   it("loads the HTML for a real plugin page at its root and widget under a subroute over LAN", async () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-minimal-surface-"));

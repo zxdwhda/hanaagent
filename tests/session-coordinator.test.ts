@@ -4502,8 +4502,10 @@ Continue the restored transcript.
     const confirmStore = { abortBySession: vi.fn() };
     const closeTerminalsForSession = vi.fn();
     const closeBrowserForSession = vi.fn(async () => undefined);
+    const cancelAgentCommandsForSession = vi.fn();
     const browserSpy = vi.spyOn(BrowserManager, "instance").mockReturnValue({
       closeBrowserForSession,
+      cancelAgentCommandsForSession,
     } as any);
     const stuckSession = {
       isStreaming: true,
@@ -4558,7 +4560,8 @@ Continue the restored transcript.
       expect(deferredStore.suppressBySession).toHaveBeenCalledWith(sessionFile, "abort");
       expect(confirmStore.abortBySession).toHaveBeenCalledWith(sessionFile);
       expect(closeTerminalsForSession).toHaveBeenCalledWith(sessionFile);
-      expect(closeBrowserForSession).toHaveBeenCalledWith(sessionFile);
+      expect(cancelAgentCommandsForSession).toHaveBeenCalledWith(sessionFile);
+      expect(closeBrowserForSession).not.toHaveBeenCalled();
     } finally {
       browserSpy.mockRestore();
     }

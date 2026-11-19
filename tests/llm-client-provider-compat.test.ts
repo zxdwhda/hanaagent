@@ -300,12 +300,64 @@ describe("callText provider-compat routing", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     await expect(callText({
-      api: "google-generative-ai",
+      api: "google-vertex",
       baseUrl: "https://generativelanguage.googleapis.com",
-      model: { id: "gemini-native", provider: "google", api: "google-generative-ai" },
+      model: { id: "gemini-native", provider: "google", api: "google-vertex" },
       messages: [{ role: "user", content: "hi" }],
-    } as any)).rejects.toThrow(/buffered adapter.*google-generative-ai/i);
+    } as any)).rejects.toThrow(/buffered adapter.*google-vertex/i);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends native Gemini utility image requests and reads only visible candidate text", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+      candidates: [{ finishReason: "STOP", content: { parts: [
+        { text: "private thinking", thought: true },
+        { text: "A red banner." },
+      ] } }],
+      usageMetadata: {
+        promptTokenCount: 10, cachedContentTokenCount: 4, candidatesTokenCount: 3,
+        thoughtsTokenCount: 2, totalTokenCount: 15,
+      },
+    }));
+    const result = await callText({
+      api: "google-generative-ai",
+      apiKey: "fixture",
+      baseUrl: "http://127.0.0.1:1234/v1",
+      model: { id: "models/gemini-native", provider: "gemini" },
+      systemPrompt: "Describe visible details",
+      messages: [{ role: "user", content: [
+        { type: "text", text: "What is visible?" },
+        { type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" },
+      ] }],
+      maxTokens: 128, temperature: 0.2, returnUsage: true, requireCompleteText: true,
+    });
+    expect(result).toMatchObject({
+      text: "A red banner.",
+      usage: { input: { totalTokens: 10 }, output: { totalTokens: 5, reasoningTokens: 2 }, cache: { readTokens: 4 } },
+    });
+    const [endpoint, options] = fetchMock.mock.calls[0];
+    expect(endpoint).toBe("http://127.0.0.1:1234/v1/models/gemini-native:generateContent");
+    expect(options.headers).toMatchObject({ "x-goog-api-key": "fixture" });
+    expect(JSON.parse(String(options.body))).toEqual({
+      systemInstruction: { parts: [{ text: "Describe visible details" }] },
+      contents: [{ role: "user", parts: [
+        { text: "What is visible?" },
+        { inlineData: { mimeType: "image/png", data: "iVBORw0KGgo=" } },
+      ] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 128 },
+    });
+  });
+
+  it("rejects incomplete native Gemini text when the caller requires a complete result", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
+      candidates: [{ finishReason: "MAX_TOKENS", content: { parts: [{ text: "Partial text" }] } }],
+    }));
+    await expect(callText({
+      api: "google-generative-ai",
+      model: "gemini-native",
+      messages: [{ role: "user", content: "hi" }],
+      requireCompleteText: true,
+    })).rejects.toThrow(/requested text \(length\)/i);
   });
 
   it("omits temperature from utility requests unless the caller sets it explicitly", async () => {

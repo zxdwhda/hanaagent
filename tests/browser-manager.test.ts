@@ -1,5 +1,8 @@
+import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { BrowserManager } from "../packages/engine/lib/browser/browser-manager.ts";
+import { WsTransport } from "../packages/engine/lib/browser/browser-transport.ts";
+import { t } from "../packages/engine/lib/i18n.ts";
 
 const SP1 = "/sessions/session-1.json";
 const SP2 = "/sessions/session-2.json";
@@ -7,6 +10,72 @@ const SP3 = "/sessions/session-3.json";
 const SP4 = "/sessions/session-4.json";
 const SP5 = "/sessions/session-5.json";
 const SP6 = "/sessions/session-6.json";
+
+describe("BrowserManager desktop host commands", () => {
+  it("distinguishes a server without a desktop host from a disconnected desktop", async () => {
+    const standalone = new BrowserManager({ desktopHostExpected: false, transport: new WsTransport() });
+    await expect(standalone.show(SP1)).rejects.toThrow(t("error.browserDesktopOnly"));
+    const desktop = new BrowserManager({ desktopHostExpected: true, transport: new WsTransport() });
+    await expect(desktop.show(SP1)).rejects.toThrow(t("error.browserHostDisconnected"));
+  });
+
+  it("settles an interrupted browser command and accepts a new one after reconnect", async () => {
+    const manager = new BrowserManager({ desktopHostExpected: true, transport: new WsTransport() });
+    manager.syncBrowserPreferences = vi.fn(async () => manager.getBrowserPreferences());
+    const first = Object.assign(new EventEmitter(), { readyState: 1, send: vi.fn() });
+    manager.setWsTransport(first);
+    const pending = expect(manager.show(SP1)).rejects.toThrow(t("error.browserHostDisconnected"));
+    expect(first.send).toHaveBeenCalledOnce();
+    manager.setWsTransport(null);
+    await pending;
+    expect(manager._pending.size).toBe(0);
+
+    const second = Object.assign(new EventEmitter(), {
+      readyState: 1,
+      send: (raw: string) => {
+        const { id } = JSON.parse(raw);
+        second.emit("message", JSON.stringify({ type: "browser-result", id, result: { shown: true } }));
+      },
+    });
+    manager.setWsTransport(second);
+    await expect(manager.show(SP1)).resolves.toBeUndefined();
+  });
+
+  it("requires the host to confirm showing the requested tab", async () => {
+    const manager = new BrowserManager({ desktopHostExpected: true, transport: new WsTransport() });
+    manager._sendCmd = vi.fn()
+      .mockResolvedValueOnce({ shown: false })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ tabs: [{ tabId: "live-tab" }] });
+    await expect(manager.show(SP1, "expired-tab")).rejects.toThrow(t("error.browserShowUnavailable"));
+    await expect(manager.show(SP1)).rejects.toThrow(t("error.browserShowUnavailable"));
+    await expect(manager.show(SP1, "live-tab")).resolves.toBeUndefined();
+  });
+
+  it("cancels the agent's command without interrupting the viewer or another session", async () => {
+    const manager = new BrowserManager({ desktopHostExpected: true, transport: new WsTransport() });
+    const sent: Array<{ type: string; id: string; cmd?: string }> = [];
+    const host = Object.assign(new EventEmitter(), {
+      readyState: 1,
+      send: (raw: string) => sent.push(JSON.parse(raw)),
+    });
+    manager.syncBrowserPreferences = vi.fn(async () => manager.getBrowserPreferences());
+    manager.setWsTransport(host);
+
+    const agent = manager.runAgentCommands(SP1, undefined, () => manager._sendCmd("wait", { sessionPath: SP1 }));
+    const viewer = manager._sendCmd("show", { sessionPath: SP1 });
+    const other = manager.runAgentCommands(SP2, undefined, () => manager._sendCmd("wait", { sessionPath: SP2 }));
+    manager.cancelAgentCommandsForSession(SP1);
+
+    expect(sent.slice(3)).toEqual([{ type: "browser-cancel", id: sent[0].id }]);
+    await expect(agent).rejects.toMatchObject({ name: "AbortError" });
+    for (const { id } of sent.slice(1, 3)) {
+      host.emit("message", JSON.stringify({ type: "browser-result", id, result: { ok: true } }));
+    }
+    await expect(Promise.all([viewer, other])).resolves.toEqual([{ ok: true }, { ok: true }]);
+    expect(manager._pending.size).toBe(0);
+  });
+});
 
 describe("BrowserManager URL tracking (per-session)", () => {
   it("forks a live tab workspace into an independent cold child and never shares the live view", () => {

@@ -2,7 +2,43 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { createAsyncNodePtyBackend } from "../packages/engine/lib/terminal/node-pty-backend.ts";
 import { TerminalSessionManager } from "../packages/engine/lib/terminal/terminal-session-manager.ts";
+
+it.skipIf(process.platform === "win32")("answers a cursor position query from a real PTY without entering input into the transcript", async () => {
+  const backend = await createAsyncNodePtyBackend();
+  const script = [
+    "process.stdin.setRawMode(true);",
+    "process.stdin.on('data', (data) => {",
+    "  process.stdout.write('REPLY=' + data.toString('hex') + '\\n');",
+    "  process.exit(0);",
+    "});",
+    "process.stdout.write('\\x1b[3;12H\\x1b[');",
+    "setTimeout(() => process.stdout.write('6n'), 20);",
+  ].join("\n");
+  const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
+  const command = `${quote(process.execPath)} -e ${quote(script)}`;
+  let output = "";
+  let handle: ReturnType<typeof backend.spawn> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`PTY produced no cursor reply: ${JSON.stringify(output)}`)), 3000);
+      handle = backend.spawn({
+        command,
+        cwd: process.cwd(),
+        env: process.env,
+        onData: (data) => { output += data; },
+        onExit: ({ exitCode }) => exitCode === 0 ? resolve() : reject(new Error(`PTY exited with ${exitCode}`)),
+      });
+    });
+    expect(output).toContain("REPLY=1b5b333b313252");
+    expect(output).not.toContain("\x1b[3;12R");
+  } finally {
+    clearTimeout(timer);
+    handle?.dispose();
+  }
+});
 
 function makeFakeBackend() {
   const handles = [];

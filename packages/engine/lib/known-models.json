@@ -4955,7 +4955,8 @@
     "qwen3-vl-30b-a3b-instruct": {
       "name": "Qwen3 Vl 30b A3b Instruct",
       "context": 262144,
-      "maxOutput": 262144
+      "maxOutput": 262144,
+      "image": true
     },
     "qwen3-vl-30b-a3b-thinking": {
       "name": "Qwen3 Vl 30b A3b Thinking",

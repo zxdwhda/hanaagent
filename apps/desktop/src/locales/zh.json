@@ -1840,6 +1840,7 @@
       "video": "视频",
       "audio": "音频",
       "reasoning": "推理",
+      "videoTransportUnavailable": "已声明支持视频，但当前协议无法直接发送视频。",
       "capability": {
         "image": "支持图像输入",
         "video": "支持视频输入",
@@ -3113,6 +3114,8 @@
     "modelProviderMissingApi": "模型 \"{model}\" 所属 provider \"{provider}\" 缺少 API 协议配置",
     "modelProviderIncomplete": "模型 \"{model}\" 所属 provider \"{provider}\" 配置不完整",
     "browserDesktopOnly": "浏览器功能仅在 Electron 桌面模式下可用",
+    "browserHostDisconnected": "桌面浏览器宿主未连接，请等待重连后重试。",
+    "browserShowUnavailable": "当前没有可显示的浏览器标签页。",
     "browserCmdTimeout": "浏览器命令超时: {cmd}",
     "agentExecNotInit": "agent \"{id}\" 不存在或未初始化",
     "bridgeMgrNotStarted": "外部平台管理器未启动",

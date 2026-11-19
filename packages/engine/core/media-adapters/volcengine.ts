@@ -115,6 +115,29 @@ async function resolveVolcengineCredentials(ctx, preferredProviderId = null) {
   };
 }
 
+async function resolveVolcengineImageModel(params, ctx) {
+  const configured = ctx.config?.get?.("defaultImageModel");
+  const explicit = params.modelId || params.model;
+  const rawModel = explicit || configured?.id;
+  try {
+    return resolveModelId("volcengine", rawModel);
+  } catch (catalogError) {
+    const providerId = params.providerId || (!explicit ? configured?.provider : null);
+    if (!providerId) throw catalogError;
+    const media = await ctx.bus.request("provider:resolve-media-model", {
+      providerId,
+      modelId: rawModel,
+      capability: "image_generation",
+      ...(params.credentialLaneId && { credentialLaneId: params.credentialLaneId }),
+    });
+    if (media?.error || media?.providerId !== providerId
+      || media?.modelId !== rawModel || media?.protocolId !== "volcengine-images") {
+      throw catalogError;
+    }
+    return media.modelId;
+  }
+}
+
 export const volcengineImageAdapter = {
   id: "volcengine",
   protocolId: "volcengine-images",
@@ -139,10 +162,7 @@ export const volcengineImageAdapter = {
   },
 
   async submit(params, ctx) {
-    // 1. Resolve model before any external work. A missing model uses the catalog
-    //    default; an explicit unknown model must fail instead of silently using Lite.
-    const rawModel = params.modelId || params.model || ctx.config?.get?.("defaultImageModel")?.id;
-    const modelId = resolveModelId("volcengine", rawModel);
+    const modelId = await resolveVolcengineImageModel(params, ctx);
 
     // 2. Fetch credentials — try volcengine first, fall back to volcengine-coding
     const creds = await resolveVolcengineCredentials(ctx, params.credentialProviderId || params.providerId);

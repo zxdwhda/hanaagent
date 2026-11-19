@@ -21,6 +21,18 @@ describe("known-models dictionary", () => {
     expect(lookupKnown("ollama", "gemma3")?.reasoning).not.toBe(true);
   });
 
+  it("recognizes the Qwen3-VL 30B instruct model through custom and Fireworks catalogs", () => {
+    const id = "Qwen/Qwen3-VL-30B-A3B-Instruct";
+    expect(lookupKnownWithSource("custom", id)).toMatchObject({
+      source: "fallback",
+      metadata: { image: true },
+    });
+    expect(lookupKnownWithSource("fireworks", id)).toMatchObject({
+      source: "provider",
+      metadata: { image: true },
+    });
+  });
+
   it("keeps current OpenAI GPT-5.4 API context metadata", () => {
     expect(lookupKnown("openai", "gpt-5.4")).toMatchObject({
       name: "GPT-5.4",

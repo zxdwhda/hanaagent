@@ -1840,6 +1840,7 @@
       "video": "Video",
       "audio": "Audio",
       "reasoning": "Reasoning",
+      "videoTransportUnavailable": "Video input is declared, but the current protocol cannot send video directly.",
       "capability": {
         "image": "Supports image input",
         "video": "Supports video input",
@@ -3118,6 +3119,8 @@
     "modelProviderMissingApi": "Provider \"{provider}\" for model \"{model}\" missing API protocol config",
     "modelProviderIncomplete": "Provider \"{provider}\" for model \"{model}\" has incomplete config",
     "browserDesktopOnly": "Browser is only available in Electron desktop mode",
+    "browserHostDisconnected": "The desktop browser host is disconnected. Wait for it to reconnect and try again.",
+    "browserShowUnavailable": "No active browser tab is available to show.",
     "browserCmdTimeout": "Browser command timed out: {cmd}",
     "agentExecNotInit": "Agent \"{id}\" does not exist or is not initialized",
     "bridgeMgrNotStarted": "Bridge manager not started",

@@ -206,6 +206,40 @@ describe("volcengine adapter", () => {
     }, ctx)).rejects.toThrow();
   });
 
+  it("submits a custom model verified by the dynamic media catalog without changing its ID", async () => {
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
+    const model = "ep-configured-seedream";
+    const ctx = makeBusCtx("fixture", "https://example.test/v3");
+    ctx.bus.request.mockResolvedValueOnce({
+      providerId: "volcengine",
+      modelId: model,
+      protocolId: "volcengine-images",
+    } as any);
+    mockFetch.mockResolvedValueOnce(Response.json({ data: [{ b64_json: "dGVzdA==", size: "2048x2048" }] }));
+
+    await volcengineImageAdapter.submit({ providerId: "volcengine", modelId: model, prompt: "fixture", size: "2K" }, ctx);
+
+    expect(ctx.bus.request).toHaveBeenNthCalledWith(1, "provider:resolve-media-model", {
+      providerId: "volcengine", modelId: model, capability: "image_generation",
+    });
+    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({ model, prompt: "fixture" });
+  });
+
+  it("does not submit an endpoint configured for a different protocol", async () => {
+    const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
+    const ctx = makeBusCtx("fixture", "https://example.test/v3");
+    ctx.bus.request.mockResolvedValueOnce({
+      providerId: "volcengine",
+      modelId: "custom-image",
+      protocolId: "another-images-protocol",
+    } as any);
+    await expect(volcengineImageAdapter.submit({
+      providerId: "volcengine", modelId: "custom-image", prompt: "fixture",
+    }, ctx)).rejects.toThrow(/Unknown image model.*custom-image/i);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("rejects an explicit unknown model before credentials or network calls", async () => {
     const { volcengineImageAdapter } = await import("../packages/engine/core/media-adapters/volcengine.ts");
 

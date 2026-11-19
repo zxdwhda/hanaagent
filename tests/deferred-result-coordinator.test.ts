@@ -109,6 +109,28 @@ describe("DeferredResultCoordinator", () => {
     expect(store.query("task-ui")).toMatchObject({ delivered: true });
   });
 
+  it("wakes the parent once for matching image failures and records each remaining result", async () => {
+    const sessionPath = "/sessions/a.jsonl";
+    const meta = {
+      type: "image-generation",
+      mediaKind: "image",
+      batchId: "batch",
+      deliveryIntent: "ui_only",
+      notifyAgentOnFailure: true,
+    };
+    for (const taskId of ["first", "second", "third", "distinct"]) store.defer(taskId, sessionPath, meta);
+    store.fail("first", "quota exhausted");
+    store.fail("second", "quota exhausted");
+    store.fail("third", "quota exhausted");
+    store.fail("distinct", "bad input");
+
+    await vi.waitFor(() => {
+      expect(sessionCoordinator.deliverCustomMessage).toHaveBeenCalledTimes(2);
+      expect(sessionCoordinator.recordCustomEntry).toHaveBeenCalledTimes(2);
+    });
+    expect(store.listBySession(sessionPath).every(task => task.delivered)).toBe(true);
+  });
+
   it("wakes the parent agent when a UI-only image generation task fails with failure notification enabled", async () => {
     store.defer("task-img-fail", "/sessions/a.jsonl", {
       type: "image-generation",

@@ -8,7 +8,7 @@
  * 4. 关闭 splash，显示主窗口
  * 5. 优雅关闭
  */
-const { app, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification, webContents, screen, powerSaveBlocker } = require("electron");
+const { app, BaseWindow, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification, webContents, screen, powerSaveBlocker } = require("electron");
 const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
@@ -405,6 +405,7 @@ let settingsWindow = null;
 
 let browserViewerWindow = null;
 let _browserWebView = null;        // 当前活跃的 WebContentsView
+let _browserBackgroundWindow = null;
 const _browserViews = new Map();   // sessionPath -> BrowserWorkspace; BrowserWorkspace.tabs: tabId -> WebContentsView
 let _currentBrowserSession = null; // 当前浏览器绑定的 sessionPath
 let _currentBrowserTabId = null;   // 当前浏览器绑定的 tabId
@@ -3090,10 +3091,27 @@ function scanSkillDir(dir, rootDir) {
 
 // ── 创建浏览器查看器窗口（嵌入式 BrowserView） ──
 // opts.show: 是否立刻显示（默认 true），resume 时传 false
+let browserViewerVisibilityRequest = 0;
+
+function hideBrowserViewerOnClose(win) {
+  const request = ++browserViewerVisibilityRequest;
+  if (process.platform === "darwin" && win.isFullScreen()) {
+    // A hidden fullscreen window can keep an inactive Space and a black
+    // WebContentsView on reopen. Let macOS finish leaving fullscreen first.
+    win.once("leave-full-screen", () => {
+      if (request === browserViewerVisibilityRequest && !win.isDestroyed()) win.hide();
+    });
+    win.setFullScreen(false);
+    return;
+  }
+  win.hide();
+}
+
 function createBrowserViewerWindow(opts = {}) {
   const shouldShow = opts.show !== false;
   if (browserViewerWindow && !browserViewerWindow.isDestroyed()) {
     if (shouldShow) {
+      browserViewerVisibilityRequest++;
       browserViewerWindow.show();
       browserViewerWindow.focus();
       // 窗口从隐藏变为可见时重算 bounds（隐藏窗口的 getContentSize 可能不准确）
@@ -3169,7 +3187,7 @@ function createBrowserViewerWindow(opts = {}) {
   browserViewerWindow.on("close", (e) => {
     if (!isQuitting && _browserWebView) {
       e.preventDefault();
-      browserViewerWindow.hide();
+      hideBrowserViewerOnClose(browserViewerWindow);
     }
   });
 
@@ -3492,6 +3510,16 @@ function _isBrowserViewDestroyed(view) {
   }
 }
 
+function _parkBrowserView(view) {
+  if (isQuitting || _isBrowserViewDestroyed(view)) return;
+  if (!_browserBackgroundWindow || _browserBackgroundWindow.isDestroyed()) {
+    _browserBackgroundWindow = new BaseWindow({ width: 1424, height: 1024, show: false, skipTaskbar: true });
+  }
+  // A view with no native host reports a zero-sized Chromium viewport.
+  _browserBackgroundWindow.contentView.addChildView(view);
+  view.setBounds({ x: 0, y: 0, width: 1424, height: 1024 });
+}
+
 function _detachActiveBrowserView({ view = _browserWebView, sessionPath = _currentBrowserSession, destroy = false, hideIfVisible = false, reason = null } = {}) {
   if (!view || view !== _browserWebView) return false;
   if (browserViewerWindow && !browserViewerWindow.isDestroyed()) {
@@ -3503,6 +3531,8 @@ function _detachActiveBrowserView({ view = _browserWebView, sessionPath = _curre
   if (destroy) {
     try { if (!view.webContents.isDestroyed()) view.webContents.close(); } catch {}
     _removeBrowserTabRecord(view);
+  } else if (!reason) {
+    _parkBrowserView(view);
   }
   if (browserViewerWindow && !browserViewerWindow.isDestroyed()) {
     browserViewerWindow.webContents.send("browser-update", { running: false, reason });
@@ -3516,6 +3546,9 @@ function _forgetBrowserView(view, reason) {
   const wasActive = view === _browserWebView;
   const activeSessionPath = wasActive ? _currentBrowserSession : null;
   if (wasActive) _detachActiveBrowserView({ view, sessionPath: activeSessionPath, hideIfVisible: true, reason });
+  if (_browserBackgroundWindow && !_browserBackgroundWindow.isDestroyed()) {
+    _browserBackgroundWindow.contentView.removeChildView(view);
+  }
   _removeBrowserTabRecord(view);
   try { if (!view.webContents.isDestroyed()) view.webContents.close(); } catch {}
 }
@@ -3629,6 +3662,7 @@ function _createBrowserWebContentsView(sessionPath, tabId = null) {
     },
   });
 
+  _parkBrowserView(view);
   view.webContents.setAudioMuted(true);
   view.webContents.on("did-navigate", (_e, url) => {
     if (view === _browserWebView) _notifyViewerUrl(url);
@@ -3670,9 +3704,7 @@ function _switchActiveBrowserTab(sessionPath, tabId) {
   const tab = workspace.tabs.get(tabId);
   workspace.activeTabId = tabId;
   if (_browserWebView !== tab.view) {
-    if (_browserWebView && browserViewerWindow && !browserViewerWindow.isDestroyed()) {
-      try { browserViewerWindow.contentView.removeChildView(_browserWebView); } catch {}
-    }
+    _parkBrowserView(_browserWebView);
     _browserWebView = tab.view;
     _currentBrowserSession = workspace.sessionPath;
     _currentBrowserTabId = tabId;
@@ -3792,7 +3824,31 @@ function encodeCapturedPageToJpegBase64(image, quality, label = "screenshot") {
   return jpeg.toString("base64");
 }
 
-async function handleBrowserCommand(cmd, params) {
+async function loadBrowserCommandUrl(contents, url, signal) {
+  signal?.throwIfAborted();
+  let timer;
+  let onAbort;
+  try {
+    const stopLoading = new Promise((_, reject) => {
+      onAbort = () => {
+        try { contents.stop(); } catch {}
+        reject(signal.reason);
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      timer = setTimeout(() => {
+        try { contents.stop(); } catch {}
+        reject(new Error(`Navigation timed out after 30s: ${url}`));
+      }, 30_000);
+    });
+    await Promise.race([contents.loadURL(url), stopLoading]);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
+async function handleBrowserCommand(cmd, params, signal) {
+  signal?.throwIfAborted();
   switch (cmd) {
 
     // ── browserSearch ──
@@ -3906,7 +3962,7 @@ async function handleBrowserCommand(cmd, params) {
           }, 300);
         }
       }
-      // 否则，新 view 只存在 Map 中，不挂载到窗口（后台可操作）
+      // 其余标签页继续由隐藏窗口承载。
       return _serializeBrowserWorkspace(workspace);
     }
 
@@ -3985,9 +4041,7 @@ async function handleBrowserCommand(cmd, params) {
       const tabId = params.tabId || workspace.activeTabId;
       const view = _getViewForSession(sp, tabId);
       if (!view) return { found: false };
-      if (_browserWebView && _browserWebView !== view && browserViewerWindow && !browserViewerWindow.isDestroyed()) {
-        try { browserViewerWindow.contentView.removeChildView(_browserWebView); } catch {}
-      }
+      if (_browserWebView !== view) _parkBrowserView(_browserWebView);
       _browserWebView = view;
       _currentBrowserSession = sp;
       _currentBrowserTabId = tabId;
@@ -4017,7 +4071,7 @@ async function handleBrowserCommand(cmd, params) {
         _switchActiveBrowserTab(sp, tab.tabId);
       }
       if (params.url && isAllowedBrowserUrl(params.url)) {
-        await tab.view.webContents.loadURL(params.url);
+        await loadBrowserCommandUrl(tab.view.webContents, params.url, signal);
       }
       if (tab.view === _browserWebView) _notifyViewerUrl(tab.view.webContents.getURL());
       return _serializeBrowserWorkspace(workspace);
@@ -4076,17 +4130,11 @@ async function handleBrowserCommand(cmd, params) {
         throw new Error("Only http/https URLs are allowed");
       }
       return await _withLiveWebContents(params.sessionPath, async (wc) => {
-        const NAV_TIMEOUT = 30000;
-        await Promise.race([
-          wc.loadURL(params.url),
-          new Promise((_, reject) => setTimeout(() => {
-            try { wc.stop(); } catch {}
-            reject(new Error(`Navigation timed out after ${NAV_TIMEOUT / 1000}s: ${params.url}`));
-          }, NAV_TIMEOUT)),
-        ]);
+        await loadBrowserCommandUrl(wc, params.url, signal);
         const wait = await waitForBrowserState(wc, {
           state: params.state || "stable",
           timeoutMs: Math.min(Number(params.timeout) || 5000, 10000),
+          signal,
         });
         const snap = await wc.executeJavaScript(SNAPSHOT_SCRIPT);
         return {
@@ -4223,6 +4271,7 @@ async function handleBrowserCommand(cmd, params) {
         const wait = await waitForBrowserState(wc, {
           state: params.state || "stable",
           timeoutMs: timeout,
+          signal,
         });
         const snap = await wc.executeJavaScript(SNAPSHOT_SCRIPT);
         return { currentUrl: snap.currentUrl, title: snap.title, tabId: params.tabId || _currentBrowserTabId, text: snap.text, diagnostics: { wait } };
@@ -4246,8 +4295,8 @@ async function handleBrowserCommand(cmd, params) {
     case "show": {
       const sp = params.sessionPath;
       const tabId = params.tabId || null;
-      const view = sp ? _getViewForSession(sp, tabId) : _browserWebView;
-      if (!view) return {};
+      const view = _getViewForSession(sp, tabId);
+      if (!view) return { shown: false };
       const workspace = _getBrowserWorkspace(sp);
       const activeRecord = workspace
         ? (tabId ? workspace.tabs.get(tabId) : _activeBrowserTabRecord(workspace))
@@ -4257,9 +4306,7 @@ async function handleBrowserCommand(cmd, params) {
       // 如果不是当前活跃 view，先切换
       if (view !== _browserWebView) {
         // 摘下旧 view
-        if (_browserWebView && browserViewerWindow && !browserViewerWindow.isDestroyed()) {
-          try { browserViewerWindow.contentView.removeChildView(_browserWebView); } catch {}
-        }
+        _parkBrowserView(_browserWebView);
         _browserWebView = view;
         _currentBrowserSession = sp;
         _currentBrowserTabId = activeRecord?.tabId || tabId || null;
@@ -4270,6 +4317,7 @@ async function handleBrowserCommand(cmd, params) {
       }
 
       if (browserViewerWindow && !browserViewerWindow.isDestroyed()) {
+        browserViewerVisibilityRequest++;
         browserViewerWindow.show();
         browserViewerWindow.focus();
         // 延迟 focus：等窗口完全显示后再转移焦点到 WebContentsView
@@ -4284,7 +4332,7 @@ async function handleBrowserCommand(cmd, params) {
         createBrowserViewerWindow();
       }
       _notifyViewerUrl(view.webContents.getURL());
-      return workspace ? _serializeBrowserWorkspace(workspace) : {};
+      return { ...(workspace ? _serializeBrowserWorkspace(workspace) : {}), shown: true };
     }
 
     // ── destroyView ──（销毁指定 session 的挂起 view）
@@ -4366,15 +4414,22 @@ function setupBrowserCommands() {
     ws.on("open", () => {
       console.log("[desktop] Browser control WS connected");
     });
+    const activeCommands = new Map();
     ws.on("message", async (data) => {
       let msg;
       try { msg = JSON.parse(data); } catch { return; }
+      if (msg?.type === "browser-cancel") {
+        activeCommands.get(msg.id)?.abort();
+        return;
+      }
       if (msg?.type !== "browser-cmd") return;
       const { id, cmd, params } = msg;
       const _bLog = (line) => { try { require("fs").appendFileSync(require("path").join(hanakoHome, "browser-cmd.log"), `${new Date().toISOString()} ${redactMainLogText(line)}\n`); } catch {} };
       _bLog(`→ received cmd=${cmd} id=${id}`);
+      const controller = new AbortController();
+      activeCommands.set(id, controller);
       try {
-        const result = await handleBrowserCommand(cmd, params || {});
+        const result = await handleBrowserCommand(cmd, params || {}, controller.signal);
         const resultLength = JSON.stringify(result).length;
         _bLog(`✓ cmd=${cmd} resultLength=${resultLength} wsReady=${ws.readyState}`);
         if (ws.readyState === 1) {
@@ -4388,9 +4443,12 @@ function setupBrowserCommands() {
         if (ws.readyState === 1) {
           ws.send(JSON.stringify({ type: "browser-result", id, error: err.message }));
         }
+      } finally {
+        activeCommands.delete(id);
       }
     });
     ws.on("close", () => {
+      for (const controller of activeCommands.values()) controller.abort();
       if (_browserCmdWs === ws) _browserCmdWs = null;
       if (!isQuitting) {
         setTimeout(connect, 2000);
@@ -6368,6 +6426,10 @@ app.on("before-quit", async (event) => {
     }
   }
   _browserViews.clear();
+  if (_browserBackgroundWindow && !_browserBackgroundWindow.isDestroyed()) {
+    _browserBackgroundWindow.destroy();
+  }
+  _browserBackgroundWindow = null;
   _browserWebView = null;
   _currentBrowserSession = null;
   _currentBrowserTabId = null;

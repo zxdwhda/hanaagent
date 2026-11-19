@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { modelSupportsDirectVideoInput } from '../../../../../../../packages/shared/model-capabilities.ts';
 import { createPortal } from 'react-dom';
 import { useSettingsStore, type ProviderSummary } from '../../store';
 import { hanaFetch } from '../../api';
@@ -87,8 +88,8 @@ function compactDiscoveredModelEntry(model: DiscoveredModel): ProviderModelEntry
   return Object.keys(entry).length === 1 ? id : entry as ProviderModelEntry;
 }
 
-function CapabilityIcon({ kind }: { kind: CapabilityKind }) {
-  const label = t(`settings.api.capability.${kind}`);
+function CapabilityIcon({ kind, labelKey }: { kind: CapabilityKind; labelKey?: string }) {
+  const label = t(labelKey ?? `settings.api.capability.${kind}`);
   return (
     <span className={styles['pv-capability-icon']} title={label} aria-label={label}>
       {kind === 'image' ? (
@@ -281,12 +282,21 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
                 ?? numberFromMeta(knownMeta.contextWindow);
               const displayName = meta.displayName || meta.name || mid;
               const showModelId = displayName !== mid;
+              const videoDirect = modelSupportsDirectVideoInput(
+                { ...meta, id: mid, provider: providerId },
+                { api: summary.api, baseUrl: summary.base_url },
+              );
               return (
                 <div key={mid} className={styles['pv-fav-item']}>
                   <span className={styles['pv-fav-item-name']} title={String(displayName)}>{displayName}</span>
                   {showModelId && <span className={styles['pv-fav-item-id']} title={mid}>{mid}</span>}
                   {meta.image === true && <CapabilityIcon kind="image" />}
-                  {meta.video === true && <CapabilityIcon kind="video" />}
+                  {meta.video === true && (
+                    <CapabilityIcon
+                      kind="video"
+                      labelKey={videoDirect ? undefined : 'settings.api.videoTransportUnavailable'}
+                    />
+                  )}
                   {meta.audio === true && <CapabilityIcon kind="audio" />}
                   {meta.reasoning === true && <CapabilityIcon kind="reasoning" />}
                   {modelContext !== undefined && <span className={styles['pv-model-ctx']}>{formatContext(modelContext)}</span>}
@@ -316,6 +326,8 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
               modelId={editing.id}
               providerId={providerId}
               modelMeta={editingModelMeta}
+              providerApi={summary.api}
+              providerBaseUrl={summary.base_url}
               anchorEl={editing.anchor}
               onClose={() => setEditing(null)}
               onRefresh={onRefresh}

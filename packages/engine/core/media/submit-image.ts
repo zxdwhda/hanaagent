@@ -66,6 +66,7 @@ export async function submitImageGeneration({ input = {}, ctx, metadata = null, 
     : deliveryTarget === undefined ? bridgeDeliveryTarget(ctx) : deliveryTarget;
   const deferredMeta = {
     ...imageDeferredMeta({ prompt: input.prompt, deliveryTarget: resolvedDeliveryTarget }),
+    ...(count > 1 ? { batchId } : {}),
     ...(metadata ? { metadata } : {}),
   };
 

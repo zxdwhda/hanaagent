@@ -5219,10 +5219,7 @@ export class SessionCoordinator {
       log.warn(`abort cleanup ${shortPath}: terminal cleanup failed: ${err.message}`);
     }
     try {
-      const closeBrowser = BrowserManager.instance().closeBrowserForSession(sessionPath);
-      Promise.resolve(closeBrowser).catch((err) =>
-        log.warn(`abort cleanup ${shortPath}: browser cleanup failed: ${err.message}`),
-      );
+      BrowserManager.instance().cancelAgentCommandsForSession(sessionPath);
     } catch (err) {
       log.warn(`abort cleanup ${shortPath}: browser cleanup failed: ${err.message}`);
     }

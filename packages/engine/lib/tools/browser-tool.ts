@@ -207,7 +207,7 @@ export function createBrowserTool(getSessionPath: any, options: {
     return Array.isArray(model?.input) && !modelSupportsDirectImageInput(model);
   }
 
-  return {
+  const tool = {
     name: "browser",
     label: "Browser",
     description: "Control a headless browser (navigate, click, type, scroll, screenshot, evaluate JS). Element [ref] ids from snapshot become stale after page changes; always use refs from the latest snapshot.",
@@ -477,4 +477,12 @@ export function createBrowserTool(getSessionPath: any, options: {
       }
     },
   };
+  const execute = tool.execute;
+  tool.execute = (toolCallId, params, signal, onUpdate, ctx) => {
+    const run = () => execute(toolCallId, params, signal, onUpdate, ctx);
+    return typeof browser.runAgentCommands === "function"
+      ? browser.runAgentCommands(resolveSessionPath(ctx), signal, run)
+      : run();
+  };
+  return tool;
 }

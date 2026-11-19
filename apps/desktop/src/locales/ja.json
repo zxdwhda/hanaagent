@@ -1770,6 +1770,7 @@
       "video": "動画",
       "audio": "音声",
       "reasoning": "推論",
+      "videoTransportUnavailable": "動画入力は設定されていますが、現在のプロトコルでは動画を直接送信できません。",
       "capability": {
         "image": "画像入力に対応",
         "video": "動画入力に対応",
@@ -3114,6 +3115,8 @@
     "modelProviderMissingApi": "モデル \"{model}\" のプロバイダー \"{provider}\" に API プロトコル設定がありません",
     "modelProviderIncomplete": "モデル \"{model}\" のプロバイダー \"{provider}\" の設定が不完全です",
     "browserDesktopOnly": "ブラウザ機能は Electron デスクトップモードでのみ利用できます",
+    "browserHostDisconnected": "デスクトップのブラウザホストが切断されています。再接続後にもう一度お試しください。",
+    "browserShowUnavailable": "表示できるブラウザタブがありません。",
     "browserCmdTimeout": "ブラウザコマンドがタイムアウトしました: {cmd}",
     "agentExecNotInit": "agent \"{id}\" が存在しないか初期化されていません",
     "bridgeMgrNotStarted": "外部プラットフォームマネージャーが起動していません",

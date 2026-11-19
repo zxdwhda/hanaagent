@@ -89,15 +89,30 @@ describe("Agent.getToolsSnapshot conditional injection (A4)", () => {
 
   // ── channel 工具：由 _cb.isChannelsEnabled() 门控 ──
 
-  it("includes channel tool when _cb.isChannelsEnabled() returns true", async () => {
+  it("includes channel and DM when enabled and delivers the DM to both test agents", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-tools-cond-"));
     roots.push(root);
     const agent = await buildAgent(root, {
       isChannelsEnabled: () => true,
       getLearnSkills: () => ({}),
+      listActiveAgents: () => [{ id: "hana", name: "Hana" }, { id: "peer", name: "Test Peer" }],
     });
-    const toolNames = agent.getToolsSnapshot({ forceMemoryEnabled: false }).map((t) => t.name);
-    expect(toolNames).toContain("channel");
+    const tools = agent.getToolsSnapshot({ forceMemoryEnabled: false });
+    expect(tools.map(tool => tool.name)).toContain("channel");
+    const dm = tools.find(tool => tool.name === "dm");
+    expect(dm).toBeDefined();
+    expect(dm.sessionPermission.resolveInvocation({ to: "peer" })).toMatchObject({
+      capability: "dm.send",
+      target: { type: "agent", id: "peer" },
+    });
+    const notify = vi.fn();
+    agent.setDmSentHandler(notify);
+    await dm.execute("fixture", { to: "peer", message: "isolated delivery" });
+    for (const [owner, peer] of [["hana", "peer"], ["peer", "hana"]]) {
+      expect(fs.readFileSync(path.join(root, "agents", owner, "dm", `${peer}.md`), "utf8"))
+        .toContain("isolated delivery");
+    }
+    expect(notify).toHaveBeenCalledExactlyOnceWith("hana", "peer");
     await agent.dispose();
   });
 
@@ -110,6 +125,7 @@ describe("Agent.getToolsSnapshot conditional injection (A4)", () => {
     });
     const toolNames = agent.getToolsSnapshot({ forceMemoryEnabled: false }).map((t) => t.name);
     expect(toolNames).not.toContain("channel");
+    expect(toolNames).not.toContain("dm");
     await agent.dispose();
   });
 
@@ -120,6 +136,7 @@ describe("Agent.getToolsSnapshot conditional injection (A4)", () => {
     const agent = await buildAgent(root);
     const toolNames = agent.getToolsSnapshot({ forceMemoryEnabled: false }).map((t) => t.name);
     expect(toolNames).not.toContain("channel");
+    expect(toolNames).not.toContain("dm");
     await agent.dispose();
   });
 

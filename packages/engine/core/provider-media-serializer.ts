@@ -5,8 +5,7 @@
  * `{ type: "image" | "video" | "audio", data, mimeType }`.
  *
  * Provider-specific adapters should not leak into UI/session code. This module
- * serializes current-turn media into the closest OpenAI-compatible content
- * shape. Audio uses Chat Completions' official `input_audio` block at the
+ * serializes current-turn media into the target provider content shape. Audio uses Chat Completions' official `input_audio` block at the
  * source; provider-compat still accepts older data URL envelopes produced by
  * the Pi SDK chat path.
  */
@@ -65,6 +64,16 @@ export function serializeOpenAICompatibleContentBlock(block) {
     };
   }
   return { type: "text", text: JSON.stringify(block) };
+}
+
+export function serializeGeminiContentPart(block) {
+  if (block?.type === "text") return { text: block.text || "" };
+  const kind = inlineMediaKind(block);
+  if (kind && typeof block.data === "string") {
+    const mimeType = block.mimeType || block.mime || DEFAULT_MIME_BY_KIND[kind];
+    return { inlineData: { mimeType, data: block.data } };
+  }
+  return { text: JSON.stringify(block) };
 }
 
 export function serializeResponsesContentBlock(block) {
