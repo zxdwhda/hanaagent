@@ -130,6 +130,41 @@ function stripEmptyTools(payload) {
   return payload;
 }
 
+function stripUnsupportedResponsesCacheFields(payload, model) {
+  if (model?.api !== "openai-responses") return payload;
+  if (!Object.hasOwn(payload, "prompt_cache_key") && !Object.hasOwn(payload, "prompt_cache_retention")) return payload;
+
+  const nativeEndpoint = URL.parse(model.baseUrl || "")?.origin === "https://api.openai.com";
+  if (model.compat?.supportsPromptCacheKey ?? nativeEndpoint) return payload;
+
+  const result = { ...payload };
+  delete result.prompt_cache_key;
+  delete result.prompt_cache_retention;
+  return result;
+}
+
+function normalizeOpenAIToolParameters(payload, model) {
+  const completions = model?.api === "openai-completions";
+  if (!completions && model?.api !== "openai-responses") return payload;
+  if (!Array.isArray(payload.tools)) return payload;
+
+  let changed = false;
+  const tools = payload.tools.map(tool => {
+    if (tool?.type !== "function") return tool;
+    const definition = completions ? tool.function : tool;
+    if (!definition || typeof definition !== "object") return tool;
+    const schema = definition.parameters ?? {};
+    if (typeof schema !== "object" || Array.isArray(schema)) return tool;
+    if (schema.type !== undefined && schema.type !== "object") return tool;
+    if (Object.hasOwn(schema, "properties") || Object.hasOwn(schema, "$ref")) return tool;
+
+    changed = true;
+    const normalized = { ...definition, parameters: { ...schema, type: "object", properties: {} } };
+    return completions ? { ...tool, function: normalized } : normalized;
+  });
+  return changed ? { ...payload, tools } : payload;
+}
+
 function stripIncompatibleThinking(payload, model) {
   if (!payload.thinking) return payload;
   // payload.thinking 只对 Anthropic-style / DeepSeek-style / Kimi-style 等请求体有效。
@@ -385,6 +420,8 @@ export function normalizeProviderPayload(payload, model, options = {}) {
   // 子模块决定本轮 thinking 开关后，中心层再校验最终请求状态。
   result = normalizeReasoningReplayPayload(result, model, normalizedOptions);
 
+  result = stripUnsupportedResponsesCacheFields(result, model);
+  result = normalizeOpenAIToolParameters(result, model);
   return normalizeGeminiOpenAIModelId(result, model, normalizedOptions);
 }
 

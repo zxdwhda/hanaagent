@@ -15,6 +15,8 @@ export function applyProviderCacheAffinityToPayload(payload: any, affinityKey: a
   let next = payload;
   for (const field of ["prompt_cache_key", "promptCacheKey"]) {
     if (!Object.prototype.hasOwnProperty.call(payload, field)) continue;
+    const providerKey = payload[field];
+    if (typeof providerKey !== "string" || !providerKey.trim()) continue;
     if (next === payload) next = { ...payload };
     next[field] = normalized;
   }

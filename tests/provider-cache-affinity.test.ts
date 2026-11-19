@@ -83,6 +83,14 @@ describe("provider cache affinity", () => {
       .toBe(options);
   });
 
+  it.each([undefined, null, "", " "])("does not turn an inactive cache key (%j) into a transmitted field", async (value) => {
+    const options = withProviderCacheAffinity({ sessionId: "pi-child" }, { api: "openai-completions" }, "pi-source");
+    const payload = { model: "compatible", prompt_cache_key: value, promptCacheKey: value };
+    const transformed = await options.onPayload(payload, null);
+    expect(transformed).toBe(payload);
+    expect(JSON.stringify(transformed)).toBe(JSON.stringify(payload));
+  });
+
   it("clamps persisted keys to the provider-safe length and leaves unrelated payloads untouched", () => {
     const key = normalizeProviderCacheAffinityKey("x".repeat(80));
     expect(key).toHaveLength(64);

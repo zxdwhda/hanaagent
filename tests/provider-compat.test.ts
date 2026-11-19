@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createServer } from "node:http";
+import { once } from "node:events";
 import {
   normalizeProviderPayload,
   normalizeProviderContextMessages,
@@ -44,6 +46,96 @@ describe("Gemini OpenAI compatibility", () => {
     expect(normalizeProviderPayload(payload, { ...model, baseUrl: "https://generativelanguage.googleapis.com.example.test/v1beta/openai/" }, { mode }).model).toBe(id);
     expect(payload.model).toBe(id);
     expect(model.id).toBe(id);
+  });
+});
+
+describe("Responses cache fields", () => {
+  const payload = { model: "example", prompt_cache_key: "session", prompt_cache_retention: "24h", input: [] };
+  const compatible = {
+    provider: "openai",
+    api: "openai-responses",
+    baseUrl: "https://api.openai.com.example.test/v1",
+  };
+
+  it.each(["chat", "utility"])("omits cache fields on an undeclared compatible gateway in %s mode", (mode) => {
+    const result = normalizeProviderPayload(payload, compatible, { mode });
+    expect(result).toMatchObject({ model: "example", input: [] });
+    expect(result).not.toHaveProperty("prompt_cache_key");
+    expect(result).not.toHaveProperty("prompt_cache_retention");
+    expect(payload.prompt_cache_key).toBe("session");
+  });
+
+  it("preserves native OpenAI caching and allows an explicit gateway opt-in", () => {
+    expect(normalizeProviderPayload(payload, { ...compatible, baseUrl: "https://api.openai.com/v1" })).toMatchObject(payload);
+    expect(normalizeProviderPayload(payload, { ...compatible, compat: { supportsPromptCacheKey: true } })).toMatchObject(payload);
+    expect(normalizeProviderPayload(payload, { ...compatible, api: "openai-codex-responses" })).toMatchObject(payload);
+  });
+
+  it("sends Responses requests through a strict gateway using the actual SDK", async () => {
+    const { stream } = await import("@earendil-works/pi-ai/api/openai-responses");
+    const requests: Array<{ path: string | undefined; status: number; cacheField: boolean; missingProperties: boolean }> = [];
+    const server = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString());
+      const cacheField = Object.hasOwn(body, "prompt_cache_key") || Object.hasOwn(body, "prompt_cache_retention");
+      const missingProperties = body.tools.some(tool => !tool.parameters?.properties);
+      const rejected = cacheField || missingProperties;
+      const status = rejected ? 400 : 200;
+      requests.push({ path: request.url, status, cacheField, missingProperties });
+      response.writeHead(status, { "Content-Type": rejected ? "application/json" : "text/event-stream" });
+      response.end(rejected
+        ? '{"error":{"message":"UNKNOWN_FIELD"}}'
+        : "data: [DONE]\n\n");
+    });
+    server.listen(0, "127.0.0.1");
+
+    try {
+      await once(server, "listening");
+      const { port } = server.address() as import("node:net").AddressInfo;
+      const model: Parameters<typeof stream>[0] = {
+        id: "strict", name: "Strict gateway", provider: "openai", api: "openai-responses",
+        baseUrl: `http://127.0.0.1:${port}/v1`, input: ["text"], reasoning: false,
+        contextWindow: 8192, maxTokens: 1024, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      };
+      const context: Parameters<typeof stream>[1] = {
+        messages: [{ role: "user", content: "fixture", timestamp: 0 }],
+        tools: [{ name: "inspect", description: "No arguments", parameters: { type: "object", additionalProperties: false } }],
+      };
+      const options = { apiKey: "fixture", sessionId: "fixture-session", signal: AbortSignal.timeout(5000) };
+      await stream(model, context, options).result();
+      await stream(model, context, { ...options, cacheRetention: "none" }).result();
+      await stream(model, context, {
+        ...options,
+        onPayload: (body, requestModel) => normalizeProviderPayload(body, requestModel),
+      }).result();
+      expect(requests).toEqual([
+        { path: "/v1/responses", status: 400, cacheField: true, missingProperties: true },
+        { path: "/v1/responses", status: 400, cacheField: false, missingProperties: true },
+        { path: "/v1/responses", status: 200, cacheField: false, missingProperties: false },
+      ]);
+    } finally {
+      server.close();
+    }
+  });
+});
+
+describe("OpenAI tool parameter schemas", () => {
+  it.each(["openai-completions", "openai-responses"])("supplies empty properties for argument-free tools on %s", (api) => {
+    const wrap = (parameters: unknown) => api === "openai-completions"
+      ? { type: "function", function: { name: "inspect", parameters } }
+      : { type: "function", name: "inspect", parameters };
+    const existing = { type: "object", properties: { name: { type: "string" } }, required: ["name"] };
+    const input = {
+      tools: [wrap({ type: "object", additionalProperties: false }), wrap({}), wrap(existing)],
+    };
+    const result = normalizeProviderPayload(input, { api });
+    expect(result.tools).toEqual([
+      wrap({ type: "object", additionalProperties: false, properties: {} }),
+      wrap({ type: "object", properties: {} }),
+      wrap(existing),
+    ]);
+    expect(input.tools[0]).toEqual(wrap({ type: "object", additionalProperties: false }));
   });
 });
 

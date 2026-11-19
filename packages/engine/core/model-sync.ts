@@ -356,8 +356,13 @@ function buildModelEntry(
       compat.supportsReasoningEffort = false;
     }
     entry.compat = compat;
-  } else if (explicitCompat?.supportsTemperature === false) {
-    entry.compat = { ...entry.compat, supportsTemperature: false };
+  } else {
+    if (explicitCompat?.supportsTemperature === false) {
+      entry.compat = { ...entry.compat, supportsTemperature: false };
+    }
+    if (typeof explicitCompat?.supportsPromptCacheKey === "boolean") {
+      entry.compat = { ...entry.compat, supportsPromptCacheKey: explicitCompat.supportsPromptCacheKey };
+    }
   }
 
   let mediaAwareEntry = video === true ? withHanaVideoInputCompat(entry, true) : entry;

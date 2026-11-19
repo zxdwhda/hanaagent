@@ -641,6 +641,7 @@ describe("CompactionGuardExtension", () => {
         api: "openai-responses",
         provider: "openai",
         reasoning: true,
+        compat: { supportsPromptCacheKey: true },
       };
 
       await pi.trigger(
