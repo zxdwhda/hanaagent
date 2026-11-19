@@ -2327,9 +2327,9 @@ export async function generateSessionTitle(engine: any, notify: any, opts: any =
 
     // 超时由 callText 内部的 AbortSignal 统一控制：超时即取消 Pi SDK 连接，无空跑
     let title = await engine.summarizeTitle(userText, assistantText, { timeoutMs: 15_000, sessionPath });
-    if (title && /prompt[- ]injection|提示(?:词|詞)?注入/i.test(title)
-      && /(?:block(?:ed)?|detect(?:ed|ion)?|refus(?:ed|al)|reject(?:ed|ion)?)|拒绝|拒絕|拦截|攔截|阻止|检测|偵測/i.test(title)
-      && !/prompt[- ]injection|提示(?:词|詞)?注入/i.test(userText)) {
+    if (title && /\bprompt[- ]injection\b|提示(?:词|詞)?注入/i.test(title)
+      && /\b(?:block(?:ed)?|detect(?:ed|ion)?|refus(?:ed|al)|reject(?:ed|ion)?)\b|拒绝|拒絕|拦截|攔截|阻止|检测|偵測/i.test(title)
+      && !/\bprompt[- ]injection\b|提示(?:词|詞)?注入/i.test(userText)) {
       title = null;
     }
 

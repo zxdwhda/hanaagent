@@ -104,6 +104,15 @@ describe("generateSessionTitle input hygiene", () => {
     expect(engine.saveSessionTitle).toHaveBeenCalledWith("/tmp/main.jsonl", "请根据日报模板整理今天的任务");
   });
 
+  it("also falls back for an unsupported English prompt injection verdict", async () => {
+    const engine = makeEngine({
+      userText: "Prepare today's project recap",
+      summarized: "Prompt injection rejected",
+    });
+    await generateSessionTitle(engine, vi.fn(), { sessionPath: "/tmp/main.jsonl" });
+    expect(engine.saveSessionTitle).toHaveBeenCalledWith("/tmp/main.jsonl", "Prepare today's project recap");
+  });
+
   it("allows a title about prompt injection when it is the user's actual subject", async () => {
     const engine = makeEngine({
       userText: "解释我们系统如何检测提示词注入",
