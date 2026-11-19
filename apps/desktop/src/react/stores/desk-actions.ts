@@ -750,6 +750,7 @@ export async function searchDeskFiles(query: string): Promise<DeskSearchResult[]
 export async function jumpToDeskSearchResult(result: DeskSearchResult): Promise<void> {
   const target = normalizeSubdir(result.relativePath);
   if (!target) return;
+  const activationVersion = _deskActivationVersion;
   const parent = normalizeSubdir(result.parentSubdir);
   const foldersToExpand = result.isDir
     ? ancestorSubdirs(target)
@@ -761,6 +762,7 @@ export async function jumpToDeskSearchResult(result: DeskSearchResult): Promise<
   schedulePersistCurrentWorkspaceUiState();
   for (const subdir of foldersToExpand) {
     await loadDeskTreeFiles(subdir);
+    if (activationVersion !== _deskActivationVersion) return;
   }
   useStore.getState().setDeskSelectedPath(target);
 }
@@ -773,6 +775,7 @@ export async function revealDeskDirectory(directoryPath: string): Promise<boolea
   const target = relativeSubdirForWorkspacePath(root, directoryPath);
   if (target == null) return false;
 
+  const activationVersion = _deskActivationVersion;
   const foldersToExpand = ancestorSubdirs(target);
   useStore.setState((state: any) => ({
     deskCurrentPath: '',
@@ -782,9 +785,9 @@ export async function revealDeskDirectory(directoryPath: string): Promise<boolea
   }));
   schedulePersistCurrentWorkspaceUiState(root);
 
-  await loadDeskTreeFiles('', { force: true, overrideDir: root });
-  for (const subdir of foldersToExpand) {
+  for (const subdir of ['', ...foldersToExpand]) {
     await loadDeskTreeFiles(subdir, { force: true, overrideDir: root });
+    if (activationVersion !== _deskActivationVersion) return false;
   }
 
   useStore.setState((state: any) => ({
