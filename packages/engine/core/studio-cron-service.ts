@@ -83,6 +83,7 @@ class BoundStudioCronStore {
   }
   toggleJob(id) { return this._service._toggleJobForStudio(this.studioId, id); }
   markRun(id, opts) { return this._service._markRunForStudio(this.studioId, id, opts); }
+  describeMissedSlots(job, resumedAt: string) { return this._service._getStoreForStudio(this.studioId).describeMissedSlots(job, resumedAt); }
   logRun(id, run) { return this._service._logRunForStudio(this.studioId, id, run); }
   getRunHistory(id, limit) { return this._service._getRunHistoryForStudio(this.studioId, id, limit); }
 }

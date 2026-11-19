@@ -782,6 +782,35 @@ export class CronStore {
   //  运行历史
   // ════════════════════════════
 
+  describeMissedSlots(job, resumedAt: string) {
+    const first = Date.parse(job.nextRunAt);
+    const resumed = Date.parse(resumedAt);
+    if (!Number.isFinite(first) || !Number.isFinite(resumed) || first >= resumed) return null;
+
+    if (job.type === "every") {
+      const interval = parseEveryScheduleMs(job.schedule);
+      if (interval <= 0 || !Number.isFinite(interval)) return null;
+      const count = Math.floor((resumed - first) / interval);
+      if (count < 1) return null;
+      return { count, from: job.nextRunAt, through: new Date(first + (count - 1) * interval).toISOString() };
+    }
+
+    if (job.type !== "cron" || typeof job.schedule !== "string") return null;
+    const limit = 256;
+    let count = 0;
+    let current = job.nextRunAt;
+    let through = current;
+    let following = this._calcNextRun(job.type, job.schedule, current);
+    while (following && following <= resumedAt && count < limit) {
+      count += 1;
+      through = current;
+      current = following;
+      following = this._calcNextRun(job.type, job.schedule, current);
+    }
+    if (!count) return null;
+    return { count, from: job.nextRunAt, through, ...(following && following <= resumedAt ? { countIsLowerBound: true } : {}) };
+  }
+
   /**
    * 记录一次运行
    * @param {string} jobId

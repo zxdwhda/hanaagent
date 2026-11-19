@@ -16,7 +16,7 @@
  *   });
  */
 
-import { inspectLeadingInternalMoodOpener } from "../../shared/internal-mood-block.ts";
+import { findInternalMoodClose, inspectLeadingInternalMoodOpener, internalMoodClosingTags } from "../../shared/internal-mood-block.ts";
 
 /** 检查 buffer 末尾是否是 target 的前缀（1..target.length-1 个字符），返回匹配长度 */
 function trailingPrefixLen(buffer, target) {
@@ -116,21 +116,21 @@ export class MoodParser {
         this.buffer = "";
       } else {
         // 寻找对应的关闭标签
-        const closeTag = `</${this._currentTag}>`;
-        const idx = this.buffer.indexOf(closeTag);
-        if (idx !== -1) {
-          const content = this.buffer.slice(0, idx);
+        const closeTags = internalMoodClosingTags(this._currentTag);
+        const close = findInternalMoodClose(this.buffer, closeTags);
+        if (close) {
+          const content = this.buffer.slice(0, close.index);
           if (content) emit({ type: "mood_text", data: content });
           emit({ type: "mood_end" });
           this.inMood = false;
           this._justEndedMood = true;
           this._allowOpenTag = false;
-          this.buffer = this.buffer.slice(idx + closeTag.length);
+          this.buffer = this.buffer.slice(close.index + close.length);
           this._currentTag = null;
           continue;
         }
         // buffer 末尾可能是关闭标签的前缀
-        const moodHoldLen = trailingPrefixLen(this.buffer, closeTag);
+        const moodHoldLen = Math.max(...closeTags.map((tag) => trailingPrefixLen(this.buffer, tag)));
         if (moodHoldLen > 0) {
           const safe = this.buffer.slice(0, -moodHoldLen);
           if (safe) emit({ type: "mood_text", data: safe });

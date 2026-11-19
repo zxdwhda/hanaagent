@@ -67,6 +67,17 @@ describe('streamBufferManager.snapshot', () => {
     expect(snapshotStreamBuffer(PATH)).toBeNull();
   });
 
+  it('moves a complete isolated late MOOD into its block and keeps the surrounding prose', () => {
+    streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: '正文。\n<mo' });
+    streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: 'od>Vibe: 好</mood>\n结论。' });
+    expect(snapshotStreamBuffer(PATH)).toMatchObject({ text: '正文。\n结论。', mood: 'Vibe: 好' });
+    streamBufferManager.finishTurn(PATH);
+    expect(getAssistantMessage()?.blocks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'mood', text: 'Vibe: 好' }),
+      expect.objectContaining({ type: 'text', source: '正文。\n结论。' }),
+    ]));
+  });
+
   it('累积 mood + text 后，snapshot 反映当前内容', () => {
     useStore.setState({
       sessions: [{

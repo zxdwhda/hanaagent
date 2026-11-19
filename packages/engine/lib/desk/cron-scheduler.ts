@@ -10,9 +10,11 @@
 
 import { debugLog, createModuleLogger } from "../debug-log.ts";
 import { AUTOMATION_SCHEMA_VERSION } from "./automation-normalizer.ts";
+import { createLimiter } from "../workflow/concurrency.ts";
 
 const log = createModuleLogger("cron");
 export const DEFAULT_CRON_EXECUTION_TIMEOUT_MS = 20 * 60 * 1000;
+const MAX_CONCURRENT_CRON_JOBS = 4;
 
 function normalizeExecutionTimeoutMs(value) {
   if (value === undefined) return DEFAULT_CRON_EXECUTION_TIMEOUT_MS;
@@ -66,20 +68,27 @@ export function createCronScheduler({ cronStore, executeJob, abortJob, onJobDone
         ? cronStore.captureCurrent()
         : cronStore;
       const jobs = checkStore.listJobs();
+      const jobsByActor = new Map<string | null, typeof jobs>();
+      for (const job of jobs) {
+        const actor = job.actorAgentId || null;
+        const group = jobsByActor.get(actor) ?? [];
+        group.push(job);
+        jobsByActor.set(actor, group);
+      }
+      const limiter = createLimiter({ maxConcurrent: MAX_CONCURRENT_CRON_JOBS, maxTotal: Infinity });
 
-      for (const listedJob of jobs) {
+      async function runJob(listedJob) {
         // A previous job can run for minutes. Re-read before dispatch so a
         // delete, disable, reschedule, or authority-bearing edit made while the
         // batch was in flight takes effect before this job starts.
         const job = typeof checkStore.getJob === "function"
           ? checkStore.getJob(listedJob.id)
           : listedJob;
-        if (!job) continue;
-        if (!job.enabled) continue;
-        if (!job.nextRunAt) continue;
+        if (!job?.enabled || !job.nextRunAt) return;
+        if ((job.actorAgentId || null) !== (listedJob.actorAgentId || null)) return;
 
         const nextRunTime = new Date(job.nextRunAt).getTime();
-        if (Date.now() < nextRunTime) continue;
+        if (Date.now() < nextRunTime) return;
 
         // A newer writer may persist fields this runtime cannot understand.
         // The store deliberately preserves that data for forward compatibility,
@@ -102,13 +111,26 @@ export function createCronScheduler({ cronStore, executeJob, abortJob, onJobDone
             reason: "unsupported_automation_schema",
             schemaVersion: job.schemaVersion,
           });
-          continue;
+          return;
         }
 
         // 到期了，执行
         log.log(`执行任务: ${job.label} (${job.id})`);
         debugLog()?.log("cron", `run ${job.id} (${job.label})`);
         const startedAt = new Date().toISOString();
+
+        function recordMissedSlots(cursorAdvanced: unknown) {
+          if (cursorAdvanced === false) return;
+          const missedSlots = checkStore.describeMissedSlots?.(job, startedAt);
+          if (!missedSlots) return;
+          checkStore.logRun(job.id, {
+            status: "skipped",
+            reason: "missed_schedule_slots",
+            startedAt: missedSlots.from,
+            finishedAt: startedAt,
+            missedSlots,
+          });
+        }
 
         try {
           let executionResult;
@@ -135,6 +157,7 @@ export function createCronScheduler({ cronStore, executeJob, abortJob, onJobDone
             success: true,
             expectedConfigRevision: job.configRevision,
           });
+          recordMissedSlots(cursorAdvanced);
           checkStore.logRun(job.id, {
             ...(executionResult && typeof executionResult === "object" && !Array.isArray(executionResult)
               ? executionResult
@@ -167,6 +190,7 @@ export function createCronScheduler({ cronStore, executeJob, abortJob, onJobDone
               success: false,
               expectedConfigRevision: job.configRevision,
             });
+            recordMissedSlots(cursorAdvanced);
             checkStore.logRun(job.id, {
               status: "error",
               startedAt,
@@ -185,6 +209,11 @@ export function createCronScheduler({ cronStore, executeJob, abortJob, onJobDone
           }
         }
       }
+      const results = await Promise.allSettled(Array.from(jobsByActor.values(), async (group) => {
+        for (const job of group) await limiter.run(() => runJob(job));
+      }));
+      const failure = results.find(result => result.status === "rejected");
+      if (failure?.status === "rejected") throw failure.reason;
     } catch (err) {
       log.error(`checkJobs 错误: ${err.message}`);
       debugLog()?.error("cron", `checkJobs error: ${err.message}`);

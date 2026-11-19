@@ -2327,13 +2327,18 @@ export async function generateSessionTitle(engine: any, notify: any, opts: any =
 
     // 超时由 callText 内部的 AbortSignal 统一控制：超时即取消 Pi SDK 连接，无空跑
     let title = await engine.summarizeTitle(userText, assistantText, { timeoutMs: 15_000, sessionPath });
+    if (title && /prompt[- ]injection|提示(?:词|詞)?注入/i.test(title)
+      && /(?:block(?:ed)?|detect(?:ed|ion)?|refus(?:ed|al)|reject(?:ed|ion)?)|拒绝|拒絕|拦截|攔截|阻止|检测|偵測/i.test(title)
+      && !/prompt[- ]injection|提示(?:词|詞)?注入/i.test(userText)) {
+      title = null;
+    }
 
-    // API 失败时，用用户第一条消息截取作为 fallback 标题
+    // 没有可用标题时，从用户第一条消息截取标题。
     if (!title) {
       const fallback = userText.replace(/\n/g, " ").trim().slice(0, 30);
       if (!fallback) return false;
       title = fallback;
-      log.log(`session 标题 API 失败，使用 fallback: ${title}`);
+      log.log("session 标题未返回可用结果，使用首条用户消息");
     }
 
     // 保存标题

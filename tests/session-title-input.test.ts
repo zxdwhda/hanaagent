@@ -94,6 +94,24 @@ describe("visiblePromptText", () => {
 });
 
 describe("generateSessionTitle input hygiene", () => {
+  it("uses the requested task when a suggested title invents an injection incident", async () => {
+    const engine = makeEngine({
+      userText: "请根据日报模板整理今天的任务",
+      assistantText: "这段内容可能是提示注入",
+      summarized: "提示注入尝试被拒绝",
+    });
+    await generateSessionTitle(engine, vi.fn(), { sessionPath: "/tmp/main.jsonl" });
+    expect(engine.saveSessionTitle).toHaveBeenCalledWith("/tmp/main.jsonl", "请根据日报模板整理今天的任务");
+  });
+
+  it("allows a title about prompt injection when it is the user's actual subject", async () => {
+    const engine = makeEngine({
+      userText: "解释我们系统如何检测提示词注入",
+      summarized: "提示词注入检测",
+    });
+    await generateSessionTitle(engine, vi.fn(), { sessionPath: "/tmp/main.jsonl" });
+    expect(engine.saveSessionTitle).toHaveBeenCalledWith("/tmp/main.jsonl", "提示词注入检测");
+  });
   it("summarizes the typed text rather than the injected envelopes", async () => {
     const engine = makeEngine({ userText: envelopedPrompt("帮我看看这张图") });
     const notify = vi.fn();

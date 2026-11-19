@@ -13,6 +13,7 @@ import { useStore } from '../stores';
 import { sessionScopedKey, sessionScopedValue } from '../stores/session-slice';
 import { renderMarkdown } from '../utils/markdown';
 import { cleanMoodText } from '../utils/message-parser';
+import { parseLateInternalMoodBlock } from '../../../../../packages/shared/internal-mood-block.ts';
 import { findOpenToolIndex, toolCallFromStartEvent, toolCallIdFromEvent } from '../utils/tool-call-identity';
 import {
   registerStreamBufferInvalidator,
@@ -185,7 +186,7 @@ class StreamBufferManager {
 
   private finishBufferTurn(buf: Buffer): void {
     if (this.hasTurnState(buf)) {
-      this.flush(buf);
+      this.flush(buf, true);
     } else if (buf.flushTimer) {
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
@@ -250,13 +251,17 @@ class StreamBufferManager {
   }
 
   /** 把 buffer 中累积的内容一次性 flush 到 Zustand */
-  private flush(buf: Buffer): void {
+  private flush(buf: Buffer, final = false): void {
     buf.lastFlushTime = Date.now();
     if (buf.flushTimer) {
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
 
+    const lateMood = !buf.moodAcc && !buf.inMood
+      ? parseLateInternalMoodBlock(buf.textAcc, { requireLineBreak: !final })
+      : null;
+    const visibleText = lateMood ? lateMood.prefix + lateMood.rest : buf.textAcc;
     this.updateTargetMessage(buf, (msg) => {
       const blocks = [...(msg.blocks || [])];
 
@@ -273,12 +278,12 @@ class StreamBufferManager {
       }
 
       // ── Mood ──
-      if (buf.moodAcc || buf.inMood) {
+      if (buf.moodAcc || buf.inMood || lateMood) {
         const idx = blocks.findIndex(b => b.type === 'mood');
         const moodBlock: ContentBlock = {
           type: 'mood',
-          yuan: buf.moodYuan,
-          text: buf.inMood ? buf.moodAcc : cleanMoodText(buf.moodAcc),
+          yuan: lateMood ? 'hanako' : buf.moodYuan,
+          text: lateMood ? cleanMoodText(lateMood.content.trim()) : buf.inMood ? buf.moodAcc : cleanMoodText(buf.moodAcc),
         };
         if (idx >= 0) blocks[idx] = moodBlock;
         else {
@@ -289,8 +294,8 @@ class StreamBufferManager {
       }
 
       // ── Text ──
-      if (buf.textAcc) {
-        const displayText = buf.textAcc.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
+      if (visibleText) {
+        const displayText = visibleText.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
         const html = renderMarkdown(displayText);
         const idx = blocks.findIndex(b => b.type === 'text');
         if (idx >= 0) {
@@ -556,13 +561,16 @@ class StreamBufferManager {
     if (!buf) return null;
     const hasContent = !!(buf.textAcc || buf.thinkingAcc || buf.hasThinkingBlock || buf.moodAcc);
     if (!hasContent) return null;
+    const lateMood = !buf.moodAcc && !buf.inMood
+      ? parseLateInternalMoodBlock(buf.textAcc, { requireLineBreak: true })
+      : null;
     return {
       hasContent: true,
       messageId: buf.messageId,
-      text: buf.textAcc,
+      text: lateMood ? lateMood.prefix + lateMood.rest : buf.textAcc,
       thinking: buf.thinkingAcc,
-      mood: buf.inMood ? buf.moodAcc : cleanMoodText(buf.moodAcc),
-      moodYuan: buf.moodYuan,
+      mood: lateMood ? cleanMoodText(lateMood.content.trim()) : buf.inMood ? buf.moodAcc : cleanMoodText(buf.moodAcc),
+      moodYuan: lateMood ? 'hanako' : buf.moodYuan,
       inThinking: buf.inThinking,
       inMood: buf.inMood,
     };

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createWorkflowTool } from "../packages/engine/lib/tools/workflow-tool.ts";
+import { createUsageLedger } from "../packages/engine/lib/llm/usage-ledger.ts";
 
 function makeCtx() {
   return { sessionManager: { getSessionFile: () => "/s.jsonl", getCwd: () => "/w" } };
@@ -26,6 +27,41 @@ describe("workflow tool", () => {
     const tool = createWorkflowTool({ executeIsolated: async () => ({}) });
     expect(tool.name).toBe("workflow");
     expect(tool.parameters.properties.script).toBeTruthy();
+  });
+
+  it.each([false, true])("counts only usage from the current workflow run (background=%s)", async (background) => {
+    const ledger = createUsageLedger();
+    const store = makeStore();
+    const record = (workflowRunId: string, tokens: number) => ledger.record({
+      usageContext: {
+        source: { subsystem: "subagent", operation: "run" },
+        attribution: { kind: background ? "session" : "utility", workflowRunId },
+      },
+      usage: { total_tokens: tokens },
+    });
+    record("another-run", 1000);
+    const executeIsolated = vi.fn(async (_prompt, opts) => {
+      expect(opts.workflowRunId).toMatch(/^workflow-/);
+      record(opts.workflowRunId, 37);
+      return { replyText: "ok", error: null };
+    });
+    const tool = createWorkflowTool({
+      executeIsolated,
+      getSessionPermissionMode: () => "read_only",
+      getUsageLedger: () => ledger,
+      ...(background ? { getDeferredStore: () => store } : {}),
+    });
+    const result = await tool.execute("budget", {
+      script: META + `await agent("x", { access: "read" }); return { spent: budget.spent(), remaining: budget.remaining() };`,
+      args: { budgetTokens: 100 },
+    }, undefined, undefined, makeCtx()) as any;
+
+    if (background) {
+      await vi.waitFor(() => expect(store.resolve).toHaveBeenCalledOnce());
+      expect(JSON.parse(store.resolve.mock.calls[0][1])).toEqual({ spent: 37, remaining: 63 });
+    } else {
+      expect(result.details.result).toEqual({ spent: 37, remaining: 63 });
+    }
   });
 
   it("派出后台任务：立即返回 taskId + streamStatus running，并在 deferred store 登记 type=workflow", async () => {

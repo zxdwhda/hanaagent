@@ -11,6 +11,20 @@ import {
 } from '../../utils/message-parser';
 
 describe('parseMoodFromContent', () => {
+  it('extracts a standalone late MOOD without removing surrounding text', () => {
+    expect(parseMoodFromContent('正文。\n<mood>\nVibe: 好\n</mood>\n结论。')).toEqual({
+      mood: 'Vibe: 好', yuan: 'hanako', text: '正文。\n结论。',
+    });
+  });
+
+  it.each([
+    '介绍\n```xml\n<mood>Vibe: demo</mood>\n```',
+    '介绍\n> <mood>Vibe: demo</mood>',
+    '介绍 `code\n<mood>Vibe: demo</mood>\nend`',
+    '介绍\n<mood>Vibe: demo</mood>还有一段',
+  ])('keeps literal markup in this Markdown context: %s', (content) => {
+    expect(parseMoodFromContent(content)).toEqual({ mood: null, yuan: null, text: content });
+  });
   it('无 mood 标签返回原文', () => {
     const result = parseMoodFromContent('hello world');
     expect(result.mood).toBeNull();
