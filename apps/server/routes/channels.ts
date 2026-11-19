@@ -18,9 +18,14 @@ import fs from "fs";
 import path from "path";
 import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.ts";
+import { contentDisposition } from "../http/file-content.ts";
+import { createRequestContext } from "../http/boundary.ts";
+import { buildAutomationSuggestionBlock } from "../suggestion-blocks.ts";
 import { debugLog } from "../../../packages/engine/lib/debug-log.ts";
 import {
   parseChannel,
+  readChannelHistoryPage,
+  readChannelMetadata,
   appendMessage,
   readBookmarks,
   updateBookmark,
@@ -33,6 +38,7 @@ import {
   removeChannelMember,
   updateChannelMeta,
 } from "../../../packages/engine/lib/channels/channel-store.ts";
+import { readAgentPhoneRuntime, resolveAgentPhoneRuntimeSessionPath } from "../../../packages/engine/lib/conversations/agent-phone-runtime.ts";
 import { extractMentionedAgentIds } from "../../../packages/engine/lib/channels/channel-mentions.ts";
 import { buildConversationMarkdownExport } from "../../../packages/engine/lib/channels/conversation-export.ts";
 import { normalizeAgentPhoneToolMode } from "../../../packages/engine/lib/conversations/agent-phone-session.ts";
@@ -264,7 +270,7 @@ export function createChannelsRoute(engine: any, hub: any) {
         });
       }
       c.header("Content-Type", archive.mediaType);
-      c.header("Content-Disposition", `attachment; filename="${archive.filename}"; filename*=UTF-8''${encodeURIComponent(archive.filename)}`);
+      c.header("Content-Disposition", contentDisposition(archive.filename, "attachment"));
       c.header("Cache-Control", "private, no-store");
       return c.body(archive.markdown);
     } catch (error) {
@@ -281,6 +287,43 @@ export function createChannelsRoute(engine: any, hub: any) {
       activities: hub?.agentPhoneActivities?.snapshot?.(id) || [],
       ticker: hub?.channelRouter?.tickerSnapshot?.(id) || hub?.tickerSnapshot?.(id) || null,
     });
+  });
+
+  route.get("/channels/:name/automation-suggestions", async (c) => {
+    const disabled = requirePhoneEnabled(c);
+    if (disabled) return disabled;
+    const { runtimeContext, authPrincipal } = createRequestContext(c, engine);
+    const studioId = runtimeContext?.studioId;
+    if (!studioId || authPrincipal?.studioId !== studioId) {
+      return c.json({ error: "Studio scope mismatch" }, 403);
+    }
+    const channelId = c.req.param("name");
+    const filePath = safeChannelPath(channelId);
+    if (!filePath) return c.json({ error: "Invalid channel id" }, 400);
+    const store = engine.getAutomationSuggestionStore?.();
+    try {
+      const meta: { members?: string[] } = await readChannelMetadata(filePath);
+      const suggestions = (Array.isArray(meta.members) ? meta.members : []).flatMap(agentId => {
+        const agentDir = safeAgentDir(agentId);
+        if (!agentDir) return [];
+        const runtime = readAgentPhoneRuntime(agentDir, channelId);
+        if (runtime.conversationId !== channelId || runtime.conversationType !== "channel" || runtime.agentId !== agentId) return [];
+        const sessionPath = resolveAgentPhoneRuntimeSessionPath(agentDir, runtime);
+        const sessionId = sessionPath && engine.getSessionIdForPath?.(sessionPath);
+        if (!sessionId) return [];
+        return (store?.list({ sessionId, studioId }) || [])
+          .filter(suggestion => suggestion.sessionPath === sessionPath && !suggestion.bridgeSessionKey)
+          .map(suggestion => ({
+            sessionId,
+            block: buildAutomationSuggestionBlock({ ...suggestion, suggestionShortCode: suggestion.shortCode }),
+          }));
+      });
+      c.header("Cache-Control", "private, no-store");
+      return c.json({ suggestions });
+    } catch (error) {
+      if (error?.code === "ENOENT") return c.json({ error: "Channel not found" }, 404);
+      return c.json({ error: "Could not read channel automation suggestions" }, 500);
+    }
   });
 
   async function readConversationPhoneSettings(id: any, c: any) {
@@ -533,8 +576,21 @@ export function createChannelsRoute(engine: any, hub: any) {
         return c.json({ error: "Channel not found" }, 404);
       }
 
-      const content = fs.readFileSync(filePath, "utf-8");
-      const parsed = parseChannel(content);
+      const limitQuery = c.req.query("limit");
+      const beforeQuery = c.req.query("before");
+      const limit = Number(limitQuery);
+      const before = beforeQuery === undefined ? undefined : Number(beforeQuery);
+      if (limitQuery !== undefined && (!/^\d+$/.test(limitQuery) || limit < 1 || limit > 200)) {
+        return c.json({ error: "limit must be an integer from 1 to 200" }, 400);
+      }
+      if (beforeQuery !== undefined && (
+        limitQuery === undefined || !/^\d+$/.test(beforeQuery) || !Number.isSafeInteger(before) || before < 1
+      )) {
+        return c.json({ error: "Invalid history cursor" }, 400);
+      }
+      const page = limitQuery === undefined ? undefined : await readChannelHistoryPage(filePath, limit, before);
+      if (page === null) return c.json({ error: "Channel history cursor expired" }, 409);
+      const parsed = page ?? parseChannel(fs.readFileSync(filePath, "utf-8"));
       const meta: any = parsed.meta;
       const messages = parsed.messages;
       const members = Array.isArray(meta.members) ? meta.members : [];
@@ -545,6 +601,7 @@ export function createChannelsRoute(engine: any, hub: any) {
         description: meta.description || "",
         messages,
         members,
+        ...(page ? { nextBefore: page.nextBefore } : {}),
       });
     } catch (err) {
       return c.json({ error: err.message }, 500);

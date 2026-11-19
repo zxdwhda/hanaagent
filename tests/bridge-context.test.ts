@@ -10,7 +10,6 @@ describe("bridge context", () => {
       sessionKey: "wx_dm_owner@hana",
       role: "owner",
     }, "zh");
-
     expect(buildBridgePromptLine(context, "zh")).toBe(
       "当前用户正通过微信与你对话，仅在需要理解当前平台或“这里”等指代时参考。"
       + "微信对话是纯文本渠道，没有可点击的卡片、按钮或确认弹窗；"
@@ -39,6 +38,7 @@ describe("bridge context", () => {
       role: "owner",
     }, "zh");
 
+    if (context.isBridgeSession !== true) throw new Error("Expected a Bridge context");
     expect(context.interactionCapabilities).toMatchObject({
       platform: "wechat",
       confirmationMode: "text_command",

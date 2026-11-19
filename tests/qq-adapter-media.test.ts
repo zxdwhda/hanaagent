@@ -4,11 +4,15 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+const qqEvents = vi.hoisted(() => ({ message: null as ((data: string) => void) | null }));
+
 vi.mock("ws", () => {
   class MockWebSocket {
     static OPEN = 1;
     readyState = 0;
-    on() {}
+    on(event: string, callback: (data: string) => void) {
+      if (event === "message") qqEvents.message = callback;
+    }
     send() {}
     close() {}
   }
@@ -64,6 +68,7 @@ describe("createQQAdapter media delivery", () => {
   let tmpDir = null;
 
   beforeEach(() => {
+    qqEvents.message = null;
     outboundCapture.platforms.length = 0;
     outboundCapture.requests.length = 0;
     vi.useFakeTimers();
@@ -120,6 +125,30 @@ describe("createQQAdapter media delivery", () => {
   function sha1Hex(value) {
     return crypto.createHash("sha1").update(value).digest("hex");
   }
+
+  it("forwards a replayed QQ attachment once and allows the user to send the same file again", async () => {
+    const onMessage = vi.fn();
+    const adapter = createQQAdapter({
+      appID: "fixture-app", appSecret: "fixture", agentId: "hana", onMessage,
+    } as any);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(qqEvents.message).not.toBeNull();
+      const data = {
+        id: "msg-1", content: "", author: { user_openid: "owner" },
+        attachments: [{ filename: "report.pdf", url: "https://example.invalid/file", content_type: "application/pdf" }],
+      };
+      const dispatch = (d: typeof data) => qqEvents.message?.(JSON.stringify({ op: 0, t: "C2C_MESSAGE_CREATE", d }));
+      dispatch(data);
+      dispatch(data);
+      expect(onMessage).toHaveBeenCalledTimes(1);
+      expect(onMessage.mock.calls[0][0].attachments).toHaveLength(1);
+      dispatch({ ...data, id: "msg-2" });
+      expect(onMessage).toHaveBeenCalledTimes(2);
+    } finally {
+      adapter.stop();
+    }
+  });
 
   it("rejects local buffer media with an explicit unsupported error", async () => {
     const adapter = createQQAdapter({

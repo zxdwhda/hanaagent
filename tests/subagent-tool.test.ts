@@ -116,6 +116,20 @@ describe("subagent-tool (executeIsolated 原子模式)", () => {
     );
   });
 
+  it("captures the Bridge origin from the parent session before starting the child", async () => {
+    const origin = {
+      isBridgeSession: true, platform: "wechat", agentId: "hana",
+      sessionKey: "wx_dm_origin@hana", chatId: "origin", chatType: "dm",
+    };
+    const getBridgeContext = vi.fn(() => origin);
+    const tool = createSubagentTool({ ...deps, getBridgeContext });
+    await tool.execute("call_bridge", { task: "Read a test fixture" }, null, null, mockCtx());
+    expect(getBridgeContext).toHaveBeenCalledWith("/test/session.jsonl");
+    expect(mockStore.defer).toHaveBeenCalledWith(expect.any(String), "/test/session.jsonl", expect.objectContaining({
+      bridgeSubagentOrigin: expect.objectContaining(origin),
+    }));
+  });
+
   it("不带 instance 也登记 direct instance，并把 run 关联到 threadId", async () => {
     const threadStore = {
       beginRun: vi.fn(),

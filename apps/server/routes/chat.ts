@@ -65,7 +65,7 @@ import { buildAutomationSuggestionBlock } from "../suggestion-blocks.ts";
 import { isAllowedChatImageMime, isChatImageBase64WithinLimit } from "../../../packages/shared/image-mime.ts";
 import { isAllowedChatVideoMime, isChatVideoBase64WithinLimit } from "../../../packages/shared/video-mime.ts";
 import { isAllowedChatAudioMime, isChatAudioBase64WithinLimit } from "../../../packages/shared/audio-mime.ts";
-import { getAssistantTextPhase } from "../../../packages/shared/text-signature.ts";
+import { getAssistantTextPhase, getMissingCompletedAssistantText } from "../../../packages/shared/text-signature.ts";
 import { summarizeToolArgs } from "../../../packages/shared/tool-arg-summary.ts";
 import { projectLiveToolResultOutcome } from "../../../packages/shared/tool-outcome.ts";
 import fs from "fs";
@@ -427,6 +427,7 @@ export function createChatRoute(engine: any, hub: any, {
         _cardEmitted: false,
         isThinking: false,
         hasOutput: false,
+        streamedAssistantMessageText: "",
         hasToolCall: false,
         hasThinking: false,
         hasError: false,
@@ -667,6 +668,7 @@ export function createChatRoute(engine: any, hub: any, {
     ss._cardEmitted = false;
     ss.isThinking = false;
     ss.hasOutput = false;
+    ss.streamedAssistantMessageText = "";
     ss.hasToolCall = false;
     ss.hasThinking = false;
     ss.hasError = false;
@@ -1203,6 +1205,7 @@ export function createChatRoute(engine: any, hub: any, {
       if (!text) return;
       flushPendingTurnInputConsumptions(sessionPath, ss, event.message);
       ss.hasOutput = true;
+      ss.streamedAssistantMessageText += text;
       if (ss.isThinking) {
         ss.isThinking = false;
         emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
@@ -1585,6 +1588,10 @@ export function createChatRoute(engine: any, hub: any, {
         broadcast({ type: "error", message: event.message.errorMessage || "Unknown error", sessionPath });
       }
       if (event.message?.role === "assistant" && typeof event.message.stopReason === "string") {
+        if (!ss.isAborted) {
+          emitVisibleTextDelta(getMissingCompletedAssistantText(event.message, ss.streamedAssistantMessageText));
+        }
+        ss.streamedAssistantMessageText = "";
         ss.assistantStopReason = event.message.stopReason;
       }
     } else if (event.type === "turn_end") {
@@ -1659,6 +1666,7 @@ export function createChatRoute(engine: any, hub: any, {
         streamId: turnStreamId,
       });
       ss.hasOutput = false;
+      ss.streamedAssistantMessageText = "";
       ss.hasToolCall = false;
       ss.hasThinking = false;
       ss.hasError = false;

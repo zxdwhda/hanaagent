@@ -51,6 +51,7 @@ export class SlashCommandDispatcher {
     if (!this._hub) {
       throw new Error("[SlashCommandDispatcher] hub not injected yet — call setHub() before tryDispatch()");
     }
+    ctx.onAccepted?.();
 
     // 纪律 #4：ctx 冻结，防 handler 篡改回传对象或经由 prototype 注入
     // 注意：仅浅冻结，nested objects（engine/hub/sessionRef）仍可被 handler 修改；Phase 1 接受此限制

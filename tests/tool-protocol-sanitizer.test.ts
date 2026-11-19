@@ -38,4 +38,13 @@ describe("runtime tool protocol sanitizer", () => {
     expect(stripToolProtocolTagsFromProse('前文<tool_calls><invoke name="bash">残留参数')).toBe("前文");
     expect(stripToolProtocolTagsFromProse('前文＜invoke name＝＂bash＂＞残留参数\n下一行也属于残留')).toBe("前文");
   });
+
+  it("recognizes guillemet-delimited antml while preserving ordinary quotations", () => {
+    const call = '«antml:invoke name="fixture"»«antml:parameter name="value"»hidden«/antml:parameter»«/antml:invoke»';
+    expect(isToolProtocolFragment(call)).toBe(true);
+    expect(isToolProtocolFragment("«antml:invoke»\noh-my-claudecode:backlog")).toBe(true);
+    expect(isToolProtocolFragment('«invoke»')).toBe(false);
+    expect(stripToolProtocolTagsFromProse(`前文${call}后文 «invoke» «正文»`)).toBe("前文后文 «invoke» «正文»");
+    expect(stripToolProtocolTagsFromProse('保留«antml:function_calls»«antml:invoke name="fixture"»未闭合')).toBe("保留");
+  });
 });

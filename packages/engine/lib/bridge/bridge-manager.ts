@@ -28,8 +28,14 @@ import { isBridgeOwner, resolveBridgeOwnerDeliveryTarget } from "./owner-policy.
 import { normalizeBridgePlatforms } from "./bridge-context.ts";
 import { parseSessionKey } from "./session-key.ts";
 import { createModuleLogger } from "../debug-log.ts";
-import { t } from "../i18n.ts";
-import { stripToolProtocolTagsFromProse } from "../tool-protocol-sanitizer.ts";
+import { getLocale, t } from "../i18n.ts";
+import { buildDeferredResultRecord, DEFERRED_RESULT_RECORD_TYPE } from "../deferred-result-notification.ts";
+import {
+  isBareGuillemetInvocationLine,
+  isGuillemetInvocationTargetLine,
+  stripPairedGuillemetToolProtocol,
+  stripToolProtocolTagsFromProse,
+} from "../tool-protocol-sanitizer.ts";
 import { sanitizeBridgeVisibleText } from "../../../shared/bridge-visible-text.ts";
 import { createVisibleTextAccumulator } from "./visible-text-accumulator.ts";
 import { createLegacyChannelOwnerGuard, LEGACY_CHANNEL_OWNER_MESSAGE } from "./channel-owner.ts";
@@ -315,6 +321,20 @@ function cleanSegments(segments) {
     .join("");
 }
 
+function cleanBridgeProse(text: string) {
+  const segments = splitCodeAndProse(text);
+  if (!text.includes("«") || !segments.some(segment => segment.code)) return cleanSegments(segments);
+  let offset = 0;
+  const codeRanges: Array<[number, number]> = [];
+  for (const segment of segments) {
+    const end = offset + segment.text.length;
+    if (segment.code) codeRanges.push([offset, end]);
+    offset = end;
+  }
+  const cleaned = stripPairedGuillemetToolProtocol(text, codeRanges);
+  return cleanSegments(cleaned === text ? segments : splitCodeAndProse(cleaned));
+}
+
 /** 开闭标签必须位于正文；块内的代码不应把同一内省块切断。 */
 function stripPairedInternalBlocks(text: string): string {
   const tags = new RegExp(`<(\\/?)(?:${STRIP_TAGS.join("|")})>`, "gi");
@@ -365,7 +385,7 @@ function stripInternalTags(text) {
   // backtick 形态的内省块必须先删（否则会被当作受保护 code fence）。
   const work = text.replace(BACKTICK_INTERNAL_RE, "");
 
-  return cleanSegments(splitCodeAndProse(stripPairedInternalBlocks(work))).trim();
+  return cleanBridgeProse(stripPairedInternalBlocks(work)).trim();
 }
 
 /**
@@ -377,7 +397,7 @@ function stripInternalTags(text) {
  */
 function stripInternalTagsLine(line) {
   if (!line) return line;
-  return cleanSegments(splitCodeAndProse(line));
+  return cleanBridgeProse(line);
 }
 
 /**
@@ -415,6 +435,7 @@ class StreamCleaner {
   declare _tagName: any;
   declare cleaned: any;
   declare extractedMedia: any;
+  private pendingGuillemetTarget = false;
   constructor() {
     this._buf = "";
     this._inTag = false;
@@ -508,12 +529,20 @@ class StreamCleaner {
   /** 处理一行完整文本，返回 null 表示该行被媒体拦截移除 */
   _processLine(line) {
     const trimmed = line.trim();
+    if (this.pendingGuillemetTarget) {
+      this.pendingGuillemetTarget = false;
+      if (isGuillemetInvocationTargetLine(trimmed)) return null;
+    }
     // 追踪 code fence 状态
     if (trimmed.startsWith("```")) {
       this._inCodeFence = !this._inCodeFence;
       return line;
     }
     if (this._inCodeFence) return line;
+    if (isBareGuillemetInvocationLine(trimmed)) {
+      this.pendingGuillemetTarget = true;
+      return null;
+    }
 
     // MEDIA:<source> 指令行。远程 URL 作为兼容协议保留；本地文件必须
     // 通过 stage_files 注册为 SessionFile，避免绕过 session 文件归属。
@@ -1207,6 +1236,7 @@ export class BridgeManager {
     const entry = this._platforms.get(this._getPlatformKey(platform, agentId));
     const adapter = entry?.adapter;
     if (!adapter) return empty;
+    if (adapter.receiptCapabilities?.mode === "none") return empty;
 
     const capability = this._resolveReceiptCapability(adapter, isGroup);
     if (capability?.mode === "native_typing") {
@@ -1282,9 +1312,9 @@ export class BridgeManager {
         isGroup,
         chatId,
         reply: sendReply,
+        onAccepted: () => this._clearPending(sessionKey),
       });
       if (dispatchResult.handled) {
-        this._clearPending(sessionKey);
         debugLog()?.log("bridge", `slash dispatched: ${text.trim().slice(0, 40)}`);
         return;
       }
@@ -1769,11 +1799,15 @@ export class BridgeManager {
     debugLog()?.error("bridge", line);
   }
 
-  async _sendStreamFallbackReply({ adapter, chatId, text, context, platform, mode, stage }) {
+  async _sendStreamFallbackReply({ adapter, chatId, text, context, platform, mode, stage, streamState = null }: any) {
     const fallbackText = String(text || "").trim();
     if (!fallbackText) return false;
     try {
-      await this._sendAdapterReply(adapter, chatId, fallbackText, context);
+      if (typeof adapter.sendStreamFallbackReply === "function") {
+        await adapter.sendStreamFallbackReply(chatId, streamState, fallbackText, context);
+      } else {
+        await this._sendAdapterReply(adapter, chatId, fallbackText, context);
+      }
       return true;
     } catch (err) {
       this._recordStreamDeliveryFailure({ platform, mode, chatId, stage: `${stage || "fallback"}:fallback`, err });
@@ -1814,12 +1848,14 @@ export class BridgeManager {
       lastUpdateTs = now;
       lastSentText = next;
       chain = chain.then(async () => {
+        if (failed || streamState?.missingMessageId) return;
         const stage = !streamState ? "start" : "update";
         try {
           if (!streamState) {
             await startMessage(next);
           } else if (!streamState.missingMessageId) {
             await adapter.updateStreamReply(chatId, streamState, next, context);
+            if (streamState.missingMessageId) createdWithoutMessageId = true;
           }
         } catch (err) {
           failed = true;
@@ -1866,7 +1902,7 @@ export class BridgeManager {
             this._recordStreamDeliveryFailure({ platform, mode, chatId, stage: "fail_finish", err });
           }
         }
-        await this._sendStreamFallbackReply({ adapter, chatId, text: failureText, context, platform, mode, stage: "fail" });
+        await this._sendStreamFallbackReply({ adapter, chatId, text: failureText, context, platform, mode, stage: "fail", streamState });
         receiptOnly = false;
       },
       finish: async (cleaned) => {
@@ -1878,7 +1914,7 @@ export class BridgeManager {
           return mediaUrls;
         }
         if (createdWithoutMessageId) {
-          await this._sendStreamFallbackReply({ adapter, chatId, text: textOnly, context, platform, mode, stage: "missing_message_id" });
+          await this._sendStreamFallbackReply({ adapter, chatId, text: textOnly, context, platform, mode, stage: "missing_message_id", streamState });
           return mediaUrls;
         }
         const finalText = this._truncateStreamText(textOnly, maxChars);
@@ -1895,7 +1931,7 @@ export class BridgeManager {
             this._recordStreamDeliveryFailure({ platform, mode, chatId, stage: !streamState ? "finish_start" : "finish", err });
           }
         }
-        await this._sendStreamFallbackReply({ adapter, chatId, text: textOnly, context, platform, mode, stage: "finish" });
+        await this._sendStreamFallbackReply({ adapter, chatId, text: textOnly, context, platform, mode, stage: "finish", streamState });
         return mediaUrls;
       },
     };
@@ -1914,7 +1950,12 @@ export class BridgeManager {
     let receiptOnly = false;
 
     const startMessage = async (text) => {
-      streamState = await adapter.startRichStreamReply(chatId, text, context);
+      try {
+        streamState = await adapter.startRichStreamReply(chatId, text, context);
+      } catch (err) {
+        streamState = err?.streamState || null;
+        throw err;
+      }
     };
 
     const enqueueSnapshot = (accumulated, force = false) => {
@@ -1928,6 +1969,7 @@ export class BridgeManager {
       lastUpdateTs = now;
       lastSentText = next;
       chain = chain.then(async () => {
+        if (failed) return;
         const stage = !streamState ? "start" : "update";
         try {
           if (!streamState) {
@@ -1974,7 +2016,7 @@ export class BridgeManager {
             this._recordStreamDeliveryFailure({ platform, mode, chatId, stage: "fail_finish", err });
           }
         }
-        await this._sendStreamFallbackReply({ adapter, chatId, text: failureText, context, platform, mode, stage: "fail" });
+        await this._sendStreamFallbackReply({ adapter, chatId, text: failureText, context, platform, mode, stage: "fail", streamState });
         receiptOnly = false;
       },
       finish: async (cleaned) => {
@@ -1988,7 +2030,7 @@ export class BridgeManager {
             } catch (err) {
               failed = true;
               this._recordStreamDeliveryFailure({ platform, mode, chatId, stage: "finish_last_sent", err });
-              await this._sendStreamFallbackReply({ adapter, chatId, text: lastSentText, context, platform, mode, stage: "finish_last_sent" });
+              await this._sendStreamFallbackReply({ adapter, chatId, text: lastSentText, context, platform, mode, stage: "finish_last_sent", streamState });
             }
           }
           receiptOnly = false;
@@ -2009,7 +2051,7 @@ export class BridgeManager {
             this._recordStreamDeliveryFailure({ platform, mode, chatId, stage: !streamState ? "finish_start" : "finish", err });
           }
         }
-        await this._sendStreamFallbackReply({ adapter, chatId, text: textOnly, context, platform, mode, stage: "finish" });
+        await this._sendStreamFallbackReply({ adapter, chatId, text: textOnly, context, platform, mode, stage: "finish", streamState });
         return mediaUrls;
       },
     };
@@ -2059,6 +2101,9 @@ export class BridgeManager {
         userId,
         principalId,
         chatId,
+        // Persist the conversation routing, without reusing a transient reply message ID.
+        messageThreadId: messageThreadId ?? null,
+        targetType: replyContext?.targetType || null,
         ...(qqPrincipal ? { qqPrincipal } : {}),
       };
 
@@ -2502,6 +2547,7 @@ export class BridgeManager {
 
   async _handleDeferredResultMediaEvent(event, sessionPath) {
     if (event?.type !== "deferred_result") return;
+    if (event.meta?.type === "subagent" && event.meta?.deliveryIntent === "trigger_parent_turn") return;
     const status = event.status;
     if (status !== "success" && status !== "failed" && status !== "aborted") return;
     const taskId = normalizeIdempotencyKey(event.taskId);
@@ -2533,6 +2579,48 @@ export class BridgeManager {
     }
     if (status === "success") return this._deliverDeferredResultMediaEvent(event, sessionPath, null);
     return this._deliverDeferredResultFailureEvent(event, sessionPath, null);
+  }
+
+  async deliverSubagentResult(taskId, task, origin, shouldDeliver): Promise<"delivered" | "retry" | "stale"> {
+    const { platform, chatId, agentId, sessionKey, messageThreadId, targetType } = origin;
+    const isGroup = origin.chatType === "group";
+    const agent = agentId && this.engine.getAgent?.(agentId);
+    const bridgeSessions = this.engine.bridgeSessionManager;
+    const currentPath = agent && bridgeSessions?.resolveSessionPathForSessionKey?.(sessionKey, agent);
+    if (!platform || !chatId || !currentPath || path.resolve(currentPath) !== path.resolve(task.sessionPath)) return "stale";
+    if (task.sessionId && this.engine.getSessionIdForPath?.(currentPath) !== task.sessionId) return "stale";
+    const context = this.engine.getBridgeContextForSessionPath?.(currentPath, { agentId });
+    if (context?.platform !== platform || context.chatId !== chatId || context.sessionKey !== sessionKey || context.chatType !== origin.chatType) return "stale";
+    if (!shouldDeliver() || !this._checkChannelOwnership()) return "retry";
+    const entry = this._findPlatformEntry(platform, agentId);
+    const adapter = entry?.adapter;
+    if (entry?.status !== "connected" || !adapter?.sendReply) return "retry";
+    if (adapter.capabilities?.proactive === false && !adapter.canReply?.(chatId)) return "retry";
+
+    const zh = getLocale().startsWith("zh");
+    const cleanedResult = task.status === "resolved" && typeof task.result === "string"
+      ? this._cleanReplyForPlatform(task.result).trim()
+      : "";
+    const text = cleanedResult || (task.status === "aborted"
+      ? (zh ? "后台子任务已取消。" : "The background task was canceled.")
+      : task.status === "failed"
+        ? (zh ? "后台子任务未能完成。" : "The background task failed.")
+        : (zh ? "后台子任务已完成。" : "The background task has finished."));
+    const replyContext = { isGroup, targetScope: isGroup ? "group" : "dm", messageThreadId, targetType };
+    await this._sendAdapterReply(adapter, chatId, text, replyContext);
+
+    try {
+      if (shouldDeliver() && bridgeSessions.resolveSessionPathForSessionKey(sessionKey, agent) === currentPath) {
+        this.engine.recordSessionCustomEntry?.(currentPath, DEFERRED_RESULT_RECORD_TYPE, buildDeferredResultRecord(taskId, task));
+      }
+      this._pushMessage({
+        platform, direction: "out", sessionKey, agentId,
+        sender: agent.agentName || this.engine.agentName, text, isGroup, ts: Date.now(),
+      });
+    } catch (error) {
+      debugLog()?.warn("bridge", `record deferred subagent delivery failed: ${error.message}`);
+    }
+    return "delivered";
   }
 
   _pruneDeferredMediaDeliveries(now = Date.now()) {
@@ -2731,12 +2819,9 @@ export class BridgeManager {
       || (streamKey !== sessionPath ? this._rcMirrorStreams.get(sessionPath) : null);
     if (!state) return;
 
-    if (event.type === "message_update") {
-      const sub = event.assistantMessageEvent;
-      if (sub?.type === "text_delta") {
-        const { emittedDelta, text } = state.visibleText.appendTextDelta(sub.delta || "");
-        try { state.delivery.onDelta?.(emittedDelta, text); } catch (err) { log.warn(`rc mirror onDelta failed: ${err?.message}`); }
-      }
+    const update = state.visibleText.appendAssistantEvent(event);
+    if (update) {
+      try { state.delivery.onDelta?.(update.emittedDelta, update.text); } catch (err) { log.warn(`rc mirror onDelta failed: ${err?.message}`); }
       return;
     }
 

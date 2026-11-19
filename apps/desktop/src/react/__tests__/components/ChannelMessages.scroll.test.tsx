@@ -4,8 +4,9 @@ import '@testing-library/jest-dom/vitest';
 import fs from 'fs';
 import path from 'path';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChannelMessages } from '../../components/ChannelsPanel';
+import * as hanaFetchModule from '../../hooks/use-hana-fetch';
 import { useStore } from '../../stores';
 
 function setScrollMetrics(el: HTMLElement, metrics: { scrollHeight: number; clientHeight: number; scrollTop: number }) {
@@ -36,6 +37,7 @@ describe('ChannelMessages scroll behavior', () => {
       channelMessages: [
         { sender: 'user', timestamp: '2026-05-07 17:00:00', body: 'old' },
       ],
+      channelHistory: {},
       agents: [],
       userName: 'user',
       userAvatarUrl: '',
@@ -45,6 +47,7 @@ describe('ChannelMessages scroll behavior', () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
   });
 
   it('keeps the reader position when a new message arrives while scrolled up', () => {
@@ -96,6 +99,39 @@ describe('ChannelMessages scroll behavior', () => {
 
     expect(screen.getByText('latest')).toBeInTheDocument();
     expect(metrics.scrollTop).toBe(700);
+  });
+
+  it('loads an older page from the button and anchors the existing message', async () => {
+    const metrics = { scrollHeight: 1000, clientHeight: 300, scrollTop: 0 };
+    useStore.setState({ channelHistory: { ch_crew: { before: 120, prepended: 0 } } });
+    let anchorOffset = 40;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const top = this.classList.contains('channel-messages')
+        ? 40
+        : this.textContent?.includes('old') ? anchorOffset - metrics.scrollTop : 0;
+      return { top } as DOMRect;
+    });
+    const { container } = render(<div className="channel-messages"><ChannelMessages /></div>);
+    const scroller = container.querySelector('.channel-messages') as HTMLElement;
+    setScrollMetrics(scroller, metrics);
+    const existingNode = screen.getByText('old');
+    const request = vi.spyOn(hanaFetchModule, 'hanaFetch').mockResolvedValue(Response.json({
+      messages: [{ sender: 'hanako', timestamp: '2026-05-07 16:59:00', body: 'earlier' }],
+      nextBefore: null,
+    }));
+
+    await act(async () => {
+      fireEvent.scroll(scroller);
+      anchorOffset = 320;
+      metrics.scrollHeight = 1280;
+      fireEvent.click(screen.getByRole('button'));
+    });
+
+    expect(request).toHaveBeenCalledWith('/api/channels/ch_crew?limit=100&before=120', { throwOnHttpError: false });
+    expect(screen.getByText('earlier')).toBeInTheDocument();
+    expect(screen.getByText('old')).toBe(existingNode);
+    expect(metrics.scrollTop).toBe(280);
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
   it('does not give the channel message container global smooth scrolling', () => {

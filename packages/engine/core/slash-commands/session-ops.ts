@@ -89,11 +89,15 @@ function _rotateBridge(engine, ref) {
   const bridgeDir = path.join(agent.sessionDir, "bridge");
   const index = engine.bridgeSessionManager.readIndex(agent);
   const raw = index[ref.sessionKey];
-  if (!raw) return { status: "not-found" };
+  if (!raw) {
+    const interrupted = engine.bridgeSessionManager.invalidateIndexBinding?.(ref.agentId, ref.sessionKey);
+    return { status: interrupted ? "no-history" : "not-found" };
+  }
   const entry = typeof raw === "string" ? { file: raw } : { ...raw };
   if (!entry.file) {
     index[ref.sessionKey] = entry;
     engine.bridgeSessionManager.writeIndex(index, agent);
+    engine.bridgeSessionManager.invalidateIndexBinding?.(ref.agentId, ref.sessionKey);
     return { status: "no-history" };
   }
   const src = path.join(bridgeDir, entry.file);
@@ -104,6 +108,7 @@ function _rotateBridge(engine, ref) {
   delete entry.file;
   index[ref.sessionKey] = entry;
   engine.bridgeSessionManager.writeIndex(index, agent);
+  engine.bridgeSessionManager.invalidateIndexBinding?.(ref.agentId, ref.sessionKey);
   return { status: "rotated" };
 }
 
@@ -113,7 +118,10 @@ function _deleteBridge(engine, ref) {
   const bridgeDir = path.join(agent.sessionDir, "bridge");
   const index = engine.bridgeSessionManager.readIndex(agent);
   const raw = index[ref.sessionKey];
-  if (!raw) return { status: "not-found" };
+  if (!raw) {
+    const interrupted = engine.bridgeSessionManager.invalidateIndexBinding?.(ref.agentId, ref.sessionKey);
+    return { status: interrupted ? "deleted" : "not-found" };
+  }
   const entry = typeof raw === "string" ? { file: raw } : raw;
   if (entry.file) {
     const p = path.join(bridgeDir, entry.file);
@@ -121,5 +129,6 @@ function _deleteBridge(engine, ref) {
   }
   delete index[ref.sessionKey];
   engine.bridgeSessionManager.writeIndex(index, agent);
+  engine.bridgeSessionManager.invalidateIndexBinding?.(ref.agentId, ref.sessionKey);
   return { status: "deleted" };
 }

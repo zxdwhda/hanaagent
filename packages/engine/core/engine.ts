@@ -796,7 +796,7 @@ export class HanaEngine {
     }
   }
 
-  setDeferredResultStore(store) {
+  setDeferredResultStore(store, { deliverBridgeSubagent = null } = {}) {
     this._deferredResultCoordinator?.dispose?.();
     this._deferredResultStore = store;
     this._deferredResultCoordinator = null;
@@ -804,6 +804,7 @@ export class HanaEngine {
       this._deferredResultCoordinator = new DeferredResultCoordinator({
         store,
         sessionCoordinator: this._sessionCoord,
+        deliverBridgeSubagent,
         recordCustomEntry: (sessionPath, customType, data) => (
           this.recordSessionCustomEntry(sessionPath, customType, data)
         ),

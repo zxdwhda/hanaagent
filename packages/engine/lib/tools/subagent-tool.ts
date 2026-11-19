@@ -117,6 +117,13 @@ function parentSessionInputForPath(deps, sessionPath) {
   return parentSessionRefForPath(deps, sessionPath) || sessionPath;
 }
 
+function bridgeSubagentMetadata(deps, sessionPath) {
+  const context = deps.getBridgeContext?.(sessionPath);
+  if (!context?.isBridgeSession || !context.sessionKey || !context.chatId || !context.agentId) return {};
+  const { platform, sessionKey, chatId, agentId, chatType, messageThreadId, targetType } = context;
+  return { bridgeSubagentOrigin: { isBridgeSession: true, platform, sessionKey, chatId, agentId, chatType, messageThreadId, targetType } };
+}
+
 function sameParentSession(deps, thread, parentSessionPath) {
   if (!thread || !parentSessionPath) return false;
   const parentSessionId = sessionIdForPath(deps, parentSessionPath);
@@ -385,6 +392,7 @@ export function createSubagentTool(deps) {
             type: "subagent",
             interlude: true,
             deliveryIntent: "trigger_parent_turn",
+            ...bridgeSubagentMetadata(deps, parentSessionPath),
             threadId,
             threadKind,
             label,
@@ -734,6 +742,7 @@ export function createSubagentReplyTool(deps) {
         type: "subagent",
         interlude: true,
         deliveryIntent: "trigger_parent_turn",
+        ...bridgeSubagentMetadata(deps, parentSessionPath),
         threadId,
         threadKind,
         label: initialThread.label || null,

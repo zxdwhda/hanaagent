@@ -47,12 +47,9 @@ export async function promptAttachedDesktopSession(engine, sessionPath, text, op
   const visibleText = createVisibleTextAccumulator();
   const toolMedia = [];
   const unsub = session.subscribe((event) => {
-    if (event.type === "message_update") {
-      const sub = event.assistantMessageEvent;
-      if (sub?.type === "text_delta") {
-        const { emittedDelta, text } = visibleText.appendTextDelta(sub.delta || "");
-        try { opts.onDelta?.(emittedDelta, text); } catch {}
-      }
+    const update = visibleText.appendAssistantEvent(event);
+    if (update) {
+      try { opts.onDelta?.(update.emittedDelta, update.text); } catch {}
     } else if (event.type === "tool_execution_start") {
       visibleText.markHiddenToolBoundary();
     } else if (event.type === "tool_execution_end" && !event.isError) {

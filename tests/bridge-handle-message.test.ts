@@ -113,6 +113,30 @@ describe("BridgeManager._handleMessage", () => {
     vi.useRealTimers();
   });
 
+  it.each(["/new", "/reset"])("keeps WeChat messages received while acknowledging %s", async (command) => {
+    const { bm, hub, adapter, engine } = createMocks();
+    engine.getAgent.mockReturnValue({ config: { bridge: { wechat: { owner: "owner123" } } }, sessionDir: os.tmpdir() });
+    bm._platforms.set("wechat:hana", { adapter, status: "connected", agentId: "hana", platform: "wechat" });
+    const msg = {
+      sessionKey: "wx_dm_owner123@hana", userId: "owner123", chatId: "owner123",
+      agentId: "hana", isGroup: false, senderName: "Owner",
+    };
+    let acknowledge: () => void;
+    adapter.sendReply.mockImplementationOnce(() => new Promise<void>(resolve => { acknowledge = resolve; }));
+    await bm._handleMessage("wechat", { ...msg, text: "before the command" });
+    const reset = bm._handleMessage("wechat", { ...msg, text: command });
+    await vi.waitFor(() => expect(adapter.sendReply).toHaveBeenCalledOnce());
+    await bm._handleMessage("wechat", { ...msg, text: "first message in the new conversation" });
+    acknowledge!();
+    await reset;
+    await vi.advanceTimersByTimeAsync(2100);
+
+    expect(hub.send).toHaveBeenCalledWith(
+      tagged("first message in the new conversation"),
+      expect.objectContaining({ sessionKey: msg.sessionKey, role: "owner" }),
+    );
+  });
+
   // ── Group messages ──
 
   describe("group fast path", () => {
@@ -308,6 +332,18 @@ describe("BridgeManager._handleMessage", () => {
 
       expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "AI response");
       expect(adapter.sendTypingIndicator).not.toHaveBeenCalled();
+    });
+
+    it("sends DingTalk's final reply without leaving a static typing message", async () => {
+      const { bm, adapter } = createMocks();
+      const dingTalk = { ...adapter, receiptCapabilities: { mode: "none" } };
+      bm._platforms.set("dingtalk:hana", { adapter: dingTalk, status: "connected", agentId: "hana", platform: "dingtalk" });
+      await bm._handleMessage("dingtalk", {
+        sessionKey: "dt_dm_owner123@hana", text: "hello", isGroup: false,
+        userId: "owner123", chatId: "owner123", agentId: "hana",
+      });
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(adapter.sendReply).toHaveBeenCalledExactlyOnceWith("owner123", "AI response");
     });
 
     it("uses declared native typing receipt instead of a text prompt", async () => {
@@ -1416,7 +1452,7 @@ describe("BridgeManager._handleMessage", () => {
       expect(bm._processing.has("fs_dm_owner123@hana")).toBe(false);
     });
 
-    it("logs Feishu edit-message update failures and falls back to a normal message", async () => {
+    it("routes a failed Feishu edit-message stream through platform recovery with its partial ID", async () => {
       const { bm, hub, engine } = createMocks();
       engine.getBridgeReceiptEnabled.mockReturnValue(false);
       const feishuAdapter = {
@@ -1431,6 +1467,7 @@ describe("BridgeManager._handleMessage", () => {
         startStreamReply: vi.fn().mockResolvedValue({ messageId: "om_stream_001" }),
         updateStreamReply: vi.fn().mockRejectedValue(new Error("update denied")),
         finishStreamReply: (vi.fn().mockResolvedValue as any)(),
+        sendStreamFallbackReply: vi.fn().mockResolvedValue(undefined),
         sendReply: (vi.fn().mockResolvedValue as any)(),
         sendBlockReply: (vi.fn().mockResolvedValue as any)(),
         stop: vi.fn(),
@@ -1451,7 +1488,10 @@ describe("BridgeManager._handleMessage", () => {
       });
 
       await vi.advanceTimersByTimeAsync(2100);
-      await vi.waitFor(() => expect(feishuAdapter.sendReply).toHaveBeenCalledWith("oc_chat", "Hello"));
+      await vi.waitFor(() => expect(feishuAdapter.sendStreamFallbackReply).toHaveBeenCalledWith(
+        "oc_chat", { messageId: "om_stream_001" }, "Hello", expect.anything(),
+      ));
+      expect(feishuAdapter.sendReply).not.toHaveBeenCalled();
 
       expect(feishuAdapter.finishStreamReply).not.toHaveBeenCalled();
       expect(bridgeDebugMock.error).toHaveBeenCalledWith(

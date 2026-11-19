@@ -100,6 +100,7 @@ export function createChannelTicker({
   let _deliveryAbortCtrl = null; // delivery 专用 AbortController
   let _deliveryPromise = null;   // 当前 delivery 的 Promise
   let _triggerChain = Promise.resolve(); // 串行化 triggerImmediate 调用
+  const _pendingImmediate = new Map<string, { mentions: Set<string>; promise: Promise<void> }>();
   let _stopped = false;          // stop() 后禁止新的 delivery
   let _activeDelivery = null;    // 当前送达进度快照（供 UI 解释等待状态）
 
@@ -193,7 +194,7 @@ export function createChannelTicker({
     return {
       active,
       running: _running,
-      queued: !!(_deliveryPromise || _deliveryAbortCtrl),
+      queued: channelName ? _pendingImmediate.has(channelName) : _pendingImmediate.size > 0,
       checkpoint: _checkpoint ? { ..._checkpoint } : null,
       nextReminder: reminderEntry
         ? {
@@ -388,48 +389,40 @@ export function createChannelTicker({
   // ── 中断处理 ──
 
   /**
-   * 新群聊消息后立即中断 + 手机送达
-   *
-   * 合并机制：如果用户连续发多条消息，后到的消息会：
-   * 1. abort 正在进行的 delivery（如果有）
-   * 2. 等它结束
-   * 3. 用最新的滑动窗口重新开始
-   *
-   * 这样保证 agent 看到的永远是最新的完整上下文。
+   * 同频道的新消息可中断当前送达。等候中的同频道消息合并为一次送达，
+   * 开始时读取最新滑动窗口；其他频道只排队。
    *
    * @param {string} channelName
    * @param {{ mentionedAgents?: string[] }} [opts]
    */
   function triggerImmediate(channelName: string, { mentionedAgents }: { mentionedAgents?: string[] } = {}) {
     if (_stopped || !isTickerEnabled()) return Promise.resolve();
-    if (_deliveryAbortCtrl && !_deliveryAbortCtrl.signal.aborted) {
+    if (_activeDelivery?.channelName === channelName && _deliveryAbortCtrl && !_deliveryAbortCtrl.signal.aborted) {
       log.log(`新消息到达，abort 当前送达并重新开始`);
       debugLog()?.log("ticker", `new message arrived, aborting current delivery to restart`);
       _deliveryAbortCtrl.abort();
     }
 
-    // 串行化：新调用排在前一个完成之后，避免并发重入
-    _triggerChain = _triggerChain.then(async () => {
-      if (_stopped) return;
+    const queued = _pendingImmediate.get(channelName);
+    if (queued) {
+      for (const agentId of mentionedAgents || []) queued.mentions.add(agentId);
+      return queued.promise;
+    }
 
-      // abort 正在进行的 delivery（如果有）
-      if (_deliveryAbortCtrl && !_deliveryAbortCtrl.signal.aborted) {
-        log.log(`新消息到达，abort 当前送达并重新开始`);
-        debugLog()?.log("ticker", `new message arrived, aborting current delivery to restart`);
-        _deliveryAbortCtrl.abort();
-      }
-      if (_deliveryPromise) {
-        await _deliveryPromise.catch(() => {});
+    const mentions = new Set(mentionedAgents);
+    const promise = _triggerChain.then(async () => {
+      _pendingImmediate.delete(channelName);
+      if (_stopped) return;
+      _deliveryPromise = _doDelivery(channelName, { mentionedAgents: [...mentions] });
+      try {
+        await _deliveryPromise;
+      } finally {
         _deliveryPromise = null;
       }
-
-      // 启动新的 delivery
-      _deliveryPromise = _doDelivery(channelName, { mentionedAgents });
-      await _deliveryPromise.catch(() => {});
-      _deliveryPromise = null;
     }).catch(() => {});
-
-    return _triggerChain;
+    _pendingImmediate.set(channelName, { mentions, promise });
+    _triggerChain = promise;
+    return promise;
   }
 
   function triggerReminder(channelName) {
@@ -470,6 +463,7 @@ export function createChannelTicker({
     }
 
     _interruptPending = false;
+    if (_stopped) return;
 
     // ── 2. 创建 delivery 专用 AbortController ──
     _deliveryAbortCtrl = new AbortController();

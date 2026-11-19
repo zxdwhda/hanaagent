@@ -2829,6 +2829,7 @@ body.resizing .channel-inspector-rail {
     flex: 1;
     min-height: 0;       /* 关键：允许 flex 项被约束，overflow-y 才能生效 */
     overflow-y: auto;
+    overflow-anchor: none;
     padding: var(--space-8) var(--space-24);
 }
 

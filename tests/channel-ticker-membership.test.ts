@@ -253,6 +253,50 @@ describe("channel-ticker membership source", () => {
     }
   });
 
+  it("coalesces a burst for a channel without aborting another channel's active turn", async () => {
+    tmpDir = mktemp();
+    const channelsDir = path.join(tmpDir, "channels");
+    const agentsDir = path.join(tmpDir, "agents");
+    for (const id of ["ch_a", "ch_b"]) {
+      const { filePath } = await createChannel(channelsDir, {
+        id, name: id, members: ["hana", "yui"], description: "", intro: "",
+      });
+      await appendMessage(filePath, "user", `Original ${id}`);
+    }
+    const started = deferred();
+    const finish = deferred();
+    let firstSignal;
+    const executeCheck = vi.fn(async (_agentId, channelId, _messages, _allUpdates, opts) => {
+      if (channelId === "ch_a") {
+        firstSignal = opts.signal;
+        started.resolve();
+        await finish.promise;
+      }
+      return { replied: false, missingDecision: true };
+    });
+    const ticker = createChannelTicker({
+      channelsDir,
+      agentsDir,
+      getAgentOrder: () => ["hana"],
+      executeCheck,
+    } as any);
+    ticker.start();
+    const first = ticker.triggerImmediate("ch_a");
+    await started.promise;
+    const burst = Array.from({ length: 10 }, () => ticker.triggerImmediate("ch_b", { mentionedAgents: ["hana"] }));
+    const aWasAborted = firstSignal.aborted;
+    const queuedB = ticker.snapshot("ch_b").queued;
+    finish.resolve();
+    try {
+      await Promise.all([first, ...burst]);
+      expect(aWasAborted).toBe(false);
+      expect(queuedB).toBe(true);
+      expect(executeCheck.mock.calls.filter(([, channelId]) => channelId === "ch_b")).toHaveLength(1);
+    } finally {
+      await ticker.stop();
+    }
+  });
+
   it("delivers unread channel messages to an agent listed in channel members even when its cursor projection is missing", async () => {
     tmpDir = mktemp();
     const channelsDir = path.join(tmpDir, "channels");

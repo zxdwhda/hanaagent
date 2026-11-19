@@ -8,6 +8,7 @@ import { PreviewPanel } from '../PreviewPanel';
 import { PluginPageView } from '../plugin/PluginPageView';
 import { ChannelMessages, ChannelMembers, ChannelInput, ChannelReadonly, ChannelAgentActivityPanel, ChannelAgentSettingsPanel, ChannelExportPanel } from '../ChannelsPanel';
 import { ChannelHeader } from '../channels/ChannelHeader';
+import { ChannelAutomationSuggestions } from '../channels/ChannelAutomationSuggestions';
 import { MainContent } from '../../MainContent';
 import { ChatPage } from './ChatPage';
 import { WorkspaceCompanionRail } from './WorkspaceCompanionRail';
@@ -96,6 +97,8 @@ function ChannelInspectorPanel() {
 
 function ChannelPage() {
   const currentChannel = useStore(s => s.currentChannel);
+  const isDM = useStore(s => s.channelIsDM);
+  const connectionId = useStore(s => s.activeServerConnectionId);
 
   return (
     <div className="channel-page">
@@ -106,6 +109,9 @@ function ChannelPage() {
             <div className="channel-messages">
               <ChannelMessages />
             </div>
+            {!isDM && (
+              <ChannelAutomationSuggestions key={JSON.stringify([connectionId, currentChannel])} channelId={currentChannel} />
+            )}
             <ChannelInputArea />
           </>
         ) : (

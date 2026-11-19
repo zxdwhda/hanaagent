@@ -225,7 +225,7 @@ describe("BridgeManager RC attached-session routing", () => {
     expect(adapter.sendDraft).toHaveBeenCalled();
   });
 
-  it("mirrors desktop-originated user text and assistant reply back to the attached bridge session", async () => {
+  it.each([false, true])("mirrors desktop-originated user text and assistant reply back to the attached bridge session (deltas: %s)", async (withDeltas) => {
     const { bm, adapter, rcState } = createMocks();
     rcState.attach("tg_dm_owner123@hana", "/s.jsonl", {
       platform: "telegram",
@@ -237,13 +237,15 @@ describe("BridgeManager RC attached-session routing", () => {
       type: "session_user_message",
       message: { text: "电脑端发起的问题", source: "desktop" },
     }, "/s.jsonl");
+    if (withDeltas) {
+      await bm._handleRcMirrorEvent({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_delta", delta: "桌面端回复" },
+      }, "/s.jsonl");
+    }
     await bm._handleRcMirrorEvent({
-      type: "message_update",
-      assistantMessageEvent: { type: "text_delta", delta: "桌面端" },
-    }, "/s.jsonl");
-    await bm._handleRcMirrorEvent({
-      type: "message_update",
-      assistantMessageEvent: { type: "text_delta", delta: "回复" },
+      type: "message_end",
+      message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "桌面端回复" }] },
     }, "/s.jsonl");
     await bm._handleRcMirrorEvent({ type: "session_status", isStreaming: false }, "/s.jsonl");
 

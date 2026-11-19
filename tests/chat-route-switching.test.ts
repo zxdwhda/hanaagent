@@ -114,6 +114,48 @@ describe("chat route model switch guard", () => {
     expect(payloads.find((payload) => payload.type === "error")).toBeUndefined();
   });
 
+  it.each(["none", "prefix", "full"])("projects finalized assistant text once (streamed: %s)", (streamed) => {
+    let createHandlers;
+    let subscriber;
+    const upgradeWebSocket = vi.fn(factory => {
+      createHandlers = factory;
+      return () => new Response(null);
+    });
+    const sessionPath = "/tmp/terminal-assistant-text.jsonl";
+    const engine = {
+      agentName: "Hana",
+      getSessionByPath: vi.fn(() => ({ entries: [] })),
+      isSessionStreaming: vi.fn(() => false),
+      isSessionSwitching: vi.fn(() => false),
+      slashDispatcher: null,
+    };
+    createChatRoute(engine, { subscribe: vi.fn(fn => { subscriber = fn; }), eventBus: { emit: vi.fn() } }, { upgradeWebSocket });
+    const handlers = createHandlers({});
+    const ws = { readyState: 1, send: vi.fn() };
+    handlers.onOpen({}, ws);
+    subscriber?.({ type: "session_status", isStreaming: true }, sessionPath);
+    subscriber?.({ type: "turn_start" }, sessionPath);
+    if (streamed !== "none") subscriber?.({
+      type: "message_update", assistantMessageEvent: { type: "text_delta", delta: streamed === "prefix" ? "final " : "final answer" },
+    }, sessionPath);
+    subscriber?.({
+      type: "message_end",
+      message: {
+        role: "assistant", stopReason: "stop", content: [
+          { type: "thinking", text: "private thought" },
+          { type: "text", text: "hidden commentary", textSignature: '{"phase":"commentary"}' },
+          { type: "text", text: "final " },
+          { type: "text", text: "answer" },
+        ],
+      },
+    }, sessionPath);
+    subscriber?.({ type: "turn_end" }, sessionPath);
+    const payloads = ws.send.mock.calls.map(([raw]) => JSON.parse(raw));
+    expect(payloads.filter(payload => payload.type === "text_delta").map(payload => payload.delta).join("")).toBe("final answer");
+    expect(payloads.some(payload => payload.type === "error")).toBe(false);
+    handlers.onClose({}, ws);
+  });
+
   it("does not count a length-limited thinking-only reply as a normal success", async () => {
     let createHandlers;
     let subscriber;

@@ -643,6 +643,14 @@ export async function runAgentPhoneSession(agentId, rounds, {
         } else if (event.toolName === "channel_pass") {
           recordLiveActivity("channel_pass", "no_reply", "正在选择本轮不发言");
         }
+      } else if (conversationType === "channel" && event.type === "tool_execution_end" && event.toolName === "automation") {
+        const suggestion = event.result?.details?.automationSuggestion;
+        const suggestionId = suggestion?.suggestionId;
+        if (!event.isError && typeof suggestionId === "string" && suggestionId) {
+          recordLiveActivity(suggestionId, "using_tool", getLocale().startsWith("zh") ? "自动化建议待确认" : "Automation suggestion awaiting confirmation", {
+            automationSuggestionId: suggestionId,
+          });
+        }
       }
     });
 

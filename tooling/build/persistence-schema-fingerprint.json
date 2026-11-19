@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:22a10570397a9f3bbbeccf4e373d24b5bb6bf843d46c3560306e65d9b5bad2fc",
+  "payloadFingerprint": "sha256:7b63d950226ac12a3a9ca3d1fbdbf399ba22bd7e23c20fa1184de105b0546bec",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Utility refresh, connector auth state, and provider model refresh update guarded runtime code. The store inventory, SQLite schemas, serialized file shapes, and DATA_EPOCH are unchanged. Existing model references continue to load.",
-    "payloadFingerprint": "sha256:22a10570397a9f3bbbeccf4e373d24b5bb6bf843d46c3560306e65d9b5bad2fc"
+    "compatibilityReason": "Preserve the data epoch and current store contracts. Bridge session and deferred subagent routing add optional fields and retain readers for earlier records.",
+    "payloadFingerprint": "sha256:7b63d950226ac12a3a9ca3d1fbdbf399ba22bd7e23c20fa1184de105b0546bec"
   },
   "schemas": [
     {
@@ -3212,7 +3212,7 @@
       "contract": "channel YAML parser, serializer, and generation contract",
       "kind": "runtime-contract",
       "module": "packages/engine/lib/channels/channel-store.ts",
-      "sourceHash": "sha256:edd33e4fc4b4f72fd59d7ce738fa0e4c502dc662c6ce9577a4f3a26bf784d9a7",
+      "sourceHash": "sha256:380fdb4ddfbf6c604df4751c77b6db34af50b918a6936b7b5b4b0883763413e4",
       "storeId": "channels"
     },
     {
@@ -3522,7 +3522,7 @@
       "contract": "server-info writer and desktop bootstrap reader",
       "kind": "runtime-contract",
       "module": "apps/server/index.ts",
-      "sourceHash": "sha256:61ee606e915cb81c72baab6f050634e2ca1879bc7768b6f93443a4c1160699b9",
+      "sourceHash": "sha256:9c2b89a10e088bbbaae7cc4aed139ab5e3dd78392fd9ae854ccfca92c0d2a69a",
       "storeId": "server-runtime-info"
     },
     {
@@ -3642,7 +3642,7 @@
       "contract": "bridge index, legacy session metadata, title, and vision sidecar readers",
       "kind": "runtime-contract",
       "module": "packages/engine/core/bridge-session-manager.ts",
-      "sourceHash": "sha256:18337a25e3c3d470381d9dbf72a04fdc30898465daf7154dbc30acff861e487b",
+      "sourceHash": "sha256:f5d80e737935a2a038fb101196ee2f5ac1f3a8579ee55cfee2bca96f458a0b32",
       "storeId": "session-sidecars"
     },
     {

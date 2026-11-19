@@ -998,10 +998,11 @@ export function handleServerMessage(msg: any): void {
         break;
       }
       const dmId = `dm:${peerId}`;
-      const isViewingDM = store2.currentTab === 'channels' && store2.currentChannel === dmId && document.visibilityState === 'visible';
-      if (isViewingDM) {
+      const isSelectedDM = store2.currentTab === 'channels' && store2.currentChannel === dmId;
+      if (isSelectedDM) {
         openChannelAction(dmId, true);
       } else {
+        markChannelMessagesDirtyAction(dmId);
         loadChannelsAction();
       }
       break;

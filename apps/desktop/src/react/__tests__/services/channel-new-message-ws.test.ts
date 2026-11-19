@@ -250,6 +250,19 @@ describe('dm_new_message websocket routing', () => {
     expect(openChannelMock).toHaveBeenCalledWith('dm:bob', true);
     expect(loadChannelsMock).not.toHaveBeenCalled();
   });
+
+  it('refreshes the selected DM when a reply arrives while the window is hidden', () => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    handleServerMessage({ type: 'dm_new_message', from: 'bob', to: 'alice' });
+    expect(openChannelMock).toHaveBeenCalledWith('dm:bob', true);
+  });
+
+  it('invalidates cached history for a DM in an inactive tab', () => {
+    useStore.setState({ currentTab: 'chat' } as never);
+    handleServerMessage({ type: 'dm_new_message', from: 'bob', to: 'alice' });
+    expect(markChannelMessagesDirtyMock).toHaveBeenCalledWith('dm:bob');
+    expect(openChannelMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('conversation_agent_activity websocket routing', () => {

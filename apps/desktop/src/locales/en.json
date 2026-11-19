@@ -59,6 +59,8 @@
     "readOnly": "🔒 This is a private message between agents, view only",
     "inputPlaceholder": "Send a message...",
     "newMessages": "New messages",
+    "loadOlderMessages": "Load older messages",
+    "loadOlderMessagesFailed": "Could not load older messages. Please try again.",
     "sendFailed": "Send failed",
     "createTitle": "New Channel",
     "createName": "Channel name",

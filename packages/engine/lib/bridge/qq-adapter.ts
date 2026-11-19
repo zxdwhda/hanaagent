@@ -17,6 +17,7 @@ import { debugLog } from "../debug-log.ts";
 import { webSocketOptionsForUrl } from "../net/outbound-proxy.ts";
 import { createMediaCapabilities } from "./media-capabilities.ts";
 import { createBridgeOutboundHttp } from "./outbound-http.ts";
+import { createInboundMessageDeduper } from "./inbound-message-deduper.ts";
 import { QQApiError, QQ_FILE_TYPE, QQ_UPLOAD_SIZE_LIMITS, uploadQQLocalFile } from "./qq-local-upload.ts";
 import { createModuleLogger } from "../debug-log.ts";
 
@@ -232,6 +233,7 @@ function normalizeQQReplyContext(replyContext = null) {
  */
 export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildMap, onDmGuildDiscovered, onStatus }) {
   const http = createBridgeOutboundHttp({ platform: "qq" });
+  const acceptMessageId = createInboundMessageDeduper();
   let accessToken = null;
   let tokenExpiresAt = 0;
   let ws = null;
@@ -470,6 +472,10 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
     return attachments;
   }
 
+  function forwardMessage(message) {
+    if (acceptMessageId(message._msgId)) onMessage(message);
+  }
+
   function handleEvent(type, data) {
     // C2C 私信
     if (type === "C2C_MESSAGE_CREATE") {
@@ -479,7 +485,7 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
       if (text.length > MAX_MSG_SIZE) return;
       const principal = deriveQQPrincipal(data.author, data.member || data.member_info || {});
       const chatId = data.author?.user_openid || data.author?.id;
-      onMessage({
+      forwardMessage({
         platform: "qq",
         agentId,
         chatId,
@@ -504,7 +510,7 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
       if (!text && !attachments.length) return;
       if (text.length > MAX_MSG_SIZE) return;
       const principal = deriveQQPrincipal(data.author, data.member || data.member_info || {});
-      onMessage({
+      forwardMessage({
         platform: "qq",
         agentId,
         chatId: data.group_openid,
@@ -528,7 +534,7 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
       const attachments = extractAttachments(data);
       if (!text && !attachments.length) return;
       const principal = deriveQQPrincipal(data.author, data.member || data.member_info || {});
-      onMessage({
+      forwardMessage({
         platform: "qq",
         agentId,
         chatId: data.channel_id,
@@ -559,7 +565,7 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
           onDmGuildDiscovered?.(data.author.id, chatId);
         }
       }
-      onMessage({
+      forwardMessage({
         platform: "qq",
         agentId,
         chatId,

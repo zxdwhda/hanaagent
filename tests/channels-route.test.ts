@@ -5,7 +5,10 @@ import os from "os";
 import path from "path";
 import { createChannelsRoute } from "../apps/server/routes/channels.ts";
 import { ChannelManager } from "../packages/engine/core/channel-manager.ts";
-import { appendMessage, createChannel, getChannelMeta, readBookmarks } from "../packages/engine/lib/channels/channel-store.ts";
+import { appendMessage, createChannel, getChannelMeta, readBookmarks, updateChannelMeta } from "../packages/engine/lib/channels/channel-store.ts";
+import { updateAgentPhoneRuntime } from "../packages/engine/lib/conversations/agent-phone-runtime.ts";
+import { AutomationSuggestionStore } from "../packages/engine/lib/tools/automation-suggestion-store.ts";
+import { createAutomationTool } from "../packages/engine/lib/tools/automation-tool.ts";
 import {
   getAgentPhoneProjectionPath,
   readAgentPhoneProjection,
@@ -88,6 +91,86 @@ describe("channels route membership contract", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  it("exposes a pending automation from a member's phone session only in its channel and Studio", async () => {
+    await createChannel(engine.channelsDir, {
+      id: "ch_crew", name: "Crew", members: ["alice", "bob"], description: "", intro: "",
+    });
+    await createChannel(engine.channelsDir, {
+      id: "ch_other", name: "Other", members: ["alice", "bob"], description: "", intro: "",
+    });
+    const agentDir = path.join(engine.agentsDir, "alice");
+    const phoneSession = "phone/sessions/ch_crew/one.jsonl";
+    const sessionPath = path.join(agentDir, phoneSession);
+    await updateAgentPhoneRuntime({
+      agentDir, agentId: "alice", conversationId: "ch_crew", conversationType: "channel",
+      patch: { phoneSessionFile: phoneSession },
+    });
+    engine.getSessionIdForPath = (value) => value === sessionPath ? "phone-session" : null;
+    engine.getRuntimeContext = () => ({ studioId: "studio-1" });
+    const store = new AutomationSuggestionStore();
+    engine.getAutomationSuggestionStore = () => store;
+    const addJob = vi.fn();
+    const tool = createAutomationTool({ studioId: "studio-1", listJobs: () => [], addJob }, {
+      automationSuggestionStore: store,
+      getAgentId: () => "alice",
+      getHomeCwd: () => agentDir,
+    });
+    const draft = await tool.execute(
+      "automation-tool", { action: "create", scheduleType: "cron", schedule: "0 9 * * *", prompt: "Review the board" },
+      undefined, undefined, { sessionId: "phone-session", sessionManager: { getSessionFile: () => sessionPath } },
+    );
+    const id = (draft.details as any).suggestionId;
+    expect(id).toBeTruthy();
+    expect(addJob).not.toHaveBeenCalled();
+    const response = await app.request("/api/channels/ch_crew/automation-suggestions");
+    expect(response.status).toBe(200);
+    const { suggestions } = await response.json();
+    expect(suggestions).toEqual([{
+      sessionId: "phone-session",
+      block: expect.objectContaining({ suggestionId: id, status: "pending", title: "Review the board" }),
+    }]);
+    const other = await app.request("/api/channels/ch_other/automation-suggestions");
+    expect(await other.json()).toEqual({ suggestions: [] });
+    engine.getRuntimeContext = () => ({ studioId: "studio-2" });
+    expect(await (await app.request("/api/channels/ch_crew/automation-suggestions")).json()).toEqual({ suggestions: [] });
+    engine.getRuntimeContext = () => ({ studioId: "studio-1" });
+    await store.apply({ sessionId: "phone-session", studioId: "studio-1", ref: id });
+    expect(addJob).toHaveBeenCalledOnce();
+    expect(await (await app.request("/api/channels/ch_crew/automation-suggestions")).json()).toEqual({ suggestions: [] });
+  });
+
+  it("pages old history by position while messages arrive and the metadata changes", async () => {
+    const { filePath } = await createChannel(engine.channelsDir, {
+      id: "ch_crew", name: "Crew", members: ["alice", "bob"], description: "", intro: "",
+    });
+    const bodies = Array.from({ length: 205 }, (_, index) =>
+      index === 130 ? "旧消息🌸".repeat(18000) : `Message ${index}`);
+    fs.appendFileSync(filePath, bodies.map(body =>
+      `\n### 爱丽丝 | 2026-05-19 12:00:00\n\n${body}\n\n---\n`).join(""));
+
+    const endpoint = "/api/channels/ch_crew";
+    const first = await (await app.request(`${endpoint}?limit=100`)).json();
+    expect(first.messages.map(message => message.body)).toEqual(bodies.slice(105));
+    expect(first.nextBefore).toBeGreaterThan(0);
+    await appendMessage(filePath, "bob", "Live reply");
+    await updateChannelMeta(filePath, { description: "长描述".repeat(30000) });
+
+    const second = await (await app.request(`${endpoint}?limit=100&before=${first.nextBefore}`)).json();
+    expect(second.description).toHaveLength(90000);
+    expect(second.messages.map(message => message.body)).toEqual(bodies.slice(5, 105));
+    const oldest = await (await app.request(`${endpoint}?limit=100&before=${second.nextBefore}`)).json();
+    expect(oldest.messages.map(message => message.body)).toEqual(bodies.slice(0, 5));
+    expect(oldest.nextBefore).toBeNull();
+
+    const latest = await (await app.request(`${endpoint}?limit=100`)).json();
+    expect(latest.messages.map(message => message.body)).toEqual([...bodies.slice(106), "Live reply"]);
+    const full = await (await app.request(endpoint)).json();
+    expect(full.messages).toHaveLength(206);
+    expect(full).not.toHaveProperty("nextBefore");
+    expect((await app.request(`${endpoint}?limit=201`)).status).toBe(400);
+    expect((await app.request(`${endpoint}?limit=100&before=${first.nextBefore + 1}`)).status).toBe(409);
+  });
+
   it("rejects creating a group channel with fewer than two unique agent members", async () => {
     const res = await app.request("/api/channels", {
       method: "POST",
@@ -145,6 +228,28 @@ describe("channels route membership contract", () => {
     const markdown = await res.text();
     expect(markdown).toContain("selected private hello");
     expect(markdown).not.toContain("other private hello");
+  });
+
+  it.each(["家庭频道", "日本語チャット", "a".repeat(63) + "𠮷"])("downloads the channel %s with a UTF-8 filename", async (name) => {
+    const selected = await createChannel(engine.channelsDir, {
+      id: "localized",
+      name,
+      description: "",
+      members: ["alice", "bob"],
+      intro: "",
+    });
+    await appendMessage(selected.filePath, "alice", "localized export fixture");
+
+    const res = await app.request("/api/conversations/ch_localized/export");
+
+    expect(res.status).toBe(200);
+    const disposition = res.headers.get("content-disposition");
+    expect(disposition).toMatch(/^attachment; filename="[\x20-\x7e]+\.md"; filename\*=UTF-8''/);
+    const encoded = disposition?.split("filename*=UTF-8''")[1];
+    expect(decodeURIComponent(encoded || "")).toContain(`hana-channel-${name}-`);
+    const markdown = await res.text();
+    expect(markdown).toContain(name);
+    expect(markdown).toContain("localized export fixture");
   });
 
   it("rejects creating a channel with a missing agent member before writing the channel file", async () => {

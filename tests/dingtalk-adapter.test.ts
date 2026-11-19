@@ -420,6 +420,7 @@ describe("DingTalk bridge adapter", () => {
       .mockResolvedValueOnce(jsonResponse({ processQueryKey: "part-1" }))
       .mockResolvedValueOnce(jsonResponse({ processQueryKey: "part-2" }));
     const adapter = makeAdapter(fetchMock);
+    expect(adapter.receiptCapabilities).toEqual({ mode: "none" });
     await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
 
     await adapter.sendReply("manager1234", "你".repeat(5000), { targetScope: "dm" });
