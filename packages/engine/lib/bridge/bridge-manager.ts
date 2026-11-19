@@ -2240,9 +2240,10 @@ export class BridgeManager {
       } else if (replyError && adapter) {
         // 完全没有可见正文时才发用户可理解的失败提示。
         // best-effort 提示：提示本身发送失败时无法再通知用户，吞掉即可。
+        const notice = t(result?.outputLimitReached ? "error.code.modelOutputLimitReached" : "bridge.replyFailed");
         try {
-          if (typeof delivery.fail === "function") await delivery.fail(t("bridge.replyFailed"));
-          else await this._sendAdapterReply(adapter, chatId, t("bridge.replyFailed"), replyContext);
+          if (typeof delivery.fail === "function") await delivery.fail(notice);
+          else await this._sendAdapterReply(adapter, chatId, notice, replyContext);
         } catch {}
       }
     } catch (err) {
@@ -2353,9 +2354,10 @@ export class BridgeManager {
       } else if (replyError) {
         // 完全没有可见正文时才发用户可理解的失败提示。
         // best-effort 提示：提示本身发送失败时无法再通知用户，吞掉即可。
+        const notice = t(result?.outputLimitReached ? "error.code.modelOutputLimitReached" : "bridge.replyFailed");
         try {
-          if (typeof delivery.fail === "function") await delivery.fail(t("bridge.replyFailed"));
-          else await this._sendAdapterReply(adapter, chatId, t("bridge.replyFailed"), null);
+          if (typeof delivery.fail === "function") await delivery.fail(notice);
+          else await this._sendAdapterReply(adapter, chatId, notice, null);
         } catch {}
       }
       return { mode: "triggerTurn" };
@@ -2505,10 +2507,11 @@ export class BridgeManager {
         if (replyTruncated) {
           try { await this._sendAdapterReply(adapter, chatId, t("bridge.replyInterrupted"), replyContext); } catch {}
         }
-      } else if (replyError && adapter) {
+      } else if ((replyError || (result?.outputLimitReached && toolMedia.length === 0)) && adapter) {
+        const notice = t(result?.outputLimitReached ? "error.code.modelOutputLimitReached" : "bridge.replyFailed");
         try {
-          if (typeof delivery.fail === "function") await delivery.fail(t("bridge.replyFailed"));
-          else await this._sendAdapterReply(adapter, chatId, t("bridge.replyFailed"), replyContext);
+          if (typeof delivery.fail === "function") await delivery.fail(notice);
+          else await this._sendAdapterReply(adapter, chatId, notice, replyContext);
         } catch {}
       }
     } catch (err) {

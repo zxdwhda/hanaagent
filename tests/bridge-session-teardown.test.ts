@@ -537,10 +537,14 @@ describe("BridgeSessionManager teardown", () => {
         ? t("error.code.modelOutputLimitReached")
         : hasError ? errorMessage || expect.any(String) : null,
       truncated: false,
+      ...(stopReason === "length" ? { outputLimitReached: true } : {}),
     });
   });
 
-  it("preserves captured partial text alongside a provider message_end error (#1607)", async () => {
+  it.each([
+    { stopReason: "error", errorMessage: "terminated" },
+    { stopReason: "length", errorMessage: null },
+  ])("preserves and marks partial text when the provider reports $stopReason", async ({ stopReason, errorMessage }) => {
     const agent = makeAgent(rootDir);
     const mgrPath = path.join(agent.sessionDir, "bridge", "owner", "partial-provider-error.jsonl");
     const manager = new BridgeSessionManager(makeDeps(agent));
@@ -553,7 +557,7 @@ describe("BridgeSessionManager teardown", () => {
         for (const fn of subscribers) {
           fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "我查到一半了，" } });
           fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "结论是" } });
-          fn({ type: "message_end", message: { stopReason: "error", errorMessage: "terminated" } });
+          fn({ type: "message_end", message: { role: "assistant", stopReason, errorMessage } });
         }
       }),
       subscribe: vi.fn((fn) => {
@@ -570,8 +574,9 @@ describe("BridgeSessionManager teardown", () => {
     ).resolves.toEqual({
       text: "我查到一半了，结论是",
       toolMedia: [],
-      error: "terminated",
+      error: errorMessage,
       truncated: true,
+      ...(stopReason === "length" ? { outputLimitReached: true } : {}),
     });
   });
 
