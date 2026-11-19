@@ -792,6 +792,24 @@ describe('DeskSection workspace watching', () => {
     });
   });
 
+  it('refreshes visible search results when the workspace root changes', async () => {
+    mocks.searchDeskFiles
+      .mockResolvedValueOnce([{ name: 'old-spec.md', relativePath: 'old-spec.md', parentSubdir: '', isDir: false }])
+      .mockResolvedValueOnce([{ name: 'new-spec.md', relativePath: 'new-spec.md', parentSubdir: '', isDir: false }]);
+    const { DeskSection } = await import('../../components/DeskSection');
+    render(<DeskSection />);
+
+    fireEvent.change(screen.getByPlaceholderText('desk.search.placeholder'), { target: { value: 'spec' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(220); });
+    expect(screen.getByText('old-spec.md')).toBeTruthy();
+
+    act(() => { useStore.setState({ deskBasePath: '/tmp/hana-other-desk' }); });
+    expect(screen.queryByText('old-spec.md')).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(220); });
+    expect(screen.getByText('new-spec.md')).toBeTruthy();
+    expect(mocks.searchDeskFiles).toHaveBeenCalledTimes(2);
+  });
+
   it('marks the right workspace card with the Jian drawer state for overlay layout', async () => {
     useStore.setState({ jianDrawerOpen: true } as never);
     const { RightWorkspacePanel } = await import('../../components/right-workspace/RightWorkspacePanel');

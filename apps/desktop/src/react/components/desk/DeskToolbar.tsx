@@ -207,7 +207,7 @@ export function DeskFilterButton({ filters, onFiltersChange, onShowMenu }: {
 // ── 工作台搜索 ──
 
 export function DeskSearchBox() {
-  const hasDesk = useStore(s => !!s.deskBasePath);
+  const deskBasePath = useStore(s => s.deskBasePath);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<DeskSearchResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -217,11 +217,9 @@ export function DeskSearchBox() {
   useEffect(() => {
     const trimmed = query.trim();
     const version = ++versionRef.current;
-    if (!trimmed || !hasDesk) {
-      setResults([]);
-      setOpen(false);
-      return undefined;
-    }
+    setResults([]);
+    setOpen(false);
+    if (!trimmed || !deskBasePath) return undefined;
     const timer = setTimeout(() => {
       void searchDeskFiles(trimmed).then((items) => {
         if (versionRef.current !== version) return;
@@ -230,7 +228,7 @@ export function DeskSearchBox() {
       });
     }, 180);
     return () => clearTimeout(timer);
-  }, [hasDesk, query]);
+  }, [deskBasePath, query]);
 
   const handlePick = useCallback(async (result: DeskSearchResult) => {
     setOpen(false);
@@ -244,7 +242,7 @@ export function DeskSearchBox() {
         value={query}
         placeholder={t('desk.search.placeholder')}
         aria-label={t('desk.search.label')}
-        disabled={!hasDesk}
+        disabled={!deskBasePath}
         onChange={(event) => setQuery(event.target.value)}
         onFocus={() => {
           if (results.length > 0) setOpen(true);

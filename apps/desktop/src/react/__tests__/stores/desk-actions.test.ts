@@ -1332,6 +1332,21 @@ describe('desk-actions workspace roots', () => {
     ]);
   });
 
+  it('discards a search response from the previous workspace', async () => {
+    useStore.setState({ deskBasePath: '/workspace/first' });
+    const oldSearchResponse = deferred<Response>();
+    mockHanaFetch.mockResolvedValueOnce(oldSearchResponse.promise);
+    const { activateWorkspaceDesk, searchDeskFiles } = await import('../../stores/desk-actions');
+
+    const search = searchDeskFiles('spec');
+    await activateWorkspaceDesk('/workspace/second', { reload: false });
+    oldSearchResponse.resolve(jsonResponse({
+      results: [{ name: 'spec.md', relativePath: 'docs/spec.md', parentSubdir: 'docs', isDir: false }],
+    }));
+
+    expect(await search).toEqual([]);
+  });
+
   it('jumps to a search result by expanding ancestors and selecting the real tree path', async () => {
     useStore.setState({
       deskBasePath: '/workspace',
@@ -1355,6 +1370,29 @@ describe('desk-actions workspace roots', () => {
     expect(mockHanaFetch).toHaveBeenNthCalledWith(2, '/api/desk/files?dir=%2Fworkspace&subdir=src%2Fcomponents');
     expect(useStore.getState().deskExpandedPaths).toEqual(['src', 'src/components']);
     expect(useStore.getState().deskSelectedPath).toBe('src/components/DeskTree.tsx');
+  });
+
+  it('stops revealing a search result when the workspace changes during a tree load', async () => {
+    useStore.setState({ deskBasePath: '/workspace/first' });
+    const oldTreeResponse = deferred<Response>();
+    mockHanaFetch.mockResolvedValueOnce(oldTreeResponse.promise);
+    const { activateWorkspaceDesk, jumpToDeskSearchResult } = await import('../../stores/desk-actions');
+
+    const revealing = jumpToDeskSearchResult({
+      name: 'spec.md',
+      relativePath: 'docs/specs/spec.md',
+      parentSubdir: 'docs/specs',
+      isDir: false,
+    });
+    await activateWorkspaceDesk('/workspace/second', { reload: false });
+    oldTreeResponse.resolve(jsonResponse({ files: [], basePath: '/workspace/first' }));
+    await revealing;
+
+    const fileRequests = mockHanaFetch.mock.calls
+      .map(([url]) => url as string)
+      .filter(url => url.startsWith('/api/desk/files'));
+    expect(fileRequests).toEqual(['/api/desk/files?dir=%2Fworkspace%2Ffirst&subdir=docs']);
+    expect(useStore.getState().deskSelectedPath).toBe('');
   });
 
   it('reveals an absolute workspace directory by expanding tree paths without replacing the desk root', async () => {
@@ -1401,6 +1439,31 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().deskExpandedPaths).toEqual(['OH-Works', 'OH-Works/Screenshots']);
     expect(useStore.getState().deskSelectedPath).toBe('OH-Works/Screenshots');
     expect(useStore.getState().rightWorkspaceTab).toBe('workspace');
+  });
+
+  it('stops revealing an old directory when the workspace changes during a tree load', async () => {
+    useStore.setState({ deskBasePath: '/workspace/first' });
+    const oldRootResponse = deferred<Response>();
+    mockHanaFetch.mockResolvedValueOnce(oldRootResponse.promise);
+    const { activateWorkspaceDesk, revealDeskDirectory } = await import('../../stores/desk-actions');
+
+    const revealing = revealDeskDirectory('/workspace/first/docs/specs');
+    expect(mockHanaFetch).toHaveBeenCalledWith('/api/desk/files?dir=%2Fworkspace%2Ffirst');
+    await activateWorkspaceDesk('/workspace/second', { reload: false });
+    oldRootResponse.resolve(jsonResponse({
+      files: [{ name: 'docs', isDir: true }],
+      basePath: '/workspace/first',
+    }));
+
+    const revealed = await revealing;
+    const fileRequests = mockHanaFetch.mock.calls
+      .map(([url]) => url as string)
+      .filter(url => url.startsWith('/api/desk/files'));
+    expect(fileRequests).toEqual(['/api/desk/files?dir=%2Fworkspace%2Ffirst']);
+    expect(revealed).toBe(false);
+    expect(useStore.getState().deskBasePath).toBe('/workspace/second');
+    expect(useStore.getState().deskSelectedPath).toBe('');
+    expect(useStore.getState().deskExpandedPaths).toEqual([]);
   });
 
   it('does not reveal a directory outside the active desk root', async () => {
