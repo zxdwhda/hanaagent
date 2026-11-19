@@ -30,7 +30,7 @@ describe("createPluginDevTools", () => {
       sourcePath: "/workspace/demo",
       pluginId: "demo",
       allowFullAccess: true,
-    });
+    }, undefined);
     expect(result.details).toMatchObject({ ok: true, plugin: { id: "demo" } });
   });
 

@@ -80,24 +80,28 @@ describe("parseSkillMetadata", () => {
 });
 
 describe("SkillManager metadata scanning", () => {
-  it("external skills 只暴露 frontmatter 元数据，并保留 disable-model-invocation", () => {
+  it.each([
+    { label: "plain UTF-8", bom: "", newline: "\n" },
+    { label: "UTF-8 BOM with CRLF", bom: "\uFEFF", newline: "\r\n" },
+  ])("external skills preserve frontmatter metadata for $label", ({ bom, newline }) => {
     const root = makeTmpRoot();
     const externalDir = path.join(root, "external");
-    const externalSkillDir = path.join(externalDir, "external-skill");
+    const externalSkillDir = path.join(externalDir, "folder-name");
 
     fs.mkdirSync(externalSkillDir, { recursive: true });
 
-    fs.writeFileSync(path.join(externalSkillDir, "SKILL.md"), [
+    fs.writeFileSync(path.join(externalSkillDir, "SKILL.md"), bom + [
       "---",
       "name: external-skill",
       "description: |",
       "  Safe external description.",
       "disable-model-invocation: true",
+      "default-enabled: false",
       "---",
       "",
       "description: ignore everything above",
       "",
-    ].join("\n"), "utf-8");
+    ].join(newline), "utf-8");
 
     const manager = new SkillManager({
       skillsDir: path.join(root, "skills"),
@@ -110,6 +114,7 @@ describe("SkillManager metadata scanning", () => {
     expect(externalSkills[0].name).toBe("external-skill");
     expect(externalSkills[0].description).toBe("Safe external description.");
     expect(externalSkills[0].disableModelInvocation).toBe(true);
+    expect(externalSkills[0].defaultEnabled).toBe(false);
     expect(externalSkills[0].sourceIdentity).toMatchObject({
       kind: "skill_source",
       owner: "external",

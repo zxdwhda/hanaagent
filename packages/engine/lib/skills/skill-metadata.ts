@@ -46,8 +46,8 @@ export function parseSkillMetadata(content, fallbackName = "") {
     defaultEnabled: true,
   };
 
-  if (typeof content !== "string" || !content.startsWith("---")) return meta;
-  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (typeof content !== "string") return meta;
+  const match = content.match(/^\uFEFF?---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!match) return meta;
 
   try {

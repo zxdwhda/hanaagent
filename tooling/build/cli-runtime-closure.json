@@ -107948,6 +107948,18 @@
       "reason": "Reached via esbuild source module graph, imported by packages/engine/core/compaction-utils.ts (import-statement); packages/engine/lib/llm/cache-preserving-compaction-agent-run.ts (import-statement); packages/engine/core/session-compactor.ts (import-statement); +51 more importer(s)."
     },
     {
+      "path": "packages/engine/lib/pi-sdk/qiniu-kimi-tool-names.ts",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/pi-sdk/stream-guard.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/pi-sdk/stream-guard.ts (import-statement)."
+    },
+    {
       "path": "packages/engine/lib/pi-sdk/search-tools.ts",
       "inputType": "source-graph",
       "provenance": [
@@ -113318,9 +113330,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 9660,
+    "totalFiles": 9661,
     "byInputType": {
-      "source-graph": 679,
+      "source-graph": 680,
       "nft-runtime-trace": 8970,
       "runtime-asset": 11
     }

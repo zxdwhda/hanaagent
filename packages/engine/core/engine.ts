@@ -183,7 +183,7 @@ function buildToolCatalogManifestSnapshot(catalog, modelContextWindowTokens) {
     names,
   };
 }
-import { filterToolObjectsByAvailability } from "./tool-availability.ts";
+import { computeAvailableToolNames, filterToolObjectsByAvailability } from "./tool-availability.ts";
 import { TaskRegistry } from "../lib/task-registry.ts";
 import { BrowserManager } from "../lib/browser/browser-manager.ts";
 import { TerminalSessionManager } from "../lib/terminal/terminal-session-manager.ts";
@@ -285,6 +285,8 @@ export class HanaEngine {
   declare _envChangeLedger: EnvChangeLedger;
   declare _extensionFactories: any;
   declare _frameworkExtFactories: any;
+  declare _pluginExtensionSync: Promise<void> | undefined;
+  declare _syncedPluginExtensionFactories: readonly unknown[] | undefined;
   declare _hubCallbacks: any;
   declare _imageStripNotified: any;
   declare _listeners: any;
@@ -509,7 +511,7 @@ export class HanaEngine {
       getResourceLoader: () => this._resourceLoader,
       getSkills: () => this._skills,
       buildTools: (cwd, ct, opts) => this.buildTools(cwd, ct, opts),
-      getLiveToolCatalogNames: () => this.getLiveToolCatalogNames(),
+      getLiveToolCatalogNames: (agentId) => this.getLiveToolCatalogNames(agentId),
       emitEvent: (e, sp) => this._emitEvent(e, sp),
       emitDevLog: (t, l) => this.emitDevLog(t, l),
       getHomeCwd: (agentId) => this.getHomeCwd(agentId),
@@ -2608,7 +2610,7 @@ export class HanaEngine {
     });
     await this._resourceLoader.reload();
 
-    const HIDDEN_SKILLS = new Set(["canvas-design", "skill-creator", "skills-translate-temp"]);
+    const HIDDEN_SKILLS = new Set(["canvas-design", "skills-translate-temp"]);
     this._skills.init(this._resourceLoader, this._agentMgr.agents, HIDDEN_SKILLS);
     const extCount = this._skills.allSkills.filter(s => s.source === "external").length;
     log(`[init] 3/5 ResourceLoader 完成 (${Date.now() - t_rl}ms, ${this._skills.allSkills.length} skills${extCount ? `, ${extCount} external` : ""})`);
@@ -2764,6 +2766,7 @@ export class HanaEngine {
       dataDir: pluginDataDir,
       bus,
       preferencesManager: this._prefs,
+      installRecords: this._pluginInstallRecords,
       appVersion,
       getSessionPath: () => this.currentSessionPath,
       registerSessionFile: (entry) => this.registerSessionFile(entry),
@@ -2822,11 +2825,9 @@ export class HanaEngine {
    * 原地 splice 保持数组引用不变（DefaultResourceLoader 持有同一引用）。
    * 在 initPlugins 以及任何插件热操作后调用。
    */
-  _syncExtensionFactories() {
-    if (!this._extensionFactories) return;
+  _syncExtensionFactories(pluginFactories: readonly unknown[]) {
     const coreFactories = this._coreExtensionFactories || [];
     const frameworkFactories = this._frameworkExtFactories || [];
-    const pluginFactories = this._pluginManager?.getExtensionFactories() || [];
     this._extensionFactories.splice(0, Infinity, ...coreFactories, ...frameworkFactories, ...pluginFactories);
   }
 
@@ -2852,8 +2853,26 @@ export class HanaEngine {
 
   /** 插件热操作后调用，同步 extension factories 到 ResourceLoader */
   async syncPluginExtensions() {
-    this._syncExtensionFactories();
-    await this._reloadResourceLoaderForExtensionFactories();
+    if (!this._extensionFactories) return;
+    const previousSync = this._pluginExtensionSync ?? Promise.resolve();
+    // A failed reload is reported to its caller. The next operation can retry it.
+    const sync = previousSync.catch(() => {}).then(async () => {
+      const pluginFactories: unknown[] = [...(this._pluginManager?.getExtensionFactories() ?? [])];
+      this._syncExtensionFactories(pluginFactories);
+      await this._reloadResourceLoaderForExtensionFactories();
+
+      const previous = this._syncedPluginExtensionFactories ?? [];
+      this._syncedPluginExtensionFactories = pluginFactories;
+      const changed = previous.length !== pluginFactories.length
+        || previous.some((factory, index) => factory !== pluginFactories[index]);
+      if (changed) this._sessionCoord?.markPluginExtensionsChanged?.();
+    });
+    this._pluginExtensionSync = sync;
+    try {
+      await sync;
+    } finally {
+      if (this._pluginExtensionSync === sync) this._pluginExtensionSync = undefined;
+    }
   }
 
   // ════════════════════════════
@@ -2872,7 +2891,7 @@ export class HanaEngine {
    * larger connectors would make a tool's availability depend on which company
    * shipped it, which is exactly the kind of hidden ranking the catalog avoids.
    */
-  _planDeferredToolAssembly(mcpTools, pluginTools) {
+  _planDeferredToolAssembly(mcpTools, pluginTools, liveToolNames?: () => ReadonlySet<string>) {
     const config = this._mcp?.getConfig?.() || null;
     const deferEnabled = config ? config.deferEnabled !== false : true;
     if (!deferEnabled) return null;
@@ -2915,6 +2934,7 @@ export class HanaEngine {
     );
     const bridgeTools = createBridgeTools({
       catalog,
+      liveToolNames,
       mcpCall: (serverId, toolName, args, ctx, signal) => this._mcp.callTool(serverId, toolName, args, ctx, signal),
       resolveMcpPermission: (serverId, toolName) =>
         this._mcp?.resolveToolPermissionKind?.(serverId, toolName) ?? "review",
@@ -2957,14 +2977,42 @@ export class HanaEngine {
     return entries.filter((entry) => published.has(`mcp_${entry.name}`));
   }
 
+  _getUnambiguousExtensionTools(warn?: (message: string) => void) {
+    const mcpTools = this._mcp?.getAllTools?.() || [];
+    const pluginTools = this._pluginManager?.getAllTools?.() || [];
+    const claims = new Map<string, string[]>();
+    for (const [tools, source] of [[mcpTools, "MCP"], [pluginTools, "plugin"]] as const) {
+      for (const tool of tools) {
+        if (typeof tool?.name !== "string" || !tool.name.trim()) continue;
+        const sources = claims.get(tool.name) ?? [];
+        sources.push(source === "plugin" && tool._pluginKey ? `plugin ${tool._pluginKey}` : source);
+        claims.set(tool.name, sources);
+      }
+    }
+    const collisions = new Set<string>();
+    for (const [name, sources] of claims) {
+      if (sources.length < 2) continue;
+      collisions.add(name);
+      warn?.(`Skipping ambiguous extension tool "${name}" (${sources.join(", ")})`);
+    }
+    const unambiguous = (tool) => !collisions.has(tool?.name);
+    return collisions.size === 0
+      ? { mcpTools, pluginTools }
+      : { mcpTools: mcpTools.filter(unambiguous), pluginTools: pluginTools.filter(unambiguous) };
+  }
+
   /**
    * The catalog's tool names as they stand right now, for a session to compare
    * against the listing it was given. Returns null when there is no MCP manager
    * to ask, which reads as "no basis to claim anything changed".
    */
-  getLiveToolCatalogNames() {
+  getLiveToolCatalogNames(agentId?: string) {
     if (!this._mcp) return null;
-    return this._liveMcpCatalogEntries()
+    const agent = agentId ? this.getAgent(agentId) : null;
+    if (agentId && !agent) return null;
+    const { mcpTools: published } = this._getUnambiguousExtensionTools();
+    const eligible = agent ? filterToolObjectsByAvailability(published, agent.config, { agentId }) : published;
+    return this._liveMcpCatalogEntries(eligible)
       .map((entry) => entry.name)
       .sort((left, right) => left.localeCompare(right));
   }
@@ -3031,8 +3079,7 @@ export class HanaEngine {
       || (allowHumanApproval ? SESSION_APPROVAL_POLICIES.INTERACTIVE : SESSION_APPROVAL_POLICIES.DENY_ON_PROMPT);
 
     // Append plugin tools
-    const pluginTools = this._pluginManager?.getAllTools() || [];
-    const mcpTools = this._mcp?.getAllTools() || [];
+    const { mcpTools, pluginTools } = this._getUnambiguousExtensionTools((message) => toolAvailabilityLog.warn(message));
     const executionBoundary = this._runtimeContext
       ? this.createExecutionBoundary({ workbenchRoot: cwd })
       : null;
@@ -3072,7 +3119,21 @@ export class HanaEngine {
     // request, so a tool set that changed shape mid-session would break the
     // cache and fail the contract. Everything dynamic goes through the
     // conversation stream instead.
-    const deferPlan = this._planDeferredToolAssembly(mcpTools, pluginTools);
+    const toolAvailabilityContext = { agentId, channelsEnabled: resolveChannelsEnabledForToolAvailability(this) };
+    const availabilityOptions = { warn: (msg) => toolAvailabilityLog.warn(msg) };
+    const liveToolNames = () => {
+      const currentAgent = agentId ? this.getAgent(agentId) : toolAgent;
+      if (!currentAgent) return new Set<string>();
+      const live = this._getUnambiguousExtensionTools();
+      return new Set<string>(computeAvailableToolNames(
+        [...live.mcpTools, ...live.pluginTools], currentAgent.config, toolAvailabilityContext, availabilityOptions,
+      ));
+    };
+    const deferPlan = this._planDeferredToolAssembly(
+      filterToolObjectsByAvailability(mcpTools, toolAgent?.config, toolAvailabilityContext, availabilityOptions),
+      filterToolObjectsByAvailability(pluginTools, toolAgent?.config, toolAvailabilityContext, availabilityOptions),
+      liveToolNames,
+    );
     const directMcpTools = deferPlan
       ? mcpTools.filter((tool) => !deferPlan.deferredToolNames.has(tool?.name))
       : mcpTools;
@@ -3091,12 +3152,13 @@ export class HanaEngine {
       // withRuntimeContext returns copies, and the permission layer keys its
       // delegation registry on object identity, so the objects that actually
       // reach that layer are the ones that must be registered.
-      registerBridgeCapabilityDelegates(wrappedBridgeTools, { catalog: deferPlan.catalog });
+      registerBridgeCapabilityDelegates(wrappedBridgeTools, { catalog: deferPlan.catalog, liveToolNames });
     }
     const pluginDevTools = this._pluginDevService && this._prefs.getPluginDevToolsEnabled?.() === true
       ? createPluginDevTools({
           pluginDevService: this._pluginDevService,
           getAgentId: () => agentId,
+          getSessionWorkspace: () => getSessionPath() ? opts.workspace : undefined,
         })
       : [];
     assertUniqueBuiltToolNames([
@@ -3110,11 +3172,8 @@ export class HanaEngine {
     const allTools = filterToolObjectsByAvailability(
       [...runtimeCustomTools, ...wrappedPluginTools, ...wrappedMcpTools, ...wrappedBridgeTools, ...pluginDevTools],
       toolAgent?.config || {},
-      {
-        agentId,
-        channelsEnabled: resolveChannelsEnabledForToolAvailability(this),
-      },
-      { warn: (msg) => toolAvailabilityLog.warn(msg) },
+      toolAvailabilityContext,
+      availabilityOptions,
     );
 
     const effectiveAgentDir = opts.agentDir || this.agent.agentDir;

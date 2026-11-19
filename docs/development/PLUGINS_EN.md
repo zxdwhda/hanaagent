@@ -61,7 +61,7 @@ prefer the dev loop over copying a half-finished plugin into the real plugin
 directory:
 
 1. Keep the plugin source in the current workspace, or in `${HANA_HOME}/plugin-dev-sources/`.
-2. Call the EventBus `plugin.dev.install` or HTTP `POST /api/plugins/dev/install` to copy the source into `${HANA_HOME}/plugins-dev/<pluginId>` and load it.
+2. Call `plugin_dev_install` in the session to copy source from its workspace into `${HANA_HOME}/plugins-dev/<pluginId>` and load it. For the EventBus `plugin.dev.install` or HTTP `POST /api/plugins/dev/install`, keep the source under a configured development directory such as `${HANA_HOME}/plugin-dev-sources/`.
 3. After editing the source, call `plugin.dev.reload` or `POST /api/plugins/dev/:id/reload`.
 4. To control the lifecycle, call `plugin.dev.disable`, `plugin.dev.enable`, `plugin.dev.reset`, `plugin.dev.uninstall`, or their HTTP counterparts: `PUT /api/plugins/dev/:id/enabled`, `POST /api/plugins/dev/:id/reset`, `DELETE /api/plugins/dev/:id`.
 5. Smoke-test tool plugins with `plugin.dev.invokeTool` or `POST /api/plugins/dev/:id/tools/:toolName/invoke`. Prefer passing `sessionId` or `sessionRef` in the call body; `sessionPath` is only a legacy locator kept for older plugins.
@@ -439,7 +439,27 @@ Zero code, same pattern as Claude Code skills.
 
 ### Commands (User Commands)
 
-`commands/*.js` each file exports:
+`commands/*.js` and `commands/*.ts` support two command entry points. Export `handler(ctx)` to register a slash command in chat.
+
+```js
+export const name = "focus";
+export const description = "Set a focus topic";
+export const usage = "/focus <topic>";
+export const scope = "session";
+export const permission = "owner";
+
+export async function handler(ctx) {
+  const topic = ctx.args.trim();
+  if (!topic) return { error: "Enter a topic." };
+  return { reply: `Focus topic: ${topic}` };
+}
+```
+
+- `handler` receives one context object. Read user arguments from `ctx.args` and the command name from `ctx.commandName`. Serialize individual fields as needed. The full context contains host objects such as `engine` and `hub`.
+- Return `{ reply: "..." }` to send a reply or `{ error: "..." }` to show an error. Returning `{ silent: true }` or no value sends no automatic reply.
+- Slash commands require full access. Built-in plugins and community plugins allowed to run with full access can register them. The optional `aliases` array follows the same reserved-name rules as `name`. The default `scope` is `session` and the default `permission` is `owner`.
+
+For the legacy command palette entry, export only `execute(args, cmdCtx)`. The example below appears in the palette as `<pluginId>.focus`. When a file exports both functions, the loader uses the `handler` registration path.
 
 ```js
 export const name = "focus";

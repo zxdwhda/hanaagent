@@ -28,6 +28,7 @@ const CALL_TOOL_NAME = "mcp_call";
 
 export interface BridgeToolDeps {
   catalog: ToolCatalog;
+  liveToolNames?: () => ReadonlySet<string>;
   mcpCall: (serverId: string, toolName: string, args: Record<string, unknown>, ctx?: unknown, signal?: AbortSignal) => Promise<unknown>;
   resolveMcpPermission: (serverId: string, toolName: string) => string;
   /** Resolves a deferred builtin tool's own invocation descriptor. */
@@ -39,6 +40,10 @@ export interface BridgeToolDeps {
 
 function text(value: string) {
   return { content: [{ type: "text", text: value }] };
+}
+
+function entryIsLive(entry: ToolCatalogEntry, names?: ReadonlySet<string>): boolean {
+  return !names || names.has(entry.origin === "builtin" ? entry.name : `mcp_${entry.name}`);
 }
 
 /**
@@ -115,14 +120,15 @@ function renderHit(entry: ToolCatalogEntry, schemaRequired?: string[]): string {
   ].join("\n  ");
 }
 
-function nearNames(catalog: ToolCatalog, name: string, limit = 3): string[] {
+function nearNames(catalog: ToolCatalog, name: string, include: (entry: ToolCatalogEntry) => boolean): string[] {
   const needle = name.trim().toLowerCase();
   if (!needle) return [];
   return catalog.all()
+    .filter(include)
     .filter((entry) => entry.name.toLowerCase().includes(needle) || entry.toolName.toLowerCase().includes(needle))
     .map((entry) => entry.name)
     .sort((left, right) => left.localeCompare(right))
-    .slice(0, limit);
+    .slice(0, 3);
 }
 
 function renderSchema(schema: unknown): string {
@@ -159,12 +165,17 @@ function callExample(entry: ToolCatalogEntry, schema: unknown): string {
 
 export function createBridgeTools({
   catalog,
+  liveToolNames,
   mcpCall,
   resolveMcpPermission,
   resolveBuiltinInvocation,
   builtinCall,
   log,
 }: BridgeToolDeps) {
+  const visibleEntries = () => {
+    const names = liveToolNames?.();
+    return (entry: ToolCatalogEntry) => entryIsLive(entry, names);
+  };
   const searchTool = {
     name: SEARCH_TOOL_NAME,
     label: "Search MCP Tools",
@@ -184,6 +195,7 @@ export function createBridgeTools({
     execute: async (_id: string, params: any) => {
       const hits = catalog.search(String(params?.query ?? ""), {
         limit: Number.isFinite(params?.limit) ? Number(params.limit) : undefined,
+        include: visibleEntries(),
       });
       if (hits.length === 0) {
         return text(
@@ -212,9 +224,11 @@ export function createBridgeTools({
     },
     execute: async (_id: string, params: any) => {
       const requested = String(params?.name ?? "");
-      const described = catalog.describe(requested);
+      const include = visibleEntries();
+      const entry = catalog.get(requested);
+      const described = entry && include(entry) ? catalog.describe(requested) : null;
       if (!described) {
-        const suggestions = nearNames(catalog, requested);
+        const suggestions = nearNames(catalog, requested, include);
         return text(suggestions.length > 0
           ? `No tool named ${requested}. Closest matches: ${suggestions.join(", ")}.`
           : `No tool named ${requested}. Use ${SEARCH_TOOL_NAME} to find one.`);
@@ -253,7 +267,7 @@ export function createBridgeTools({
        */
       resolveInvocation: (params: any) => {
         const entry = resolveTarget(catalog, params?.server, params?.tool);
-        if (!entry) return null;
+        if (!entry || !visibleEntries()(entry)) return null;
         if (entry.origin === "builtin") {
           // A deferred builtin already owns a permission voice; speaking for it
           // means repeating what it says, not restating it in MCP terms.
@@ -271,9 +285,10 @@ export function createBridgeTools({
       },
     },
     execute: async (_id: string, params: any, signal: unknown, _onUpdate: unknown, ctx: unknown) => {
+      const include = visibleEntries();
       const entry = resolveTarget(catalog, params?.server, params?.tool);
-      if (!entry) {
-        const suggestions = nearNames(catalog, String(params?.tool ?? ""));
+      if (!entry || !include(entry)) {
+        const suggestions = nearNames(catalog, String(params?.tool ?? ""), include);
         return text(suggestions.length > 0
           ? `Tool not found: ${params?.tool} on server ${params?.server}. Closest matches: ${suggestions.join(", ")}.`
           : `Tool not found: ${params?.tool} on server ${params?.server}. Use ${SEARCH_TOOL_NAME} to find the right name.`);
@@ -327,13 +342,14 @@ export function createBridgeTools({
  */
 export function registerBridgeCapabilityDelegates(
   tools: readonly any[],
-  { catalog }: { catalog: ToolCatalog },
+  { catalog, liveToolNames }: Pick<BridgeToolDeps, "catalog" | "liveToolNames">,
 ): void {
   const callTool = tools.find((tool) => tool?.name === CALL_TOOL_NAME);
   if (!callTool) return;
   registerToolCapabilityDelegate(callTool, (capability, action) => {
     const suffix = `.${action}`;
     if (!capability.endsWith(suffix)) return false;
-    return catalog.has(capability.slice(0, -suffix.length));
+    const entry = catalog.get(capability.slice(0, -suffix.length));
+    return !!entry && entryIsLive(entry, liveToolNames?.());
   });
 }

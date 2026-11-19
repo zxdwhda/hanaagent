@@ -219,6 +219,13 @@ function appendPluginAssetSessionCookie(c: any, engine: any, pluginId: string, r
   });
 }
 
+export function isPluginIframeTicketRequest(c: any, routePath: string) {
+  const method = c.req.method;
+  return (method === "GET" || method === "HEAD")
+    && /^\/api\/plugins\/[^/]+\/.*$/.test(routePath)
+    && !!c.req.query(PLUGIN_IFRAME_TICKET_QUERY);
+}
+
 export function verifyPluginIframeTicketForHostRequest(c: any, engine: any, { requireTicket = true } = {}) {
   const ticket = c.req.query(PLUGIN_IFRAME_TICKET_QUERY);
   if (!ticket) {
@@ -479,6 +486,23 @@ async function restoreAfterFailedInstall({ engine, pm, backup, targetDir, desc }
   }
 }
 
+function serializePluginSummary(plugin) {
+  return {
+    id: plugin.id, name: plugin.name, version: plugin.version,
+    pluginKey: plugin.pluginKey || `${plugin.source || "community"}:${plugin.id}`,
+    description: plugin.description, status: plugin.status,
+    shadowedBy: plugin.shadowedBy || null,
+    shadowedByPluginKey: plugin.shadowedByPluginKey || null,
+    shadows: Array.isArray(plugin.shadows) ? plugin.shadows : [],
+    activationState: plugin.activationState || null,
+    activationEvents: Array.isArray(plugin.activationEvents) ? plugin.activationEvents : [],
+    activationError: plugin.activationError || null,
+    source: plugin.source || "community", trust: plugin.trust || "restricted",
+    contributions: plugin.contributions,
+    error: plugin.error || null,
+  };
+}
+
 async function installPluginFromPath({
   engine,
   pm,
@@ -553,7 +577,7 @@ async function installPluginFromPath({
     });
 
     return {
-      ...entry,
+      ...serializePluginSummary(entry),
       ...(sourceFile ? { sourceFile } : {}),
     };
   } finally {
@@ -766,20 +790,7 @@ export function createPluginsRoute(engine: any) {
     reconcileMissingPluginDirectories(engine, pm);
     let plugins = pm.listPlugins().filter((p: any) => !p.hidden);
     if (opts.source) plugins = plugins.filter((p: any) => p.source === opts.source);
-    return plugins.map(p => ({
-      id: p.id, name: p.name, version: p.version,
-      pluginKey: p.pluginKey || `${p.source || "community"}:${p.id}`,
-      description: p.description, status: p.status,
-      shadowedBy: p.shadowedBy || null,
-      shadowedByPluginKey: p.shadowedByPluginKey || null,
-      shadows: Array.isArray(p.shadows) ? p.shadows : [],
-      activationState: p.activationState || null,
-      activationEvents: Array.isArray(p.activationEvents) ? p.activationEvents : [],
-      activationError: p.activationError || null,
-      source: p.source || "community", trust: p.trust || "restricted",
-      contributions: p.contributions,
-      error: p.error || null,
-    }));
+    return plugins.map(serializePluginSummary);
   }
 
   // ── Management API (specific routes first) ──
@@ -1274,6 +1285,7 @@ export function createPluginsRoute(engine: any) {
         expiresAt: issued.expiresAt,
         surfaceSession: {
           token: surfaceSession.token,
+          issuedAt: surfaceSession.issuedAt,
           expiresAt: surfaceSession.expiresAt,
         },
       });

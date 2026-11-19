@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { t } from '../../helpers';
 import styles from '../../Settings.module.css';
 import { ConfirmDialog, SelectWidget } from '@/ui';
@@ -18,13 +18,10 @@ interface ConnectorFormProps {
   onCancelEdit?: () => void;
 }
 
-function parseArgs(value: string): string[] {
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-  if (trimmed.includes('\n')) {
-    return trimmed.split(/\r?\n/).map(item => item.trim()).filter(Boolean);
-  }
-  return trimmed.split(/\s+/);
+function parseArgs(value: string, saved: string[]): string[] {
+  // An existing argv entry can itself contain a newline, or be a single empty string.
+  if (value === saved.join('\n')) return saved;
+  return value ? value.split(/\r?\n/) : [];
 }
 
 const INITIAL_FORM = {
@@ -59,6 +56,7 @@ export function ConnectorForm({
   const [form, setForm] = useState(() => editingConnector ? formFromConnector(editingConnector) : INITIAL_FORM);
   const [error, setError] = useState('');
   const [pendingMode, setPendingMode] = useState<FormMode | null>(null);
+  const argsId = useId();
 
   useEffect(() => {
     setForm(editingConnector ? formFromConnector(editingConnector) : INITIAL_FORM);
@@ -125,7 +123,7 @@ export function ConnectorForm({
           name: form.name || form.command,
           transport: 'stdio',
           command: form.command,
-          args: parseArgs(form.args),
+          args: parseArgs(form.args, editingConnector?.args || []),
           cwd: form.cwd,
           env: parseRecord(form.env, 'env'),
           registryUrl: form.registryUrl,
@@ -289,12 +287,14 @@ export function ConnectorForm({
               />
             </div>
             <div className={fieldHalfClass}>
-              <label className={styles['settings-form-label']}>{t('settings.mcp.args')}</label>
-              <input
-                className={styles['settings-input']}
+              <label className={styles['settings-form-label']} htmlFor={argsId}>{t('settings.mcp.args')}</label>
+              <textarea
+                id={argsId}
+                className={styles['settings-textarea']}
                 value={form.args}
                 onChange={(e) => setForm({ ...form, args: e.target.value })}
-                placeholder="-y @modelcontextprotocol/server-github"
+                rows={2}
+                placeholder={'-y\n@modelcontextprotocol/server-github'}
               />
             </div>
           </div>

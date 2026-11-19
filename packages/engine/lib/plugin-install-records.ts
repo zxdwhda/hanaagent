@@ -50,6 +50,10 @@ export class PluginInstallRecords {
     return record ? structuredClone(record) : null;
   }
 
+  listPluginIds(): string[] {
+    return Object.keys(this._read().plugins);
+  }
+
   recordInstall(record) {
     if (!record?.pluginId) throw new Error("recordInstall requires pluginId");
     const now = new Date().toISOString();
@@ -88,6 +92,7 @@ export class PluginInstallRecords {
   remove(pluginId) {
     if (!pluginId) return;
     const records = this._read();
+    if (!Object.hasOwn(records.plugins, pluginId)) return;
     delete records.plugins[pluginId];
     atomicWriteJson(this._path, records);
   }

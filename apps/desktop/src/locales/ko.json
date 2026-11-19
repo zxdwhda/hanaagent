@@ -2157,7 +2157,7 @@
       "statusFailed": "Reconnect failed",
       "statusNeedsAuth": "Needs sign-in",
       "command": "Command",
-      "args": "Arguments",
+      "args": "인수(한 줄에 하나씩)",
       "cwd": "Working Directory",
       "cwdPlaceholder": "Optional",
       "registryUrl": "Registry",

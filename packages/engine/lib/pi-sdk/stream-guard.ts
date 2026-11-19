@@ -1,6 +1,7 @@
-import type { AssistantMessageEventStream } from "@earendil-works/pi-ai";
+import type { AssistantMessageEvent, AssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { isToolProtocolFragment } from "../tool-protocol-sanitizer.ts";
+import { adaptQiniuKimiToolNames } from "./qiniu-kimi-tool-names.ts";
 
 const STREAM_GUARD_FLAG = Symbol.for("hana.piSdk.streamGuardInstalled");
 
@@ -9,20 +10,21 @@ export function installAssistantStreamGuard(session) {
   if (!agent || typeof agent.streamFn !== "function" || agent[STREAM_GUARD_FLAG]) return;
   const originalStreamFn = agent.streamFn;
   agent.streamFn = async (model, context, options) => {
-    const inner = await originalStreamFn(model, context, options);
-    return guardAssistantMessageStream(inner);
+    const toolNames = adaptQiniuKimiToolNames(model, context);
+    const inner = await originalStreamFn(model, toolNames?.context ?? context, options);
+    return guardAssistantMessageStream(inner, toolNames?.decodeEvent);
   };
   agent[STREAM_GUARD_FLAG] = true;
 }
 
-export function guardAssistantMessageStream(inner) {
+export function guardAssistantMessageStream(inner, decodeEvent?: (event: AssistantMessageEvent) => AssistantMessageEvent) {
   const outer: AssistantMessageEventStream = createAssistantMessageEventStream();
   const state = createGuardState();
 
   void (async () => {
     try {
       for await (const event of inner) {
-        for (const guarded of guardStreamEvent(event, state)) {
+        for (const guarded of guardStreamEvent(decodeEvent ? decodeEvent(event) : event, state)) {
           outer.push(guarded);
         }
       }

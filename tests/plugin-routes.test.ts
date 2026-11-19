@@ -7,6 +7,7 @@ import path from "path";
 import {
   createPluginProxyRoute,
   createPluginsRoute,
+  isPluginIframeTicketRequest,
   verifyPluginIframeTicketForHostRequest,
 } from "../apps/server/routes/plugins.ts";
 import { PluginIframeTicketError } from "../packages/engine/core/plugin-iframe-ticket-service.ts";
@@ -19,6 +20,8 @@ import {
 import { PLUGIN_SURFACE_SESSION_HEADER } from "../apps/server/http/plugin-surface-session.ts";
 import { resolveHttpRequestPrincipal } from "../apps/server/http/request-principal.ts";
 import { createServerAuthService } from "../packages/engine/core/server-auth.ts";
+import { PluginManager } from "../packages/engine/core/plugin-manager.ts";
+import { EventBus } from "../packages/engine/hub/event-bus.ts";
 
 describe("plugin route proxy", () => {
   it("dispatches to registered plugin route", async () => {
@@ -112,11 +115,7 @@ function createAppWithProductionPluginTicketBypass(engine) {
   const app = new Hono();
   app.use("*", async (c, next) => {
     const routePath = new URL(c.req.url).pathname;
-    if (
-      (c.req.method === "GET" || c.req.method === "HEAD")
-      && /^\/api\/plugins\/[^/]+\/.+$/.test(routePath)
-      && c.req.query("pluginIframeTicket")
-    ) {
+    if (isPluginIframeTicketRequest(c, routePath)) {
       try {
         verifyPluginIframeTicketForHostRequest(c, engine, { requireTicket: true });
       } catch (err) {
@@ -138,11 +137,7 @@ function createAppWithProductionPluginResourceAuth(engine) {
   const app = new Hono();
   app.use("*", async (c, next) => {
     const routePath = new URL(c.req.url).pathname;
-    if (
-      (c.req.method === "GET" || c.req.method === "HEAD")
-      && /^\/api\/plugins\/[^/]+\/.+$/.test(routePath)
-      && c.req.query("pluginIframeTicket")
-    ) {
+    if (isPluginIframeTicketRequest(c, routePath)) {
       try {
         verifyPluginIframeTicketForHostRequest(c, engine, { requireTicket: true });
       } catch (err) {
@@ -1166,11 +1161,10 @@ describe("plugin management API", () => {
           },
           readme: "# Demo",
         };
-        const installPlugin = vi.fn(async (dir) => ({
+        const installPlugin = vi.fn(async () => ({
           id: "demo",
           name: "Demo",
           version: "1.0.0",
-          installedManifestExists: fs.existsSync(path.join(dir, "manifest.json")),
         }));
         const engine = mockEngine({
           hanakoHome: tmp,
@@ -1203,9 +1197,10 @@ describe("plugin management API", () => {
         expect(installRes.status).toBe(200);
         expect(await installRes.json()).toMatchObject({
           id: "demo",
-          installedManifestExists: true,
         });
-        expect(installPlugin).toHaveBeenCalled();
+        const installedDir = path.join(tmp, "plugins", "demo");
+        expect(installPlugin).toHaveBeenCalledWith(installedDir, { source: "community" });
+        expect(fs.existsSync(path.join(installedDir, "manifest.json"))).toBe(true);
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -1615,6 +1610,89 @@ describe("plugin management API", () => {
   });
 
   describe("POST /plugins/install", () => {
+    it("returns the load timeout and frees the installation queue after a hung cleanup", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-cleanup-"));
+      const pluginsDir = path.join(tmpDir, "plugins");
+      const pluginManager = new PluginManager({
+        pluginsDir, dataDir: path.join(tmpDir, "data"), bus: new EventBus(),
+        lifecycleTimeoutMs: 30,
+        preferencesManager: { getDisabledPlugins: () => [], getAllowFullAccessPlugins: () => true },
+      } as any);
+      try {
+        const stuck = path.join(tmpDir, "stuck-source");
+        const healthy = path.join(tmpDir, "healthy-source");
+        fs.mkdirSync(stuck);
+        fs.mkdirSync(healthy);
+        fs.writeFileSync(path.join(stuck, "manifest.json"), JSON.stringify({
+          id: "stuck", trust: "full-access", activationEvents: ["onStartup"],
+        }));
+        fs.writeFileSync(path.join(stuck, "index.js"), `
+          export default class Stuck {
+            pending = new Promise(() => {});
+            onload() { return this.pending; }
+            onunload() { return this.pending; }
+          }
+        `);
+        fs.writeFileSync(path.join(healthy, "manifest.json"), JSON.stringify({ id: "healthy" }));
+        const engine = { ...mockEngine({ hanakoHome: tmpDir }), pluginManager };
+        const app = createApp(engine);
+        const install = (sourcePath: string) => app.request("/api/plugins/install", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: sourcePath }),
+        });
+
+        const failed = await install(stuck);
+        expect(failed.status).toBe(500);
+        expect(await failed.json()).toMatchObject({ code: "PLUGIN_INSTALL_FAILED", error: expect.stringMatching(/timed out/i) });
+        expect(fs.existsSync(path.join(pluginsDir, "stuck"))).toBe(false);
+        expect(engine.recordPluginInstall).not.toHaveBeenCalled();
+        expect((await install(healthy)).status).toBe(200);
+        expect(engine.recordPluginInstall).toHaveBeenCalledOnce();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns the public plugin projection when an installed lifecycle holds a timer", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-timer-"));
+      const id = "timer-plugin";
+      const pluginManager = new PluginManager({
+        pluginsDir: path.join(tmpDir, "plugins"),
+        dataDir: path.join(tmpDir, "plugin-data"),
+        bus: new EventBus(),
+        preferencesManager: { getDisabledPlugins: () => [], getAllowFullAccessPlugins: () => true },
+      } as any);
+      try {
+        const source = path.join(tmpDir, "source");
+        fs.mkdirSync(source);
+        fs.writeFileSync(path.join(source, "manifest.json"), JSON.stringify({
+          id, name: "Timer Plugin", version: "1.0.0", trust: "full-access", activationEvents: ["onStartup"],
+        }));
+        fs.writeFileSync(path.join(source, "index.js"), `
+          export default class TimerPlugin {
+            onload() { this.timer = setInterval(() => {}, 4000); }
+            onunload() { clearInterval(this.timer); }
+          }
+        `);
+        const engine = { ...mockEngine({ hanakoHome: tmpDir }), pluginManager };
+        const app = createApp(engine);
+        const response = await app.request("/api/plugins/install", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: source }),
+        });
+        const entry = pluginManager.getPlugin(id);
+        expect(entry?.status).toBe("loaded");
+        expect(entry?.instance?.timer).toBeTruthy();
+        expect(engine.recordPluginInstall).toHaveBeenCalledOnce();
+        expect(response.status).toBe(200);
+        const listed = (await (await app.request("/api/plugins")).json()).find(plugin => plugin.id === id);
+        expect(await response.json()).toEqual(listed);
+      } finally {
+        await pluginManager.unloadPlugin(id);
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     it("returns 400 when path is missing", async () => {
       const engine = mockEngine();
       const app = createApp(engine);
@@ -2084,11 +2162,7 @@ function createAppWithProductionPluginSurfaceAuth(engine, { connectionKind = "lo
   const app = new Hono();
   app.use("*", async (c, next) => {
     const routePath = new URL(c.req.url).pathname;
-    if (
-      (c.req.method === "GET" || c.req.method === "HEAD")
-      && /^\/api\/plugins\/[^/]+\/.+$/.test(routePath)
-      && c.req.query("pluginIframeTicket")
-    ) {
+    if (isPluginIframeTicketRequest(c, routePath)) {
       try {
         verifyPluginIframeTicketForHostRequest(c, engine, { requireTicket: true });
       } catch (err) {
@@ -2174,6 +2248,46 @@ export default function register(app) {
 `;
 
 describe("plugin route request-level principal and capability context", () => {
+  it("loads the HTML for a real plugin page at its root and widget under a subroute over LAN", async () => {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-minimal-surface-"));
+    try {
+      const { pm } = await loadRealPluginWithRoutes({
+        tmpHome,
+        pluginId: "surface-probe",
+        manifestExtra: { contributes: { page: { route: "/" }, widget: { route: "/widget" } } },
+        routeSource: `
+          export default function register(app) {
+            app.get("/", c => c.html("<!doctype html><main>Probe page</main>"));
+            app.get("/widget", c => c.html("<!doctype html><main>Probe widget</main>"));
+          }
+        `,
+      });
+      const engine = mockEngine({ hanakoHome: tmpHome });
+      (engine as any).pluginManager = pm;
+      const listingApp = createApp(engine);
+      const runtimeApp = createAppWithProductionPluginSurfaceAuth(engine, { connectionKind: "lan" });
+
+      for (const [kind, suffix] of [["page", "/"], ["widget", "/widget"]]) {
+        const listed = await listingApp.request(`/api/plugins/${kind}s`);
+        const [{ routeUrl }] = await listed.json();
+        expect(routeUrl).toBe(`/api/plugins/surface-probe${suffix}`);
+        const issued = await runtimeApp.request("/api/plugins/iframe-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ routeUrl }),
+        });
+        expect(issued.status).toBe(200);
+        const { ticket } = await issued.json();
+        const page = await runtimeApp.request(`${routeUrl}?pluginIframeTicket=${encodeURIComponent(ticket)}`);
+        expect(page.status, `${kind}: ${await page.clone().text()}`).toBe(200);
+        expect(page.headers.get("content-type")).toContain("text/html");
+        expect(await page.text()).toContain(`<main>Probe ${kind}</main>`);
+      }
+    } finally {
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
   it("does not derive pluginRequestContext.agentId from a raw header fallback", async () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-agent-context-"));
     try {
@@ -2229,6 +2343,7 @@ describe("plugin route request-level principal and capability context", () => {
         ticket: expect.any(String),
         surfaceSession: {
           token: expect.any(String),
+          issuedAt: expect.any(String),
           expiresAt: expect.any(String),
         },
       });

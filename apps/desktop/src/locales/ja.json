@@ -2157,7 +2157,7 @@
       "statusFailed": "Reconnect failed",
       "statusNeedsAuth": "Needs sign-in",
       "command": "Command",
-      "args": "Arguments",
+      "args": "引数（1 行に 1 つ）",
       "cwd": "Working Directory",
       "cwdPlaceholder": "Optional",
       "registryUrl": "Registry",

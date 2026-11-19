@@ -59,7 +59,7 @@ python3 extensions/skills/hana-plugin-creator/scripts/create_hana_plugin.py "My 
 当 Hana / Codex 这类 Agent 直接帮用户开发插件时，优先走 dev loop，而不是把半成品复制到正式插件目录：
 
 1. 插件源码放在当前工作区，或 `${HANA_HOME}/plugin-dev-sources/`。
-2. 调用 EventBus `plugin.dev.install` 或 HTTP `POST /api/plugins/dev/install`，把源码复制到 `${HANA_HOME}/plugins-dev/<pluginId>` 并加载。
+2. 在当前会话调用 `plugin_dev_install`，把工作区内的源码复制到 `${HANA_HOME}/plugins-dev/<pluginId>` 并加载。使用 EventBus `plugin.dev.install` 或 HTTP `POST /api/plugins/dev/install` 时，请把源码放在已配置的开发目录，例如 `${HANA_HOME}/plugin-dev-sources/`。
 3. 修改源码后调用 `plugin.dev.reload` 或 `POST /api/plugins/dev/:id/reload`。
 4. 需要控制生命周期时调用 `plugin.dev.disable`、`plugin.dev.enable`、`plugin.dev.reset`、`plugin.dev.uninstall`，或对应 HTTP：`PUT /api/plugins/dev/:id/enabled`、`POST /api/plugins/dev/:id/reset`、`DELETE /api/plugins/dev/:id`。
 5. 工具插件用 `plugin.dev.invokeTool` 或 `POST /api/plugins/dev/:id/tools/:toolName/invoke` 做 smoke test。调用体优先传 `sessionId` 或 `sessionRef`；`sessionPath` 只作为旧插件兼容 locator。
@@ -410,7 +410,27 @@ Agent 在需要时会自动加载这段知识。
 
 ### Commands（用户命令）
 
-`commands/*.js` 每个文件 export：
+`commands/*.js` 和 `commands/*.ts` 支持两种命令入口。要注册聊天中的斜杠命令，导出 `handler(ctx)`：
+
+```js
+export const name = "focus";
+export const description = "Set a focus topic";
+export const usage = "/focus <topic>";
+export const scope = "session";
+export const permission = "owner";
+
+export async function handler(ctx) {
+  const topic = ctx.args.trim();
+  if (!topic) return { error: "Enter a topic." };
+  return { reply: `Focus topic: ${topic}` };
+}
+```
+
+- `handler` 接收一个上下文对象。用户输入的参数在 `ctx.args` 中，命令名在 `ctx.commandName` 中。只序列化需要的字段，整个上下文包含 `engine` 和 `hub` 等宿主对象。
+- 返回 `{ reply: "..." }` 发送回复，返回 `{ error: "..." }` 显示错误，返回 `{ silent: true }` 或不返回值则不自动发送。
+- Slash 命令需要 full-access。适用于内置插件或已获准以 full-access 运行的社区插件。可导出 `aliases` 数组，命令名和别名均受内核保留名限制。默认 `scope` 为 `session`，默认 `permission` 为 `owner`。
+
+要保留旧版命令面板入口，只导出 `execute(args, cmdCtx)`。以下命令在面板使用 `<pluginId>.focus`。同时导出两个函数时，加载器走 `handler` 的注册路径。
 
 ```js
 export const name = "focus";

@@ -2226,7 +2226,7 @@
       "statusFailed": "Reconnect failed",
       "statusNeedsAuth": "Needs sign-in",
       "command": "Command",
-      "args": "Arguments",
+      "args": "Arguments (one per line)",
       "cwd": "Working Directory",
       "cwdPlaceholder": "Optional",
       "registryUrl": "Registry",

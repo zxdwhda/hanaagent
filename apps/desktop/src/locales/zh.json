@@ -2226,7 +2226,7 @@
       "statusFailed": "重连失败",
       "statusNeedsAuth": "需重新登录",
       "command": "命令",
-      "args": "参数",
+      "args": "参数（每行一个）",
       "cwd": "工作目录",
       "cwdPlaceholder": "可选",
       "registryUrl": "Registry",

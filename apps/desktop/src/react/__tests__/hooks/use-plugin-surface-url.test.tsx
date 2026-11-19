@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePluginSurfaceUrl } from '../../hooks/use-plugin-surface-url';
 import { useStore } from '../../stores';
@@ -44,7 +44,7 @@ function issuanceResponse(overrides: Record<string, unknown> = {}) {
     expiresAt: '2026-06-05T12:00:00.000Z',
     surfaceSession: {
       token: 'surface-session-1',
-      expiresAt: '2026-06-06T00:00:00.000Z',
+      expiresAt: new Date(Date.now() + 43_200_000).toISOString(),
     },
     ...overrides,
   }), {
@@ -65,6 +65,7 @@ describe('usePluginSurfaceUrl', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -149,6 +150,39 @@ describe('usePluginSurfaceUrl', () => {
     const url = new URL(screen.getByTestId('src').textContent || '');
     expect(url.searchParams.get('token')).toBe('local-token');
     expect(url.searchParams.get('pluginSurfaceSession')).toBeNull();
+  });
+
+  it.each(['timer', 'focus'] as const)('renews a mounted surface after expiry through %s', async (trigger) => {
+    vi.useFakeTimers();
+    const start = Date.now();
+    const serverNow = start + 3_600_000;
+    const originalSession = trigger === 'timer'
+      ? { token: 'old-session', issuedAt: new Date(serverNow).toISOString(), expiresAt: new Date(serverNow + 1000).toISOString() }
+      : { token: 'old-session', expiresAt: new Date(start + 1000).toISOString() };
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(async () => issuanceResponse({
+        surfaceSession: originalSession,
+      }))
+      .mockImplementation(async () => issuanceResponse({
+        surfaceSession: { token: 'new-session', expiresAt: new Date(Date.now() + 43_200_000).toISOString() },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await act(async () => { render(<Harness routeUrl="/api/plugins/demo/page" />); });
+    expect(screen.getByTestId('src').textContent).toContain('pluginSurfaceSession=old-session');
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      if (trigger === 'timer') {
+        await vi.advanceTimersByTimeAsync(1000);
+      } else {
+        vi.setSystemTime(start + 2000);
+        window.dispatchEvent(new Event('focus'));
+        window.dispatchEvent(new Event('focus'));
+      }
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('src').textContent).toContain('pluginSurfaceSession=new-session');
   });
 
   it('surfaces issuance failures as a retryable error state', async () => {

@@ -421,7 +421,7 @@ export class PluginDevService {
     return fs.realpathSync(abs);
   }
 
-  _resolveAllowedSourceDir(sourcePath) {
+  _resolveSourceDir(sourcePath) {
     if (!sourcePath || typeof sourcePath !== "string") {
       throw createDevError("sourcePath is required", 400, "PLUGIN_DEV_SOURCE_REQUIRED");
     }
@@ -434,18 +434,15 @@ export class PluginDevService {
     if (!stat.isDirectory()) {
       throw createDevError("Plugin dev source must be a directory", 400, "PLUGIN_DEV_SOURCE_NOT_DIRECTORY");
     }
-    const allowed = this._allowedSourceRoots.some((root) => {
-      const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
-      return real === root || real.startsWith(rootWithSep);
-    });
-    if (!allowed) {
-      throw createDevError(
-        `Plugin source path is outside allowed plugin dev roots: ${real}`,
-        403,
-        "PLUGIN_DEV_SOURCE_OUTSIDE_ALLOWED_ROOTS",
-      );
-    }
     return real;
+  }
+
+  _outsideSourceRoots(real: string) {
+    return createDevError(
+      `Plugin source path is outside allowed plugin dev roots: ${real}`,
+      403,
+      "PLUGIN_DEV_SOURCE_OUTSIDE_ALLOWED_ROOTS",
+    );
   }
 
   _readAndValidateDescriptor(sourcePath, expectedPluginId) {
@@ -584,8 +581,15 @@ export class PluginDevService {
     };
   }
 
-  async installFromSource({ sourcePath, allowFullAccess = false, pluginId }: any = {}) {
-    const realSourcePath = this._resolveAllowedSourceDir(sourcePath);
+  async installFromSource({ sourcePath, allowFullAccess = false, pluginId }: any = {}, sessionWorkspace?: string) {
+    const realSourcePath = this._resolveSourceDir(sourcePath);
+    const isConfiguredSource = this._allowedSourceRoots.some((root) => assertInsideDir(realSourcePath, root));
+    if (!isConfiguredSource) {
+      if (!sessionWorkspace || !path.isAbsolute(sessionWorkspace)
+          || !assertInsideDir(realSourcePath, this._resolveSourceDir(sessionWorkspace))) {
+        throw this._outsideSourceRoots(realSourcePath);
+      }
+    }
     const desc = this._readAndValidateDescriptor(realSourcePath, pluginId);
     return this._installDescriptor({
       sourcePath: realSourcePath,
@@ -596,7 +600,10 @@ export class PluginDevService {
 
   async reloadPlugin(pluginId, options: any = {}) {
     const { slot } = this._requireDevSlot(pluginId, options);
-    const realSourcePath = this._resolveAllowedSourceDir(slot.sourcePath);
+    // An installed slot remembers the authorized real path. A replacement
+    // symlink must not grant a reload access to another source directory.
+    const realSourcePath = this._resolveSourceDir(slot.sourcePath);
+    if (realSourcePath !== slot.sourcePath) throw this._outsideSourceRoots(realSourcePath);
     const desc = this._readAndValidateDescriptor(realSourcePath, pluginId);
     return this._installDescriptor({
       sourcePath: realSourcePath,

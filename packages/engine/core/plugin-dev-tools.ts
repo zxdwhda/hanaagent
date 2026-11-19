@@ -123,7 +123,11 @@ function createPluginDevTool({
   };
 }
 
-export function createPluginDevTools({ pluginDevService, getAgentId }: { pluginDevService?: any; getAgentId?: any } = {}) {
+export function createPluginDevTools({ pluginDevService, getAgentId, getSessionWorkspace }: {
+  pluginDevService?: any;
+  getAgentId?: any;
+  getSessionWorkspace?: () => string | undefined;
+} = {}) {
   if (!pluginDevService) return [];
   return [
     createPluginDevTool({
@@ -140,7 +144,7 @@ export function createPluginDevTools({ pluginDevService, getAgentId }: { pluginD
         sourcePath: params.sourcePath,
         pluginId: params.pluginId,
         allowFullAccess: params.allowFullAccess === true,
-      }),
+      }, getSessionWorkspace?.()),
     }),
     createPluginDevTool({
       name: "plugin_dev_reload",

@@ -222,14 +222,19 @@ export class ToolCatalog {
 
   search(
     query: string,
-    { limit = DEFAULT_SEARCH_LIMIT, max = DEFAULT_SEARCH_MAX }: { limit?: number; max?: number } = {},
+    { limit = DEFAULT_SEARCH_LIMIT, max = DEFAULT_SEARCH_MAX, include }: {
+      limit?: number;
+      max?: number;
+      include?: (entry: ToolCatalogEntry) => boolean;
+    } = {},
   ): ToolCatalogHit[] {
     const cap = Math.max(1, Math.min(
       Number.isFinite(limit) ? Math.floor(limit as number) : DEFAULT_SEARCH_LIMIT,
       Number.isFinite(max) ? Math.floor(max as number) : DEFAULT_SEARCH_MAX,
     ));
     const queryTokens = tokenize(query);
-    const docs = this._scoringDocs();
+    const allDocs = this._scoringDocs();
+    const docs = include ? allDocs.filter(doc => include(doc.entry)) : allDocs;
     if (docs.length === 0) return [];
 
     const scored: ToolCatalogHit[] = [];
@@ -256,7 +261,7 @@ export class ToolCatalog {
       }
     }
 
-    if (scored.length === 0) return this._substringFallback(query, queryTokens, cap);
+    if (scored.length === 0) return this._substringFallback(query, queryTokens, cap, docs.map(doc => doc.entry));
 
     scored.sort((left, right) => (right.score - left.score) || left.name.localeCompare(right.name));
     return scored.slice(0, cap);
@@ -307,11 +312,11 @@ export class ToolCatalog {
     });
   }
 
-  private _substringFallback(query: string, queryTokens: string[], cap: number): ToolCatalogHit[] {
+  private _substringFallback(query: string, queryTokens: string[], cap: number, entries: ToolCatalogEntry[]): ToolCatalogHit[] {
     const needles = [normalizeText(query).toLowerCase(), ...queryTokens].filter(Boolean);
     if (needles.length === 0) return [];
     const hits: ToolCatalogHit[] = [];
-    for (const entry of this._entryIndex().values()) {
+    for (const entry of entries) {
       const haystack = entry.name.toLowerCase();
       if (needles.some((needle) => haystack.includes(needle))) {
         hits.push(Object.freeze({ ...entry, score: 0 }));

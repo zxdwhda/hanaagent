@@ -462,6 +462,55 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     expect(fs.readFileSync(fakeSessionPath, "utf-8")).toBe(originalJsonl);
   });
 
+  it("refreshes a restored runtime once after plugin changes and leaves a streaming turn alone", async () => {
+    const originalJsonl = JSON.stringify({ type: "session", id: "plugin-reload", cwd: tmpDir }) + "\n";
+    fs.writeFileSync(fakeSessionPath, originalJsonl);
+    focusAgent.runtimeInitialized = true;
+    coord._d.getAgentById = (id) => id === "test" ? focusAgent : null;
+    let extensions = [];
+    coord._d.getResourceLoader = () => ({
+      getSystemPrompt: () => "mock-prompt",
+      getAppendSystemPrompt: () => [],
+      getExtensions: () => ({ extensions, errors: [] }),
+    });
+    const original = await coord.ensureSessionLoaded(fakeSessionPath);
+    const beforeTools = activeToolsSpy.mock.calls.at(-1)?.[0];
+    const beforePrompt = lastSessionOptions.resourceLoader.getSystemPrompt();
+    original.isStreaming = true;
+    extensions = [{ path: "fixture-plugin" }];
+    coord.markPluginExtensionsChanged();
+
+    expect(await coord.ensureSessionLoaded(fakeSessionPath)).toBe(original);
+    expect(createAgentSessionMock).toHaveBeenCalledTimes(1);
+    original.isStreaming = false;
+    const [first, next] = await Promise.all([
+      coord.ensureSessionLoaded(fakeSessionPath), coord.ensureSessionLoaded(fakeSessionPath),
+    ]);
+    expect(first).toBe(next);
+    expect(first).not.toBe(original);
+    expect(createAgentSessionMock).toHaveBeenCalledTimes(2);
+    expect(lastSessionOptions.resourceLoader.getExtensions().extensions).toContainEqual({ path: "fixture-plugin" });
+    expect(lastSessionOptions.resourceLoader.getSystemPrompt()).toBe(beforePrompt);
+    expect(activeToolsSpy.mock.calls.at(-1)?.[0]).toEqual(beforeTools);
+    expect(coord.currentSessionPath).toBeNull();
+    expect(fs.readFileSync(fakeSessionPath, "utf-8")).toBe(originalJsonl);
+  });
+
+  it("keeps the focused session addressable when rebuilding its plugin runtime fails", async () => {
+    fs.writeFileSync(fakeSessionPath, JSON.stringify({ type: "session", id: "plugin-retry", cwd: tmpDir }) + "\n");
+    focusAgent.runtimeInitialized = true;
+    coord._d.getAgentById = (id) => id === "test" ? focusAgent : null;
+    const original = await coord.ensureSessionLoaded(fakeSessionPath);
+    coord._session = original;
+    coord.markPluginExtensionsChanged();
+    createAgentSessionMock.mockRejectedValueOnce(new Error("extension runner unavailable"));
+
+    await expect(coord.ensureSessionLoaded(fakeSessionPath)).rejects.toThrow("extension runner unavailable");
+    expect(coord._session).toBeNull();
+    expect(coord.currentSessionPath).toBe(fakeSessionPath);
+    expect(await coord.ensureSessionLoaded(fakeSessionPath)).not.toBe(original);
+  });
+
   it.each([
     ["switch restore", (coordinator, sessionPath) => coordinator.switchSession(sessionPath)],
     ["background attach", (coordinator, sessionPath) => coordinator.ensureSessionLoaded(sessionPath)],
