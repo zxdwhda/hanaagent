@@ -1824,7 +1824,7 @@ function mockPermissionDefault(mode = 'ask') {
     const sessionId = 'sess_restored';
     mockFetch.mockImplementation(async (url) => {
       if (url === '/api/sessions/restore') return jsonResponse({ ok: true, restoredPath: path, sessionId });
-      if (url === '/api/sessions/switch') return jsonResponse({ ok: true, path, sessionId });
+      if (url === '/api/sessions/switch') return jsonResponse({ ok: true });
       if (String(url).startsWith('/api/sessions/messages')) return jsonResponse({ messages: [{ text: 'restored history' }] });
       if (url === '/api/sessions') return jsonResponse([{ path: '/a' }]);
       return jsonResponse({});

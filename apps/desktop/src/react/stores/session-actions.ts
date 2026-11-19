@@ -865,7 +865,7 @@ export async function switchSession(path: string, options: { sessionId?: string 
 
     // 批量更新 store（切 currentSessionPath 切换对话内容；可见 desk/preview 状态由 workspace 激活流程恢复）
     useStore.setState((prev: any) => ({
-      ...currentSessionIdentityPatch(prev, path, data.sessionId),
+      ...currentSessionIdentityPatch(prev, path, normalizeSessionId(data.sessionId) ?? targetSessionId),
       pendingSessionSwitchPath: null,
       pendingNewSession: false,
       pendingDraftId: null,
