@@ -26,6 +26,7 @@ import { createWebFetchTool } from "../lib/tools/web-fetch.ts";
 import { createStageFilesTool } from "../lib/tools/output-file-tool.ts";
 import { createFileTool } from "../lib/tools/file-tool.ts";
 import { createChannelTool } from "../lib/tools/channel-tool.ts";
+import { createDmTool } from "../lib/tools/dm-tool.ts";
 import { createBrowserTool } from "../lib/tools/browser-tool.ts";
 import { createComputerUseTool } from "../lib/tools/computer-use-tool.ts";
 import { createPinnedMemoryTools } from "../lib/tools/pinned-memory.ts";
@@ -97,6 +98,7 @@ export class Agent {
   declare _cb: any;
   declare _channelPostHandler: any;
   declare _channelTool: any;
+  declare _dmTool: any;
   declare _checkDeferredTool: any;
   declare _loopControlTool: any;
   declare _computerUseTool: any;
@@ -229,6 +231,7 @@ export class Agent {
     this._stageFilesTool = null;
     this._fileTool = null;
     this._channelTool = null;
+    this._dmTool = null;
     this._browserTool = null;
     this._computerUseTool = null;
     this._notifyTool = null;
@@ -626,7 +629,13 @@ export class Agent {
           this._channelPostHandler?.(channelName, senderId, message);
         },
       });
-
+      this._dmTool = createDmTool({
+        agentId,
+        agentsDir: this.agentsDir,
+        listAgents,
+        isEnabled: () => this._cb?.isChannelsEnabled?.() ?? false,
+        onDmSent: (fromId, toId) => this._dmSentHandler?.(fromId, toId),
+      });
     }
 
     // 10. install_skill 工具（需要 agentDir + config + engine.resolveUtilityConfig）
@@ -930,7 +939,7 @@ export class Agent {
       ? [this._getComputerUseTool()]
       : [];
     const channelTools = (this._cb?.isChannelsEnabled?.() ?? false)
-      ? [this._channelTool]
+      ? [this._channelTool, this._dmTool]
       : [];
     const learnCfg = this._cb?.getLearnSkills?.() || this._config?.capabilities?.learn_skills || {};
     const installSkillTools = learnCfg.enabled === true

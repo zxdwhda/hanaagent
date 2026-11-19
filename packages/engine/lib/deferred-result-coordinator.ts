@@ -28,8 +28,18 @@ function isExternallyDeliveredTask(task) {
   return task?.meta?.deliveryTarget?.kind === "bridge";
 }
 
+function imageFailureBatchKey(task) {
+  if (task?.meta?.type !== "image-generation" || typeof task.meta.batchId !== "string"
+    || !task.meta.batchId || !isUiOnlyDeferredResultTask(task)
+    || !shouldNotifyAgentOnFailure(task) || isExternallyDeliveredTask(task)) {
+    return null;
+  }
+  return JSON.stringify([task.sessionId || task.sessionPath, task.meta.batchId, task.reason]);
+}
+
 export class DeferredResultCoordinator {
   declare _inFlight: any;
+  private _imageFailureBatches = new Map<string, Promise<boolean>>();
   declare _retryTimer: any;
   declare _started: any;
   declare _unsubs: any;
@@ -102,9 +112,14 @@ export class DeferredResultCoordinator {
     const existing = this._inFlight.get(taskId);
     if (existing) return existing;
 
-    const promise = this._deliverTask(taskId).finally(() => {
+    const batchKey = imageFailureBatchKey(this.store.query(taskId));
+    const previous = batchKey ? this._imageFailureBatches.get(batchKey) : null;
+    const deliver = () => this._deliverTask(taskId);
+    const promise = (previous ? previous.then(deliver, deliver) : deliver()).finally(() => {
       this._inFlight.delete(taskId);
+      if (batchKey && this._imageFailureBatches.get(batchKey) === promise) this._imageFailureBatches.delete(batchKey);
     });
+    if (batchKey) this._imageFailureBatches.set(batchKey, promise);
     this._inFlight.set(taskId, promise);
     return promise;
   }
@@ -113,7 +128,11 @@ export class DeferredResultCoordinator {
     const task = this.store.query(taskId);
     if (!isDeliverable(task)) return false;
     if (isExternallyDeliveredTask(task)) return false;
-    if (isUiOnlyDeferredResultTask(task) && !shouldNotifyAgentOnFailure(task)) {
+    const batchKey = imageFailureBatchKey(task);
+    const sameFailureDelivered = batchKey != null && this.store.listBySession(task.sessionRef || task.sessionPath)
+      .some(sibling => sibling.taskId !== taskId && sibling.delivered && !sibling.deliverySuppressed
+        && imageFailureBatchKey(sibling) === batchKey);
+    if (isUiOnlyDeferredResultTask(task) && (!shouldNotifyAgentOnFailure(task) || sameFailureDelivered)) {
       return await this._recordUiOnlyTask(taskId, task);
     }
 

@@ -104950,6 +104950,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/tools/dm-tool.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/channel-manager.ts",
           "kind": "import-statement"
         },
@@ -104984,7 +104989,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/channel-tool.ts (import-statement); packages/engine/core/channel-manager.ts (import-statement); packages/engine/lib/channels/conversation-export.ts (import-statement); +5 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/channel-tool.ts (import-statement); packages/engine/lib/tools/dm-tool.ts (import-statement); packages/engine/core/channel-manager.ts (import-statement); +6 more importer(s)."
     },
     {
       "path": "packages/engine/lib/channels/channel-ticker.ts",
@@ -106399,6 +106404,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/tools/dm-tool.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/tools/browser-tool.ts",
           "kind": "import-statement"
         },
@@ -106668,7 +106678,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/llm/provider-client.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); packages/engine/core/model-manager.ts (import-statement); +73 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/llm/provider-client.ts (import-statement); packages/engine/core/execution-router.ts (import-statement); packages/engine/core/model-manager.ts (import-statement); +74 more importer(s)."
     },
     {
       "path": "packages/engine/lib/identity-templates",
@@ -107796,6 +107806,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/tools/dm-tool.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/tools/browser-tool.ts",
           "kind": "import-statement"
         },
@@ -107960,7 +107975,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/compaction-utils.ts (import-statement); packages/engine/lib/llm/cache-preserving-compaction-agent-run.ts (import-statement); packages/engine/core/session-compactor.ts (import-statement); +51 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/compaction-utils.ts (import-statement); packages/engine/lib/llm/cache-preserving-compaction-agent-run.ts (import-statement); packages/engine/core/session-compactor.ts (import-statement); +52 more importer(s)."
     },
     {
       "path": "packages/engine/lib/pi-sdk/qiniu-kimi-tool-names.ts",
@@ -110137,11 +110152,16 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/tools/dm-tool.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/lib/tools/subagent-tool.ts",
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/subagent-tool.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/dm-tool.ts (import-statement); packages/engine/lib/tools/subagent-tool.ts (import-statement)."
     },
     {
       "path": "packages/engine/lib/tools/appearance-status.ts",
@@ -110265,6 +110285,18 @@
     },
     {
       "path": "packages/engine/lib/tools/current-status-tool.ts",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/core/agent.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/agent.ts (import-statement)."
+    },
+    {
+      "path": "packages/engine/lib/tools/dm-tool.ts",
       "inputType": "source-graph",
       "provenance": [
         {
@@ -113355,9 +113387,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 9661,
+    "totalFiles": 9662,
     "byInputType": {
-      "source-graph": 680,
+      "source-graph": 681,
       "nft-runtime-trace": 8970,
       "runtime-asset": 11
     }
