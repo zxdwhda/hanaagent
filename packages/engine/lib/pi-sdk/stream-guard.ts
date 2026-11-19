@@ -2,6 +2,7 @@ import type { AssistantMessageEvent, AssistantMessageEventStream } from "@earend
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { withLocalModelResponseHeaderBudget } from "../net/outbound-proxy.ts";
 import { isToolProtocolFragment } from "../tool-protocol-sanitizer.ts";
+import { needsFirstCompactedTurnBudget, streamWithCompactionBudgetRetry } from "./compaction-budget-retry.ts";
 import { adaptQiniuKimiToolNames } from "./qiniu-kimi-tool-names.ts";
 
 const STREAM_GUARD_FLAG = Symbol.for("hana.piSdk.streamGuardInstalled");
@@ -12,10 +13,15 @@ export function installAssistantStreamGuard(session) {
   const originalStreamFn = agent.streamFn;
   agent.streamFn = async (model, context, options) => {
     const toolNames = adaptQiniuKimiToolNames(model, context);
-    const inner = await withLocalModelResponseHeaderBudget(model, (timeoutMs) =>
-      originalStreamFn(model, toolNames?.context ?? context, timeoutMs != null && options?.timeoutMs == null
-        ? { ...options, timeoutMs }
-        : options));
+    const start = (streamOptions = options) => withLocalModelResponseHeaderBudget(model, (timeoutMs) =>
+      originalStreamFn(model, toolNames?.context ?? context, timeoutMs != null && streamOptions?.timeoutMs == null
+        ? { ...streamOptions, timeoutMs }
+        : streamOptions));
+    const inner = model?.api === "openai-completions"
+      && options?.maxTokens == null && !session.isCompacting
+      && needsFirstCompactedTurnBudget(session.messages)
+      ? await streamWithCompactionBudgetRetry(start, model, options)
+      : await start();
     return guardAssistantMessageStream(inner, toolNames?.decodeEvent);
   };
   agent[STREAM_GUARD_FLAG] = true;

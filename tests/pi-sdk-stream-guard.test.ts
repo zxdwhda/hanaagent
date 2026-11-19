@@ -84,6 +84,65 @@ describe("Pi SDK stream guard", () => {
     expect(emittedDeltas).toEqual(emissions);
   });
 
+  it.each([
+    { label: "retries a tiny implicit budget", epoch: true, inputTokens: 500, explicit: undefined, retry: true },
+    { label: "retries after a gateway rewrites the budget field", epoch: true, inputTokens: 500, explicit: undefined, retry: true, renameBudget: true },
+    { label: "keeps an explicit cap", epoch: true, inputTokens: 500, explicit: 3, retry: false },
+    { label: "keeps the ordinary turn unchanged", epoch: false, inputTokens: 500, explicit: undefined, retry: false },
+    { label: "keeps the partial reply when usage is missing", epoch: true, inputTokens: null, explicit: undefined, retry: false },
+    { label: "keeps the partial reply when the model has no spare room", epoch: true, inputTokens: 904, explicit: undefined, retry: false },
+    { label: "keeps the partial reply if retry fails before producing content", epoch: true, inputTokens: 500, explicit: undefined, retry: true, failRetry: true },
+    { label: "does not replay a turn with tools", epoch: true, inputTokens: 500, explicit: undefined, retry: false, tool: true },
+  ])("$label", async ({ epoch, inputTokens, explicit, retry, renameBudget, failRetry, tool }) => {
+    const model = {
+      api: "openai-completions", provider: "test", id: "budget-fixture", name: "Fixture",
+      baseUrl: "https://fixture.invalid/v1", reasoning: false, input: ["text"],
+      contextWindow: 5_000, maxTokens: 1_024, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as const;
+    const wire: Array<Record<string, unknown>> = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      wire.push(body);
+      const second = wire.length === 2;
+      if (second && failRetry) return Response.json({ error: { message: "Fixture error" } }, { status: 400 });
+      const chunk = (delta, finish_reason = null) => ({
+        id: "chatcmpl-budget", object: "chat.completion.chunk", model: model.id, created: 1,
+        choices: [{ index: 0, delta, finish_reason }],
+      });
+      const frames = [chunk({ role: "assistant", content: second ? "Complete answer" : "Let" }),
+        chunk({}, second ? "stop" : "length")];
+      if (tool) frames.splice(1, 0, chunk({ tool_calls: [{
+        index: 0, id: "call_fixture", type: "function", function: { name: "read", arguments: "{}" },
+      }] }));
+      if (inputTokens !== null) frames.push({ ...frames[0], choices: [],
+        usage: { prompt_tokens: inputTokens, completion_tokens: 3, total_tokens: inputTokens + 3,
+          prompt_tokens_details: { cached_tokens: inputTokens - 100 } },
+      } as never);
+      const bodyText = frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("") + "data: [DONE]\n\n";
+      return new Response(bodyText, { headers: { "Content-Type": "text/event-stream" } });
+    }));
+    const messages = [{ role: "user", content: "x".repeat(3_604), timestamp: 3 }];
+    const agent = { streamFn: streamSimple as any };
+    installAssistantStreamGuard({
+      agent,
+      messages: epoch ? [{ role: "compactionSummary", timestamp: 2 }, ...messages] : messages,
+    });
+    const result = await collect(await agent.streamFn(model, { messages }, {
+      apiKey: "fixture",
+      maxTokens: explicit,
+      onPayload: renameBudget ? ({ max_completion_tokens, ...payload }) => ({
+        ...payload, max_tokens: max_completion_tokens,
+      }) : undefined,
+    }));
+    const caps = wire.map((payload) => payload.max_completion_tokens ?? payload.max_tokens);
+    expect(caps).toEqual(retry ? [3, 404] : [3]);
+    expect(result.events.filter(({ type }) => type === "text_delta").map(({ delta }) => delta).join(""))
+      .toBe(retry && !failRetry ? "Complete answer" : "Let");
+    expect(result.result.stopReason).toBe(retry && !failRetry ? "stop" : "length");
+    if (retry) expect({ ...wire[1], max_tokens: wire[0].max_tokens, max_completion_tokens: wire[0].max_completion_tokens })
+      .toEqual({ ...wire[0], max_tokens: wire[0].max_tokens, max_completion_tokens: wire[0].max_completion_tokens });
+  });
+
   it("uses unique names on the Qiniu Kimi wire and restores the tool call before execution and replay", async () => {
     const model = {
       id: "moonshotai/kimi-k3",
