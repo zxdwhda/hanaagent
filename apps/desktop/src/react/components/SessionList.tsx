@@ -1835,19 +1835,23 @@ const SessionContextMenu = memo(function SessionContextMenu({
     }, {
       label: t('session.copyId'),
       disabled: typeof session.sessionId !== 'string' || !session.sessionId.trim(),
-      action: () => {
+      action: async () => {
         const sessionId = session.sessionId?.trim();
         if (!sessionId) {
           useStore.getState().addToast(t('session.copyIdUnavailable'), 'error', 5000);
           return;
         }
-        if (!navigator.clipboard?.writeText) {
-          useStore.getState().addToast(t('session.copyIdFailed'), 'error', 5000);
-          return;
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error('Web clipboard unavailable');
+          await navigator.clipboard.writeText(sessionId);
+        } catch {
+          const copied = await window.platform?.copySessionId?.(sessionId).catch(() => false);
+          if (!copied) {
+            useStore.getState().addToast(t('session.copyIdFailed'), 'error', 5000);
+            return;
+          }
         }
-        void navigator.clipboard.writeText(sessionId)
-          .then(() => useStore.getState().addToast(t('session.copyIdDone'), 'info', 2500))
-          .catch(() => useStore.getState().addToast(t('session.copyIdFailed'), 'error', 5000));
+        useStore.getState().addToast(t('session.copyIdDone'), 'info', 2500);
       },
     }];
     if (session.agentDeleted === true) {

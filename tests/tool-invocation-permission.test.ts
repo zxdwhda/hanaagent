@@ -408,6 +408,29 @@ describe("action-level tool descriptors", () => {
       });
   });
 
+  it("reports only the delivered destinations in the notification text", async () => {
+    const tool = createNotifyTool({
+      onNotify: async () => ({
+        ok: false,
+        deliveries: [
+          { status: "sent", channel: "desktop" },
+          {
+            status: "failed", channel: "bridge_owner", error: "partial delivery",
+            bridgeDeliveries: [
+              { status: "sent", platform: "feishu" },
+              { status: "failed", platform: "telegram" },
+            ],
+          },
+        ],
+      }),
+    });
+    const result = await tool.execute("notify-fixture", { title: "Fixture", body: "Test" }, undefined, undefined, {});
+    expect(result.details.sent).toBe(false);
+    expect(result.content[0].text).toContain("partial delivery");
+    expect(result.content[0].text).toContain("[desktop, feishu]");
+    expect(result.content[0].text).not.toContain("telegram");
+  });
+
   it("describes pinned-memory and experience write targets", () => {
     const [pin, unpin] = createPinnedMemoryTools("/tmp/agent");
     const [, record] = createExperienceTools("/tmp/agent", { isEnabled: () => true });

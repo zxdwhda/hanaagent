@@ -3201,11 +3201,14 @@ export class BridgeManager {
       error = "target_missing";
     }
 
+    const boundToAnotherAgent = error === "target_missing" && !sawBoundConnected && targetAgentId
+      && deliveryEntries.some((entry) => entry.status === "connected" && entry.adapter && entry.agentId && entry.agentId !== targetAgentId);
     return {
       ok: false,
       error,
       deliveries,
       ...(error === "send_failed" && lastSendError ? { message: lastSendError } : {}),
+      ...(boundToAnotherAgent ? { message: "The connected Bridge is bound to a different assistant." } : {}),
     };
   }
 

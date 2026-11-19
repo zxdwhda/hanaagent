@@ -27,6 +27,23 @@ describe('SelectWidget scroll-close scope', () => {
     cleanup();
   });
 
+  it('keeps the popup inside a settings dialog even when the viewport has space below it', () => {
+    const { container } = render(
+      <div role="dialog" aria-modal="true">
+        <SelectWidget options={options} value="a" onChange={() => {}} popupMinWidth={500} />
+      </div>,
+    );
+    const dialog = container.querySelector('[role="dialog"]') as HTMLElement;
+    const trigger = container.querySelector('button') as HTMLButtonElement;
+    dialog.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 120, width: 440, height: 295 });
+    trigger.getBoundingClientRect = () => DOMRect.fromRect({ x: 290, y: 375, width: 170, height: 30 });
+    openPopup(container);
+    const popup = getPopup() as HTMLElement;
+    expect(popup.style.bottom).toBe(`${window.innerHeight - 375 + 2}px`);
+    expect(popup.style.maxHeight).toBe('253px');
+    expect(popup.style.maxWidth).toBe('360px');
+  });
+
   it('stays open when an unrelated container (not an ancestor of the trigger) scrolls', () => {
     const { container } = render(
       <SelectWidget options={options} value="a" onChange={() => {}} />,

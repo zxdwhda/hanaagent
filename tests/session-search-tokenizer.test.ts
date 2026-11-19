@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SessionSearchTokenizerUnavailableError,
   normalizeSessionSearchText,
   tokenizeSessionSearchQuery,
 } from "../packages/engine/lib/search/session-search-tokenizer.ts";
 
 describe("session search tokenizer", () => {
+  it("retains literal CJK and ASCII search when the native tokenizer cannot load", () => {
+    expect(tokenizeSessionSearchQuery("聊天记录 Agent-2", () => {
+      throw new SessionSearchTokenizerUnavailableError(new Error("missing native binding"));
+    })).toEqual(["聊天记录 agent-2", "聊天记录", "agent-2"]);
+  });
   it("uses jieba search mode so Chinese queries expose searchable words", () => {
     const tokens = tokenizeSessionSearchQuery("和其他Agent的聊天记录");
 

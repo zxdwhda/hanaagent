@@ -105433,6 +105433,11 @@
         },
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/search/session-search-tokenizer.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/session-list-projection-cache.ts",
           "kind": "import-statement"
         },
@@ -105722,7 +105727,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/migrations.ts (import-statement); packages/engine/core/plugin-config.ts (import-statement); packages/engine/lib/desk/cron-store.ts (import-statement); +82 more importer(s)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/migrations.ts (import-statement); packages/engine/core/plugin-config.ts (import-statement); packages/engine/lib/desk/cron-store.ts (import-statement); +83 more importer(s)."
     },
     {
       "path": "packages/engine/lib/default-models.json",

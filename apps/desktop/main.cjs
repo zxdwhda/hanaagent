@@ -8,7 +8,7 @@
  * 4. 关闭 splash，显示主窗口
  * 5. 优雅关闭
  */
-const { app, BaseWindow, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification, webContents, screen, powerSaveBlocker } = require("electron");
+const { app, BaseWindow, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, clipboard, net, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification, webContents, screen, powerSaveBlocker } = require("electron");
 const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
@@ -16,6 +16,7 @@ const { spawn, execFile } = require("child_process");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
 const { PNG } = require("pngjs");
+const { authenticateDeviceServer } = require("./src/shared/device-connection-handshake.cjs");
 const distributionPolicy = require("../../packages/shared/distribution-policy.cjs");
 const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, installDownloadedUpdate, normalizeReleaseDigest } = require("./auto-updater.cjs");
 const { createUpdateDigestHistoryLoader } = require("./src/shared/update-digest-history.cjs");
@@ -5275,6 +5276,19 @@ wrapIpcHandler("run-edit-command", (event, command) => {
   }
   event.sender[command]();
   return true;
+});
+wrapIpcHandler("copy-session-id", (event, sessionId) => {
+  if (mainWindow?.webContents !== event.sender || event.senderFrame !== event.sender.mainFrame) return false;
+  if (typeof sessionId !== "string" || !/^[a-zA-Z0-9_-]{1,256}$/.test(sessionId)) return false;
+  clipboard.writeText(sessionId);
+  return true;
+});
+wrapIpcHandler("authenticate-device-server", (event, baseUrl, credential) => {
+  const allowed = [mainWindow, onboardingWindow, settingsWindow].some((win) => (
+    win && !win.isDestroyed() && win.webContents === event.sender
+  ));
+  if (!allowed || event.senderFrame !== event.sender.mainFrame) throw new Error("Device login unavailable");
+  return authenticateDeviceServer(baseUrl, credential, (url, init) => net.fetch(url, init));
 });
 // 壳身份用途：这个 IPC 通道字面意思是"app 版本"，容易被误认成产品版本
 // 出口，但它读的是壳的 app.getVersion()，不是已激活内容版本。渲染进程侧

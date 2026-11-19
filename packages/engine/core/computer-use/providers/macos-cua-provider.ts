@@ -875,13 +875,17 @@ export function createMacosCuaProvider({
           return { providerId, available: false, reason: "daemon-unavailable", stderr: status.stderr || "" };
         }
         let permissions: any = [];
+        let permissionError: string | null = null;
         try {
           const perms = await runTool("check_permissions", { prompt: false });
           permissions = normalizePermissions(perms);
         } catch (err) {
-          permissions = [{ name: "accessibility", granted: false }, { name: "screen-recording", granted: false }];
+          permissionError = err?.message || String(err);
         }
-        return { providerId, available: true, command, daemon: status.stdout.trim(), permissions };
+        return {
+          providerId, available: true, command, daemon: status.stdout.trim(), permissions,
+          ...(permissionError ? { permissionError } : {}),
+        };
       } catch (err) {
         return {
           providerId,

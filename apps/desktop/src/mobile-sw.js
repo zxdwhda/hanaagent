@@ -1,8 +1,8 @@
-const CACHE_NAME = 'hana-mobile-v0';
+const CACHE_NAME = 'hana-mobile-v1';
 const APP_SHELL = [
   './',
   './manifest.webmanifest',
-  './icon.png',
+  './assets/mobile-icon-192.png',
 ];
 
 self.addEventListener('install', (event) => {

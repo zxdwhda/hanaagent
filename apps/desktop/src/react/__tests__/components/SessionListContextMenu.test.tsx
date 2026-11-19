@@ -274,6 +274,21 @@ describe('SessionList context menu', () => {
     expect(screen.getByText('session.copyId').closest('.context-menu-item')).toHaveClass('disabled');
   });
 
+  it('uses the native Session ID clipboard when the document loses focus', async () => {
+    const copySessionId = vi.fn(async () => true);
+    const originalPlatform = window.platform;
+    Object.defineProperty(window, 'platform', { configurable: true, value: { ...originalPlatform, copySessionId } });
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new DOMException('Document is not focused', 'NotAllowedError'));
+    try {
+      render(<SessionList />);
+      fireEvent.contextMenu(sessionButton('Has summary'), { clientX: 24, clientY: 32 });
+      fireEvent.click(screen.getByText('session.copyId'));
+      await waitFor(() => expect(copySessionId).toHaveBeenCalledWith('sess_with_summary'));
+    } finally {
+      Object.defineProperty(window, 'platform', { configurable: true, value: originalPlatform });
+    }
+  });
+
   it('allows deleted-agent sessions to unpin and archive without exposing rename or pin', async () => {
     useStore.setState({
       sessions: [{

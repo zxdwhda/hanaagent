@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../hooks/use-i18n';
-import { Overlay } from '../ui';
+import { ConfirmDialog, Overlay } from '../ui';
 import {
   listArchivedSessions,
   restoreSession,
@@ -35,6 +35,9 @@ export function ArchivedSessionsModal({ open, onClose, zIndex = 1000 }: Props) {
   const { t } = useI18n();
   const [list, setList] = useState<ArchivedSession[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<ArchivedSession | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -44,22 +47,30 @@ export function ArchivedSessionsModal({ open, onClose, zIndex = 1000 }: Props) {
 
   useEffect(() => {
     if (open) refresh();
+    else setPendingRestore(null);
   }, [open, refresh]);
 
   const totalSize = list.reduce((s, x) => s + x.sizeBytes, 0);
 
-  const handleRestore = async (item: ArchivedSession) => {
-    if (!window.confirm(t('session.archived.restoreConfirm'))) return;
-    const r = await restoreSession(item);
-    if (r.status === 'conflict') {
-      showSidebarToast(t('session.archived.restoreConflict'));
-      return;
-    }
-    if (r.status === 'error') {
+  const handleRestore = async () => {
+    if (!pendingRestore || restoring) return;
+    setRestoring(true);
+    try {
+      const r = await restoreSession(pendingRestore);
+      if (r.status === 'conflict') {
+        showSidebarToast(t('session.archived.restoreConflict'));
+      } else if (r.status === 'error') {
+        showSidebarToast(t('session.archived.restoreFailed'));
+      } else {
+        await refresh();
+        requestAnimationFrame(() => closeRef.current?.focus());
+      }
+    } catch {
       showSidebarToast(t('session.archived.restoreFailed'));
-      return;
+    } finally {
+      setPendingRestore(null);
+      setRestoring(false);
     }
-    await refresh();
   };
 
   const handleDelete = async (item: ArchivedSession) => {
@@ -89,6 +100,7 @@ export function ArchivedSessionsModal({ open, onClose, zIndex = 1000 }: Props) {
   };
 
   return (
+    <>
     <Overlay
       scope="inline"
       open={open}
@@ -100,7 +112,7 @@ export function ArchivedSessionsModal({ open, onClose, zIndex = 1000 }: Props) {
     >
         <div className={styles.header}>
           <h2 className={styles.title}>{t('session.archived.title')}</h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
+          <button ref={closeRef} className={styles.closeBtn} onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
@@ -144,7 +156,7 @@ export function ArchivedSessionsModal({ open, onClose, zIndex = 1000 }: Props) {
                     <div className={styles.rowActions}>
                       <button
                         title={t('session.archived.restore')}
-                        onClick={() => handleRestore(item)}
+                        onClick={() => setPendingRestore(item)}
                       >
                         {t('session.archived.restore')}
                       </button>
@@ -162,5 +174,19 @@ export function ArchivedSessionsModal({ open, onClose, zIndex = 1000 }: Props) {
           </div>
         </div>
     </Overlay>
+    <ConfirmDialog
+      open={open && pendingRestore !== null}
+      scope="inline"
+      zIndex={zIndex + 1}
+      title={t('session.archived.restore')}
+      confirmLabel={t('common.confirm')}
+      cancelLabel={t('common.cancel')}
+      onConfirm={() => { void handleRestore(); }}
+      onCancel={() => setPendingRestore(null)}
+      busy={restoring}
+    >
+      {t('session.archived.restoreConfirm')}
+    </ConfirmDialog>
+    </>
   );
 }

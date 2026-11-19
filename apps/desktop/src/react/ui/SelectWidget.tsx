@@ -71,22 +71,32 @@ export function SelectWidget({
 
   useEffect(() => {
     if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
+    const trigger = triggerRef.current;
+    const rect = trigger.getBoundingClientRect();
+    const dialog = trigger.closest('[role="dialog"], dialog')?.getBoundingClientRect();
+    const bounds = dialog && dialog.width > 0 && dialog.height > 0 ? dialog : null;
+    const bottom = Math.min(window.innerHeight, bounds?.bottom ?? window.innerHeight);
+    const top = Math.max(0, bounds?.top ?? 0);
+    const left = Math.max(0, bounds?.left ?? 0);
+    const right = Math.min(window.innerWidth, bounds?.right ?? window.innerWidth);
+    const spaceBelow = bottom - rect.bottom;
+    const spaceAbove = rect.top - top;
     const openAbove = placement === 'top'
       ? true
       : placement === 'bottom'
         ? false
         : (spaceBelow < 200 && spaceAbove > spaceBelow);
     setOpenDirection(openAbove ? 'up' : 'down');
+    const availableWidth = Math.max(0, align === 'start' ? right - rect.left : rect.right - left);
 
     setPanelStyle({
       position: 'fixed',
       ...(align === 'start'
         ? { left: rect.left }
         : { right: window.innerWidth - rect.right }),
-      minWidth: popupMinWidth ?? rect.width,
+      minWidth: Math.min(popupMinWidth ?? rect.width, availableWidth),
+      maxWidth: availableWidth,
+      maxHeight: Math.max(0, Math.min(260, (openAbove ? spaceAbove : spaceBelow) - offset)),
       ...(openAbove
         ? { bottom: window.innerHeight - rect.top + offset }
         : { top: rect.bottom + offset }),

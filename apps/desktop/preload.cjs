@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld("hana", {
   getServerPort: () => ipcRenderer.invoke("get-server-port"),
   getServerToken: () => ipcRenderer.invoke("get-server-token"),
   runEditCommand: (command) => ipcRenderer.invoke("run-edit-command", command),
+  copySessionId: (sessionId) => ipcRenderer.invoke("copy-session-id", sessionId),
+  authenticateDeviceServer: (baseUrl, credential) => ipcRenderer.invoke("authenticate-device-server", baseUrl, credential),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getPendingAnnouncement: () => ipcRenderer.invoke("get-pending-announcement"),
   ackAnnouncement: () => ipcRenderer.invoke("ack-announcement"),
