@@ -340,11 +340,22 @@ export class LocalFsProvider {
     const items = fs.readdirSync(dirPath, { withFileTypes: true })
       .map((entry) => {
         const fullPath = path.join(dirPath, entry.name);
-        const stat = fs.statSync(fullPath);
+        let stat = fs.lstatSync(fullPath);
+        if (stat.isSymbolicLink()) {
+          try {
+            const target = fs.realpathSync(fullPath);
+            this.assertAllowed(target, "read");
+            stat = fs.statSync(target);
+          } catch {
+            // A dangling, cyclic, or inaccessible link is still a visible entry.
+            // Preserve its own metadata without disclosing the target metadata.
+          }
+        }
+        const isDirectory = stat.isDirectory();
         return {
           name: entry.name,
-          isDirectory: entry.isDirectory(),
-          size: entry.isDirectory() ? null : stat.size,
+          isDirectory,
+          size: isDirectory ? null : stat.size,
           mtimeMs: stat.mtimeMs,
         };
       })

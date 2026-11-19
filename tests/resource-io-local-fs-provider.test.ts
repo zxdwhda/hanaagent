@@ -115,6 +115,31 @@ describe("LocalFsProvider", () => {
       });
   });
 
+  it("classifies accessible linked directories and keeps unavailable links out of directory traversal", async () => {
+    const accepted = new Set<string>();
+    const { provider, cwd, realCwd } = makeProvider(vi.fn((target?: string) => ({ allowed: target != null && accepted.has(target) })));
+    const outside = path.join(cwd, "..", "outside");
+    fs.mkdirSync(outside);
+    fs.mkdirSync(path.join(cwd, "folder"));
+    fs.writeFileSync(path.join(cwd, "file.txt"), "content");
+    accepted.add(realCwd).add(path.join(realCwd, "folder")).add(path.join(realCwd, "file.txt"));
+    fs.symlinkSync(path.join(cwd, "folder"), path.join(cwd, "linked-folder"), "dir");
+    fs.symlinkSync(path.join(cwd, "file.txt"), path.join(cwd, "linked-file"), "file");
+    fs.symlinkSync(path.join(cwd, "missing"), path.join(cwd, "broken"), "file");
+    fs.symlinkSync(path.join(cwd, "loop"), path.join(cwd, "loop"), "file");
+    fs.symlinkSync(outside, path.join(cwd, "outside"), "dir");
+    const ref = (relative: string) => ({ kind: "local-file", path: relative });
+    const result = await provider.list(ref("."));
+    const items = new Map(result.items.map(item => [item.name, item]));
+    expect(items.get("linked-folder")).toMatchObject({ isDirectory: true, size: null });
+    expect(items.get("linked-file")).toMatchObject({ isDirectory: false, size: 7 });
+    for (const unavailable of ["broken", "loop", "outside"]) {
+      expect(items.get(unavailable)).toMatchObject({ isDirectory: false });
+    }
+    await expect(provider.list(ref("linked-folder"))).resolves.toMatchObject({ items: [] });
+    await expect(provider.list(ref("outside"))).rejects.toMatchObject({ code: "resource_access_denied" });
+  });
+
   it("rejects symlink writes that escape the authorized workspace", async () => {
     const { cwd, provider } = makeProviderWithPolicy();
     const outside = path.join(path.dirname(cwd), "outside");

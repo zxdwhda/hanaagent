@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:8a2459ba127630399575a7804c944020719f9da4dfa2b561a91665922293a429",
+  "payloadFingerprint": "sha256:cbd68c077f4b277d7898b9f0328115a69051c9c897b8c629dd313228b2db4137",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Model request, displayed context and live thinking-level updates affect runtime projection only. Durable fields, SQLite schema and session file format are unchanged.",
-    "payloadFingerprint": "sha256:8a2459ba127630399575a7804c944020719f9da4dfa2b561a91665922293a429"
+    "compatibilityReason": "Native vision requests, browser host acknowledgement and file list link metadata affect runtime behavior only. Persistent data epoch and formats are unchanged.",
+    "payloadFingerprint": "sha256:cbd68c077f4b277d7898b9f0328115a69051c9c897b8c629dd313228b2db4137"
   },
   "schemas": [
     {
@@ -3320,7 +3320,7 @@
       "contract": "desktop window bounds, release announcement bookmark, and update cache version marker readers",
       "kind": "directory-contract",
       "module": "apps/desktop/main.cjs",
-      "sourceHash": "sha256:4bc556f5a8b45dcd208f62120aa0a4d24537403a8946376044a6e68f49589fb6",
+      "sourceHash": "sha256:9ecba2aec3433e372daedfa9b2df242b14b009b19f0bc270f8e72be61193300e",
       "storeId": "desktop-window-version-state"
     },
     {
