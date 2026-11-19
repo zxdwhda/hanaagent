@@ -102582,6 +102582,11 @@
       "provenance": [
         {
           "root": "server-bootstrap",
+          "from": "packages/engine/lib/pi-sdk/compaction-budget-retry.ts",
+          "kind": "import-statement"
+        },
+        {
+          "root": "server-bootstrap",
           "from": "packages/engine/core/provider-compat.ts",
           "kind": "import-statement"
         },
@@ -102591,7 +102596,7 @@
           "kind": "import-statement"
         }
       ],
-      "reason": "Reached via esbuild source module graph, imported by packages/engine/core/provider-compat.ts (import-statement); packages/engine/core/session-compactor.ts (import-statement)."
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/pi-sdk/compaction-budget-retry.ts (import-statement); packages/engine/core/provider-compat.ts (import-statement); packages/engine/core/session-compactor.ts (import-statement)."
     },
     {
       "path": "packages/engine/core/provider-compat/qwen.ts",
@@ -107719,6 +107724,18 @@
         }
       ],
       "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/tools/session-permission-wrapper.ts (import-statement); packages/engine/core/tool-catalog-bridge.ts (import-statement)."
+    },
+    {
+      "path": "packages/engine/lib/pi-sdk/compaction-budget-retry.ts",
+      "inputType": "source-graph",
+      "provenance": [
+        {
+          "root": "server-bootstrap",
+          "from": "packages/engine/lib/pi-sdk/stream-guard.ts",
+          "kind": "import-statement"
+        }
+      ],
+      "reason": "Reached via esbuild source module graph, imported by packages/engine/lib/pi-sdk/stream-guard.ts (import-statement)."
     },
     {
       "path": "packages/engine/lib/pi-sdk/compaction-request-shape.ts",
@@ -113429,9 +113446,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 9664,
+    "totalFiles": 9665,
     "byInputType": {
-      "source-graph": 681,
+      "source-graph": 682,
       "nft-runtime-trace": 8972,
       "runtime-asset": 11
     }

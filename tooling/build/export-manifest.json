@@ -364,6 +364,7 @@
     "packages/engine/lib/pi-sdk/index.ts",
     "packages/engine/lib/pi-sdk/search-tools.ts",
     "packages/engine/lib/pi-sdk/session-options.ts",
+    "packages/engine/lib/pi-sdk/compaction-budget-retry.ts",
     "packages/engine/lib/pi-sdk/stream-guard.ts",
     "packages/engine/lib/pi-sdk/tool-outcome-adapter.ts",
     "packages/engine/lib/pii-guard.ts",
