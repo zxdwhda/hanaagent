@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Editor, JSONContent } from '@tiptap/core';
+import type { Node as EditorNode } from '@tiptap/pm/model';
 import { useStore } from '../stores';
 import { HOME_DRAFT_KEY } from '../../../../../packages/shared/input-drafts.ts';
 import { selectPreviewItems, selectActiveTabId } from '../stores/preview-slice';
@@ -51,7 +52,7 @@ import {
 import { useServerSlashCommandItems, useSkillSlashItems } from '../hooks/use-slash-items';
 import { notifyPasteUploadFailure } from '../utils/paste-upload-feedback';
 import { extractPlainUrlPaste } from '../utils/plain-url-paste';
-import { createInputEditorExtensions } from './input/input-editor-extensions';
+import { createInputEditorOptions } from './input/input-editor-extensions';
 import {
   evaluateChatImageSendPreflight,
   evaluateChatAudioSendPreflight,
@@ -80,6 +81,8 @@ import styles from './input/InputArea.module.css';
 import type { AudioWaveform, ChatListItem, SessionConfirmationBlock, SessionModel } from '../stores/chat-types';
 
 const EMPTY_FILE_REFS: readonly import('../types/file-ref').FileRef[] = Object.freeze([]);
+const LARGE_COMPOSER_DOC_SIZE = 8192;
+const LARGE_DRAFT_SAVE_DELAY_MS = 180;
 
 function modelUnavailableMessageKey(reason: SessionModel['unavailableReason']): string {
   if (reason === 'model_removed') return 'model.unavailableReason.modelRemoved';
@@ -383,7 +386,7 @@ function plainTextToEditorDocument(text: string): JSONContent {
 }
 
 /**
- * inputText 是 TipTap 的 React 镜像，不是正文权威。
+ * React 状态只保留发送按钮和斜杠菜单需要的信息。
  *
  * 历史：TipTap 落地时 `inputText = editor.getText()` 直接派生（认 TipTap），
  * 但 editor 变更不触发 React re-render，发送按钮会卡死（bd4844297），
@@ -542,7 +545,16 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   const focusFrameRef = useRef<number | null>(null);
   const audioRecorderRef = useRef<AudioRecorderRuntime | null>(null);
   const audioRecordingSeqRef = useRef(0);
-  const [inputText, setInputText] = useState('');
+  const [inputSummary, setInputSummary] = useState({ hasText: false, slashText: '' });
+  const inputText = inputSummary.slashText;
+  const setInputText = useCallback((text: string) => {
+    const trimmed = text.trim();
+    const hasText = trimmed.length > 0;
+    const slashText = trimmed.startsWith('/') ? text : '';
+    setInputSummary(previous => previous.hasText === hasText && previous.slashText === slashText
+      ? previous
+      : { hasText, slashText });
+  }, []);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [mentionTab, setMentionTab] = useState<MentionTab>('files');
   const [fileSelected, setFileSelected] = useState(0);
@@ -621,6 +633,8 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   const clearDraft = useStore(s => s.clearDraft);
   // 草稿 key：session 内用 sessionPath（store 内解析为 sessionId）；首页 pending 态用保留键
   const draftKey = currentSessionPath ?? (pendingNewSession ? HOME_DRAFT_KEY : null);
+  const pendingDraftSave = useRef<{ key: string; flush: () => void } | null>(null);
+  const lastDraftWrite = useRef<{ key: string; text: string; doc: JSONContent } | null>(null);
 
   const prevWelcomeVisibleRef = useRef(welcomeVisible);
   const prevLocaleRef = useRef(locale);
@@ -657,7 +671,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
     // Mobile PWA cold starts can race editor DOM creation with the first render.
     // Create the editor after mount there; keep desktop's immediate path unchanged.
     immediatelyRender: surface !== 'mobile',
-    extensions: createInputEditorExtensions(getEditorPlaceholder),
+    ...createInputEditorOptions(getEditorPlaceholder),
     editorProps: {
       attributes: {
         class: styles['input-box'],
@@ -874,6 +888,8 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
     () => [...buildSlashCommands(t, diaryFn, xingFn, compactFn), ...serverCommandItems, ...skillItems],
     [diaryFn, xingFn, compactFn, t, serverCommandItems, skillItems],
   );
+  const slashCommandsRef = useRef(slashCommands);
+  slashCommandsRef.current = slashCommands;
 
   const filteredCommands = useMemo(() => {
     if (!inputText.startsWith('/')) return slashCommands;
@@ -1377,14 +1393,51 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   // Sync editor → React mirror (drives hasInput / canSend) + slash menu + draft save
   useEffect(() => {
     if (!editor) return;
+    lastDraftWrite.current = null;
+    let pendingDoc: EditorNode | null = null;
+    let draftTimer: ReturnType<typeof setTimeout> | null = null;
+    let scrollFrame: number | null = null;
+    const cancelDraftTimer = () => {
+      if (draftTimer !== null) clearTimeout(draftTimer);
+      draftTimer = null;
+      if (pendingDraftSave.current?.flush === flushDraft) pendingDraftSave.current = null;
+    };
+    const writeDraft = (doc: JSONContent, text: string) => {
+      if (!draftKey) return;
+      lastDraftWrite.current = { key: draftKey, text, doc };
+      setDraft(draftKey, text, doc);
+    };
+    const flushDraft = () => {
+      cancelDraftTimer();
+      const snapshot = pendingDoc;
+      pendingDoc = null;
+      if (!snapshot) return;
+      const doc = snapshot.toJSON();
+      writeDraft(doc, serializeEditor(doc).text);
+    };
     const handler = () => {
-      const editorJson = editor.getJSON();
-      const { text } = serializeEditor(editorJson);
+      const editorDoc = editor.state?.doc;
+      let text: string;
+      if (editorDoc && (editorDoc.content?.size ?? 0) >= LARGE_COMPOSER_DOC_SIZE) {
+        text = editor.getText();
+        if (draftKey) {
+          cancelDraftTimer();
+          pendingDoc = editorDoc;
+          pendingDraftSave.current = { key: draftKey, flush: flushDraft };
+          draftTimer = setTimeout(flushDraft, LARGE_DRAFT_SAVE_DELAY_MS);
+        }
+      } else {
+        cancelDraftTimer();
+        pendingDoc = null;
+        const editorJson = editor.getJSON();
+        text = serializeEditor(editorJson).text;
+        writeDraft(editorJson, text);
+      }
       setInputText(text);
       if (slashDismissedTextRef.current && slashDismissedTextRef.current !== text.trim()) {
         slashDismissedTextRef.current = null;
       }
-      const slashMatches = getSlashMatches(text, slashCommands);
+      const slashMatches = getSlashMatches(text, slashCommandsRef.current);
       const fileMention = findFileMentionRange(editor);
       if (fileMention) {
         setFileMentionRange(fileMention);
@@ -1403,16 +1456,24 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
       } else {
         setSlashMenuOpen(false);
       }
-      // 保存草稿到 store（session 内 + 首页 pending 态）；setDraft 幂等，避免空转
-      if (draftKey) {
-        setDraft(draftKey, text, editorJson);
+      if (scrollFrame === null) {
+        scrollFrame = requestAnimationFrame(() => {
+          scrollFrame = null;
+          editor.commands.scrollIntoView();
+        });
       }
-      // 内容超出可见区域时，自动滚动到光标位置
-      requestAnimationFrame(() => editor.commands.scrollIntoView());
     };
     editor.on('update', handler);
-    return () => { editor.off('update', handler); };
-  }, [editor, draftKey, setDraft, slashCommands]);
+    editor.on('blur', flushDraft);
+    window.addEventListener('pagehide', flushDraft);
+    return () => {
+      editor.off('update', handler);
+      editor.off('blur', flushDraft);
+      window.removeEventListener('pagehide', flushDraft);
+      if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
+      flushDraft();
+    };
+  }, [editor, draftKey, setDraft, setInputText]);
 
   // 切换 session / 回到首页 / 草稿 hydrate 完成时恢复草稿
   const draftsHydratedAt = useStore(s => s.draftsHydratedAt);
@@ -1424,6 +1485,12 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   ));
   useEffect(() => {
     if (!editor || !draftKey) return;
+    if (pendingDraftSave.current?.key === draftKey) {
+      pendingDraftSave.current.flush();
+      return;
+    }
+    const written = lastDraftWrite.current;
+    if (written?.key === draftKey && written.doc === draftDoc && written.text === draftText) return;
     const draft = draftText;
     const draftDocValue = draftDoc;
     const currentDoc = editor.getJSON();
@@ -1442,7 +1509,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
       // 文档已一致时仍回读一次，修复历史 emitUpdate:false 留下的镜像脱节
       syncComposerMirrorFromEditor(editor, setInputText);
     }
-  }, [editor, draftKey, draftText, draftDoc, draftsHydratedAt]);
+  }, [editor, draftKey, draftText, draftDoc, draftsHydratedAt, setInputText]);
 
   // 点击外部关闭斜杠菜单
   useEffect(() => {
@@ -1468,7 +1535,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
 
   // Can send?
   const hasContent = !composerPayloadIsEmpty({
-    hasText: inputText.trim().length > 0,
+    hasText: inputSummary.hasText,
     hasFiles: attachedFiles.length > 0 || editorHasInlineNode(editor, 'fileBadge'),
     hasSkills: editorHasInlineNode(editor, 'skillBadge'),
     hasMentions: editorHasInlineNode(editor, 'sessionBadge') || editorHasInlineNode(editor, 'agentBadge'),
@@ -1722,6 +1789,7 @@ function InputAreaInner({ surface }: Required<InputAreaProps>) {
   const submitEditorMessage = useCallback(async (type: 'prompt' | 'interject') => {
     if (inputLocked) return;
     if (!editor) return;
+    pendingDraftSave.current?.flush();
     const editorJson = editor.getJSON();
     const { text: rawText, skills, fileRefs, sessionRefs, agentMentions } = serializeEditor(editorJson);
     const text = rawText.trim();

@@ -9,28 +9,32 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-8);
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .input-actions {
     display: flex;
     align-items: center;
     gap: 0.2rem;
-    flex-shrink: 1;
+    flex: 0 0 auto;
     min-width: 0;
 }
 
 .input-controls {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 0.35rem;
     flex-shrink: 1;
     min-width: 0;
+    max-width: 100%;
+    margin-inline-start: auto;
 }
 
 .input-surface-mobile .input-bottom-bar {
     gap: var(--space-4);
     min-width: 0;
+    flex-wrap: nowrap;
 }
 
 .input-surface-mobile .input-actions {
@@ -501,6 +505,7 @@
     display: flex;
     align-items: center;
     min-width: 0;
+    max-width: 160px;
     flex-shrink: 1;
 }
 
@@ -529,7 +534,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 160px;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .input-surface-mobile .model-pill {

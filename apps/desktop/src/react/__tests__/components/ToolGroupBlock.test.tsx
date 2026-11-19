@@ -3,9 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToolGroupBlock } from '../../components/chat/ToolGroupBlock';
+import { useStore } from '../../stores';
+
+vi.mock('../../stores', async (importOriginal) => {
+  const stores = await importOriginal<typeof import('../../stores')>();
+  return { ...stores, useStore: Object.assign(vi.fn(stores.useStore), stores.useStore) };
+});
 
 describe('ToolGroupBlock', () => {
   beforeEach(() => {
@@ -15,6 +21,49 @@ describe('ToolGroupBlock', () => {
   afterEach(() => {
     vi.useRealTimers();
     cleanup();
+  });
+
+  it('renders 191 ordinary tool rows without subscribing each row to session state', () => {
+    vi.mocked(useStore).mockClear();
+    const { container } = render(
+      <ToolGroupBlock
+        collapsed={false}
+        tools={Array.from({ length: 191 }, (_, index) => ({
+          id: `read-${index}`,
+          name: 'read',
+          args: { path: `/workspace/sample-${index}.md` },
+          done: true,
+          success: true,
+        }))}
+      />,
+    );
+    expect(container.querySelectorAll('[data-tool="read"]')).toHaveLength(191);
+    expect(vi.mocked(useStore).mock.calls).toHaveLength(0);
+  });
+
+  it('updates a session tool row when the target title changes', () => {
+    const previous = useStore.getState().sessions;
+    const target = { path: '/workspace/linked-session.jsonl', sessionId: 'linked-session', title: 'Original title' };
+    useStore.setState({
+      sessions: [{ ...target, agentId: 'a', agentName: '', cwd: null, firstMessage: '', modified: '', messageCount: 1 }],
+    });
+    try {
+      render(<ToolGroupBlock collapsed={false} tools={[{
+        name: 'session',
+        args: { action: 'inspect', sessionId: target.sessionId },
+        done: true,
+        success: true,
+      }]} />);
+      expect(screen.getByText('Original title')).toBeInTheDocument();
+
+      act(() => {
+        useStore.setState(state => ({ sessions: state.sessions.map(entry => ({ ...entry, title: 'Updated title' })) }));
+      });
+      expect(screen.getByText('Updated title')).toBeInTheDocument();
+    } finally {
+      cleanup();
+      useStore.setState({ sessions: previous });
+    }
   });
 
   it('renders failed and unknown outcomes without presenting either as success', () => {

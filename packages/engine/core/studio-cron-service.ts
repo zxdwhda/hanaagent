@@ -91,6 +91,7 @@ export class StudioCronService {
   declare _hanakoHome: string;
   declare _agentsDir: string;
   declare _getStudioId: () => string;
+  declare _onJobCountChanged?: (studioId: string) => void;
   declare _handles: Map<string, BoundStudioCronStore>;
   declare _legacyImportedStudioIds: Set<string>;
   declare _stores: Map<string, CronStore>;
@@ -100,14 +101,16 @@ export class StudioCronService {
    * @param {string} opts.hanakoHome
    * @param {string} opts.agentsDir
    * @param {() => string} opts.getStudioId
+   * @param {(studioId: string) => void} [opts.onJobCountChanged]
    */
-  constructor({ hanakoHome, agentsDir, getStudioId }) {
+  constructor({ hanakoHome, agentsDir, getStudioId, onJobCountChanged = undefined }) {
     if (!hanakoHome) throw new Error("StudioCronService requires hanakoHome");
     if (!agentsDir) throw new Error("StudioCronService requires agentsDir");
     if (typeof getStudioId !== "function") throw new Error("StudioCronService requires getStudioId");
     this._hanakoHome = hanakoHome;
     this._agentsDir = agentsDir;
     this._getStudioId = getStudioId;
+    this._onJobCountChanged = onJobCountChanged;
     this._handles = new Map();
     this._legacyImportedStudioIds = new Set();
     this._stores = new Map();
@@ -149,17 +152,29 @@ export class StudioCronService {
     const actorAgentId = normalizeOptionalString(job?.actorAgentId);
     if (!actorAgentId) throw new Error("cron job requires actorAgentId");
     const executionContext = requireAutomationExecutionContext(job.executionContext, actorAgentId);
-    return this._getStoreForStudio(studioId).addJob({
+    const created = this._getStoreForStudio(studioId).addJob({
       ...job,
       studioId,
       actorAgentId,
       executionContext,
       legacyRef: job.legacyRef || null,
     }, options);
+    this._notifyJobCountChanged(studioId);
+    return created;
   }
 
   _removeJobForStudio(studioId, id) {
-    return this._getStoreForStudio(studioId).removeJob(id);
+    const removed = this._getStoreForStudio(studioId).removeJob(id);
+    if (removed) this._notifyJobCountChanged(studioId);
+    return removed;
+  }
+
+  _notifyJobCountChanged(studioId: string) {
+    try {
+      this._onJobCountChanged?.(studioId);
+    } catch (error) {
+      log.warn(`Could not notify clients after automation write: ${error?.message || error}`);
+    }
   }
 
   _updateJobForStudio(studioId, id, partial, options = {}) {

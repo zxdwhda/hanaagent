@@ -13,7 +13,7 @@ import { AgentToolsSection } from './agent/AgentToolsSection';
 import { CharacterCardPreviewOverlay, type CharacterCardPlan } from '../overlays/CharacterCardPreviewOverlay';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
-import { readConfigBoolean } from '../resource-state';
+import { makeSettingsResourceKey, readConfigBoolean } from '../resource-state';
 import styles from '../Settings.module.css';
 import {
   type ExpCategory, parseExperience,
@@ -37,6 +37,7 @@ export function AgentTab() {
   const showToast = useSettingsStore(s => s.showToast);
   const set = useSettingsStore(s => s.set);
   const getSettingsAgentId = useSettingsStore(s => s.getSettingsAgentId);
+  const connectionId = useSettingsStore(s => s.activeServerConnectionId);
 
   const hasUtilityModel = globalModelsConfig
     ? !!(globalModelsConfig.models?.utility && globalModelsConfig.models?.utility_large)
@@ -44,8 +45,13 @@ export function AgentTab() {
   const selectedSettingsAgentId = settingsAgentId || currentAgentId;
 
   const [agentName, setAgentName] = useState('');
-  const [identity, setIdentity] = useState('');
-  const [agentsMd, setAgentsMd] = useState('');
+  const [personaDraft, setPersonaDraft] = useState<{ owner: string; identity?: string; agentsMd?: string } | null>(null);
+  const personaOwner = makeSettingsResourceKey('config', selectedSettingsAgentId, connectionId);
+  const savedIdentity = settingsConfig?._identity || '';
+  const savedAgentsMd = settingsConfig?._agents || '';
+  const activeDraft = personaDraft?.owner === personaOwner ? personaDraft : null;
+  const identity = activeDraft?.identity ?? savedIdentity;
+  const agentsMd = activeDraft?.agentsMd ?? savedAgentsMd;
   const [expCategories, setExpCategories] = useState<ExpCategory[]>([]);
   const [exportPlanningAgentId, setExportPlanningAgentId] = useState<string | null>(null);
   const [exportingCharacterCard, setExportingCharacterCard] = useState(false);
@@ -55,11 +61,28 @@ export function AgentTab() {
   useEffect(() => {
     if (settingsConfig) {
       setAgentName(settingsConfig.agent?.name || '');
-      setIdentity(settingsConfig._identity || '');
-      setAgentsMd(settingsConfig._agents || '');
       setExpCategories(parseExperience(settingsConfig._experience || ''));
     }
   }, [settingsConfig]);
+
+  useEffect(() => {
+    setPersonaDraft(draft => {
+      if (!draft || draft.owner !== personaOwner) return null;
+      const identity = draft.identity === savedIdentity ? undefined : draft.identity;
+      const agentsMd = draft.agentsMd === savedAgentsMd ? undefined : draft.agentsMd;
+      if (identity === undefined && agentsMd === undefined) return null;
+      if (identity === draft.identity && agentsMd === draft.agentsMd) return draft;
+      return { owner: draft.owner, identity, agentsMd };
+    });
+  }, [personaOwner, savedIdentity, savedAgentsMd]);
+
+  function editPersona(field: 'identity' | 'agentsMd', content: string) {
+    if (!personaOwner) return;
+    setPersonaDraft(draft => ({
+      ...(draft?.owner === personaOwner ? draft : { owner: personaOwner }),
+      [field]: content,
+    }));
+  }
 
   const currentYuan = settingsConfig?.agent?.yuan || 'hanako';
 
@@ -137,8 +160,8 @@ export function AgentTab() {
   const saveAgent = async () => {
     try {
       const agentId = getSettingsAgentId()!;
-      const identityChanged = identity !== (settingsConfig?._identity || '');
-      const agentsMdChanged = agentsMd !== (settingsConfig?._agents || '');
+      const identityChanged = identity !== savedIdentity;
+      const agentsMdChanged = agentsMd !== savedAgentsMd;
 
       if (!identityChanged && !agentsMdChanged) {
         showToast(t('settings.noChanges'), 'success');
@@ -369,7 +392,7 @@ export function AgentTab() {
             rows={3}
             spellCheck={false}
             value={identity}
-            onChange={(e) => setIdentity(e.target.value)}
+            onChange={(e) => editPersona('identity', e.target.value)}
           />
           <span className={styles['settings-form-hint']}>{t('settings.agent.identityHint')}</span>
         </div>
@@ -380,7 +403,7 @@ export function AgentTab() {
             rows={10}
             spellCheck={false}
             value={agentsMd}
-            onChange={(e) => setAgentsMd(e.target.value)}
+            onChange={(e) => editPersona('agentsMd', e.target.value)}
           />
           <span className={styles['settings-form-hint']}>{t('settings.agent.agentsMdHint')}</span>
         </div>

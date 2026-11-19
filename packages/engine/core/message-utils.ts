@@ -24,19 +24,39 @@ import { isAssistantCommentaryTextBlock } from "../../shared/text-signature.ts";
 import { TOOL_ARG_SUMMARY_KEYS, summarizeToolArgs } from "../../shared/tool-arg-summary.ts";
 import { projectSessionMessageForDisplay } from "./session-reminders.ts";
 import { isKnownLegacyHanaToolFailure } from "../../shared/tool-outcome.ts";
+import { ThinkTagParser } from "./events.ts";
 export { TOOL_ARG_SUMMARY_KEYS };
 
 const SESSION_TAIL_READ_THRESHOLD = 256 * 1024;
 const ATTACHED_IMAGE_MARKER_RE = /\[attached_image:\s*[^\]]+\]/g;
 
-/** 从文本中提取并剥离 <think>/<thinking> 标签 */
+/** Use the same leading-tag rule as the live stream so literal examples survive replay. */
 export function stripThinkTags(raw) {
+  if (!raw.includes("<think>") && !raw.includes("<thinking>")) {
+    return { text: raw, thinkContent: "", hasThinking: false };
+  }
+  let text = "";
+  let activeThought = "";
   const thinkParts = [];
-  const text = raw.replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>\n*/g, (_, inner) => {
-    thinkParts.push(inner.trim());
-    return "";
-  });
-  return { text, thinkContent: thinkParts.join("\n") };
+  const parser = new ThinkTagParser();
+  const collect = (event) => {
+    if (event.type === "text") text += event.data;
+    if (event.type === "think_text") activeThought += event.data;
+    if (event.type === "think_end") {
+      thinkParts.push(activeThought.trim());
+      activeThought = "";
+    }
+  };
+  parser.feed(raw, collect);
+  parser.flush(collect);
+  return { text, thinkContent: thinkParts.join("\n"), hasThinking: thinkParts.length > 0 };
+}
+
+function visibleTextFromContent(content) {
+  return content
+    .filter(block => block?.type === "text" && block.text && !isAssistantCommentaryTextBlock(block))
+    .map(block => block.text)
+    .join("");
 }
 
 /**
@@ -53,10 +73,7 @@ export function extractTextContent(content, { stripThink = false } = {}) {
     return { text: content, thinking: "", toolUses: [], images: [] };
   }
   if (!Array.isArray(content)) return { text: "", thinking: "", toolUses: [], images: [] };
-  const rawText = content
-    .filter(block => block.type === "text" && block.text && !isAssistantCommentaryTextBlock(block))
-    .map(block => block.text)
-    .join("");
+  const rawText = visibleTextFromContent(content);
   const images = content
     .filter(block => block.type === "image" && (block.data || block.source?.data))
     .map(block => ({ data: block.data || block.source.data, mimeType: block.mimeType || block.source?.media_type || "image/png" }));
@@ -83,11 +100,11 @@ export function extractTextContent(content, { stripThink = false } = {}) {
 
 export function contentHasThinkingBlock(content, { stripThink = false } = {}) {
   if (typeof content === "string") {
-    if (!stripThink) return false;
-    return /<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/.test(content);
+    return stripThink && stripThinkTags(content).hasThinking;
   }
   if (!Array.isArray(content)) return false;
-  return content.some(block => block?.type === "thinking");
+  if (content.some(block => block?.type === "thinking")) return true;
+  return stripThink && stripThinkTags(visibleTextFromContent(content)).hasThinking;
 }
 
 export function filterUnreferencedInlineImages(text, images) {

@@ -12,6 +12,7 @@ vi.mock("../packages/engine/core/llm-utils.js", () => ({
 import {
   TOOL_ARG_SUMMARY_KEYS,
   stripThinkTags,
+  contentHasThinkingBlock,
   extractTextContent,
   loadSessionHistoryMessages,
   loadLatestAssistantSummaryFromSessionFile,
@@ -49,6 +50,22 @@ describe("TOOL_ARG_SUMMARY_KEYS", () => {
 });
 
 describe("stripThinkTags", () => {
+  it("keeps a fenced code example after provider thinking intact across history replay", () => {
+    const answer = [
+      "| Format | Meaning |", "| --- | --- |", "| XML | Example |", "",
+      "```xml", "<think>literal code</think>", "```",
+    ].join("\n");
+    const content = [
+      { type: "text", text: "<thi" },
+      { type: "text", text: "nk>private reasoning</think>\n" + answer },
+    ];
+    expect(contentHasThinkingBlock(content, { stripThink: true })).toBe(true);
+    expect(extractTextContent(content, { stripThink: true })).toMatchObject({
+      text: answer,
+      thinking: "private reasoning",
+    });
+  });
+
   it("提取并剥离 think 标签", () => {
     const input = "<think>inner thought</think>\nactual text";
     const { text, thinkContent } = stripThinkTags(input);

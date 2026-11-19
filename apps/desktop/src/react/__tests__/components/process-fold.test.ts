@@ -90,6 +90,12 @@ describe('process fold grouping', () => {
     ]);
   });
 
+  it('keeps valid transcript text visible when an older message has an empty block slot', () => {
+    const message = assistant('a1', [null as unknown as ContentBlock, textBlock('<p>保留的正文</p>')]);
+    expect(buildTranscriptRenderItems([user('u1'), message], { isStreaming: false })[1])
+      .toMatchObject({ type: 'source', item: message });
+  });
+
   it('does not throw on malformed text blocks without html/source', () => {
     const items: ChatListItem[] = [
       user('u1'),

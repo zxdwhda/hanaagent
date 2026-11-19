@@ -82,6 +82,52 @@ function applyTailFade(root: HTMLElement, count: number): void {
   }
 }
 
+type SelectionPoint = { node: Node; offset: number };
+
+function rememberMarkdownSelection(root: HTMLElement): (() => void) | undefined {
+  const selection = root.ownerDocument.getSelection();
+  if (!selection?.anchorNode || !selection.focusNode || selection.isCollapsed || selection.rangeCount !== 1) return;
+  const anchor = { node: selection.anchorNode, offset: selection.anchorOffset };
+  const focus = { node: selection.focusNode, offset: selection.focusOffset };
+  if (!root.contains(anchor.node) && !root.contains(focus.node)) return;
+
+  const textOffset = (point: SelectionPoint): number | null => {
+    if (!root.contains(point.node)) return null;
+    const range = root.ownerDocument.createRange();
+    range.selectNodeContents(root);
+    range.setEnd(point.node, point.offset);
+    return range.toString().length;
+  };
+  const anchorText = textOffset(anchor);
+  const focusText = textOffset(focus);
+  const prefix = (root.textContent || '').slice(0, Math.max(anchorText ?? 0, focusText ?? 0));
+
+  return () => {
+    if (selection.anchorNode === anchor.node && selection.anchorOffset === anchor.offset
+        && selection.focusNode === focus.node && selection.focusOffset === focus.offset) return;
+    // Restore only when the original selected prefix still exists. A branch
+    // edit or arbitrary replacement must not select unrelated new text.
+    if (!(root.textContent || '').startsWith(prefix)) return;
+
+    const locate = (point: SelectionPoint, position: number | null): SelectionPoint | null => {
+      if (position === null) return point.node.isConnected ? point : null;
+      const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let remaining = position;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const length = (node.nodeValue || '').length;
+        if (remaining <= length) return { node, offset: remaining };
+        remaining -= length;
+      }
+      return null;
+    };
+    const nextAnchor = locate(anchor, anchorText);
+    const nextFocus = locate(focus, focusText);
+    if (nextAnchor && nextFocus) {
+      selection.setBaseAndExtent(nextAnchor.node, nextAnchor.offset, nextFocus.node, nextFocus.offset);
+    }
+  };
+}
+
 /**
  * 把新的 HTML 字符串解析成一批顶层节点，逐个与当前 root 的顶层子节点按下标
  * 比较原始 HTML 是否相同；相同则保留 root 里那个节点原样不动（不管它后来
@@ -240,6 +286,7 @@ export const MarkdownContent = memo(function MarkdownContent({ html, className, 
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
+    const restoreSelection = rememberMarkdownSelection(root);
     if (root.childNodes.length === 0) {
       // 首次挂载：root 是空的，直接整体写入最快，也无需保护任何既有节点/选区。
       root.innerHTML = renderedHtml;
@@ -249,6 +296,7 @@ export const MarkdownContent = memo(function MarkdownContent({ html, className, 
       reconcileTopLevelChildren(root, renderedHtml);
     }
     applyTailFade(root, tailFadeCount);
+    restoreSelection?.();
   }, [renderedHtml, tailFadeCount]);
 
   useMermaidDiagrams(ref, [renderedHtml]);

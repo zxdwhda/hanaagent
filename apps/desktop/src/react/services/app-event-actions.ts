@@ -17,11 +17,21 @@ declare const i18n: {
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- app events cross IPC/WS boundaries */
 
-// Race guard: rapid agent switches (A→B→C) can cause stale async responses
-// from earlier switches to overwrite current state. Same pattern as
-// _switchVersion in session-actions.ts.
-let _agentSwitchVersion = 0;
+let automationCountRequest = 0;
 let requestContextUsage: (sessionPath: string) => void = () => {};
+
+export async function refreshAutomationCount(): Promise<void> {
+  const request = ++automationCountRequest;
+  const connection = useStore.getState().activeServerConnection;
+  try {
+    const response = await hanaFetch('/api/desk/cron');
+    const data = await response.json();
+    if (request !== automationCountRequest || connection !== useStore.getState().activeServerConnection) return;
+    if (Array.isArray(data.jobs)) useStore.setState({ automationCount: data.jobs.length });
+  } catch {
+    // Leave the last confirmed count visible while the connection is unavailable.
+  }
+}
 
 interface AppEventOptions {
   source?: string;
@@ -90,7 +100,6 @@ function handleAgentWorkspaceChanged(data: any): void {
 export function handleAppEvent(type: string, data: any = {}, options: AppEventOptions = {}): void {
   switch (type) {
     case 'agent-switched': {
-      const myVersion = ++_agentSwitchVersion;
 
       applyAgentIdentity({
         agentName: data.agentName,
@@ -136,10 +145,7 @@ export function handleAppEvent(type: string, data: any = {}, options: AppEventOp
       loadModels();
 
       // Reload automation count and clear activities
-      hanaFetch('/api/desk/cron').then(r => r.json()).then((d: any) => {
-        if (myVersion !== _agentSwitchVersion) return; // stale
-        useStore.setState({ automationCount: d.jobs?.length || 0 });
-      }).catch(() => {});
+      void refreshAutomationCount();
       useStore.setState({ activities: [] });
       break;
     }
@@ -157,6 +163,10 @@ export function handleAppEvent(type: string, data: any = {}, options: AppEventOp
       if (sp) {
         requestContextUsage(sp);
       }
+      break;
+    }
+    case 'automation-jobs-changed': {
+      void refreshAutomationCount();
       break;
     }
     case 'skills-changed': {

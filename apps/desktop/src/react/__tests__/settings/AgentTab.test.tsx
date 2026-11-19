@@ -171,6 +171,26 @@ describe('AgentTab settings agent selection', () => {
     expect(screen.getByTestId('selected-agent')).toHaveTextContent('deepseek');
   });
 
+  it('preserves identity and AGENTS drafts when a settings refresh arrives for the same agent', async () => {
+    const original = useSettingsStore.getState().settingsConfig!;
+    useSettingsStore.setState({ settingsConfig: { ...original, _identity: 'Old identity', _agents: 'Old instructions' } });
+    const { AgentTab } = await import('../../settings/tabs/AgentTab');
+    const { container } = render(<AgentTab />);
+    const [identity, agentsMd] = container.querySelectorAll('textarea');
+    fireEvent.change(identity, { target: { value: 'Draft identity' } });
+    fireEvent.change(agentsMd, { target: { value: 'Draft instructions' } });
+
+    act(() => {
+      useSettingsStore.setState({ settingsConfig: { ...original, _identity: 'Old identity', _agents: 'Old instructions' } });
+    });
+    expect(identity).toHaveValue('Draft identity');
+    expect(agentsMd).toHaveValue('Draft instructions');
+    fireEvent.click(screen.getAllByRole('button', { name: 'settings.save' }).at(-1)!);
+    const put = (content: string) => expect.objectContaining({ method: 'PUT', body: JSON.stringify({ content }) });
+    expect(hanaFetchMock).toHaveBeenCalledWith('/api/agents/hana/identity', put('Draft identity'));
+    expect(hanaFetchMock).toHaveBeenCalledWith('/api/agents/hana/agents-md', put('Draft instructions'));
+  });
+
   it('does not force memory off while global model settings are still loading', async () => {
     useSettingsStore.setState({ globalModelsConfig: null });
     const { AgentTab } = await import('../../settings/tabs/AgentTab');

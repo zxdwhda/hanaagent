@@ -157,12 +157,12 @@ export const createInputSlice = (
           : undefined;
       const nextDoc = doc ?? null;
       const sameText = prevText === text;
-      const sameDoc = nextDoc
+      const sameDoc = sameText && (nextDoc
         ? !!prevDoc && JSON.stringify(prevDoc) === JSON.stringify(nextDoc)
-        : prevDoc === undefined;
+        : prevDoc === undefined);
       // 内容未变则保持 drafts/draftDocs 引用不变，避免 InputArea 订阅方空转，
       // 也让「恢复走 emitUpdate」时不会 update→setDraft→effect 死循环。
-      if (sameText && sameDoc && prevText !== undefined) {
+      if (sameDoc && prevText !== undefined) {
         return {};
       }
       const drafts = { ...s.drafts, [key]: text };

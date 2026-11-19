@@ -4,8 +4,8 @@
  * 由本地 Hana server 经 http 提供（见 server/routes/cards.ts）。
  * 关键：卡片必须从真实 http origin 加载，而非 srcdoc/blob——后两者会继承
  * 渲染进程的 `script-src 'self'` CSP，导致 iframe 内所有内联脚本（高度上报 +
- * agent 的 onclick/addEventListener）被静默阻断。http 响应不带 CSP，
- * iframe 文档拿到自己的（空）CSP 上下文，内联脚本才能执行。
+ * agent 的 onclick/addEventListener）被静默阻断。HTTP 响应提供自己的 CSP，
+ * 允许内联脚本在沙箱中运行。
  *
  * 包壳职责：
  *   - 静态部分：reset / 排版 / 字体 / 高度上报脚本（与设计 spec §4/§6 一致）

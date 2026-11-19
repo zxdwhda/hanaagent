@@ -59,7 +59,7 @@ function visibleToolCalls(block: Extract<ContentBlock, { type: 'tool_group' }>):
 
 function visibleBlocks(message: ChatMessage): ContentBlock[] {
   return (message.blocks || []).filter((block) =>
-    block.type !== 'session_confirmation' || block.surface !== 'input',
+    block != null && (block.type !== 'session_confirmation' || block.surface !== 'input'),
   );
 }
 

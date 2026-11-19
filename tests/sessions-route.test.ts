@@ -3236,6 +3236,35 @@ describe("sessions route", () => {
     }]);
   });
 
+  it("returns historical provider thinking alongside the original long Markdown answer", async () => {
+    const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
+    const msgUtils = await import("../packages/engine/core/message-utils.ts");
+    const real = await vi.importActual<typeof msgUtils>("../packages/engine/core/message-utils.ts");
+    const answer = [
+      "| Row | Value |", "| --- | --- |",
+      ...Array.from({ length: 80 }, (_, row) => `| ${row} | value-${row} |`),
+      "", "```xml", "<think>example</think>", "```",
+    ].join("\n");
+    vi.mocked(msgUtils.loadSessionHistoryMessages).mockResolvedValueOnce([
+      { role: "assistant", content: [{ type: "text", text: "<think>provider reasoning</think>\n" + answer }] },
+    ]);
+    const app = new Hono().route("/api", createSessionsRoute({
+      agentsDir: "/tmp/agents",
+      deferredResults: null,
+    }));
+
+    await vi.mocked(msgUtils.contentHasThinkingBlock).withImplementation(real.contentHasThinkingBlock, async () => {
+      await vi.mocked(msgUtils.extractTextContent).withImplementation(real.extractTextContent, async () => {
+        const res = await app.request("/api/sessions/messages");
+        expect(res.status).toBe(200);
+        expect((await res.json()).messages[0]).toMatchObject({
+          content: answer,
+          thinking: "provider reasoning",
+        });
+      });
+    });
+  });
+
   it("does not return OpenAI commentary-only history messages as visible text", async () => {
     const { createSessionsRoute } = await import("../apps/server/routes/sessions.ts");
     const msgUtils = await import("../packages/engine/core/message-utils.ts");

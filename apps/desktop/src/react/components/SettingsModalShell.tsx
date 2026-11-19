@@ -16,7 +16,7 @@ export function SettingsModalShell() {
   const settingsModal = useStore(s => s.settingsModal);
   const { mounted, stage } = useAnimatePresence(settingsModal.open, { duration: CLOSE_ANIMATION_MS });
   const [shown, setShown] = useState(false);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const returnFocusRef = useRef<{ element: HTMLElement | null; sessionPath: string | null } | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const parentSurface = useWindowSurface();
   const [nestedOverlayRoot, setNestedOverlayRoot] = useState<HTMLDivElement | null>(null);
@@ -57,16 +57,23 @@ export function SettingsModalShell() {
     setSettingsModalActiveTab(tab);
   }, []);
 
-  // 保存打开前的焦点，关闭后恢复
+  // 归档恢复可能在设置仍打开时换掉输入框，等遮罩退出后再交还焦点。
   useEffect(() => {
     if (mounted && returnFocusRef.current === null) {
-      returnFocusRef.current = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      returnFocusRef.current = {
+        element: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        sessionPath: useStore.getState().currentSessionPath,
+      };
     }
     if (!mounted && returnFocusRef.current) {
-      returnFocusRef.current.focus?.();
+      const previous = returnFocusRef.current;
       returnFocusRef.current = null;
+      const state = useStore.getState();
+      if (state.currentTab === 'chat' && state.currentSessionPath && state.currentSessionPath !== previous.sessionPath) {
+        state.requestInputFocus('restore');
+      } else if (previous.element?.isConnected) {
+        previous.element.focus();
+      }
     }
   }, [mounted]);
 
@@ -80,11 +87,12 @@ export function SettingsModalShell() {
   // 加上 .open class 后立即聚焦到 [data-settings-return] 或第一个可聚焦元素
   useEffect(() => {
     if (!shown || stage === 'exit') return;
-    requestAnimationFrame(() => {
+    const frame = requestAnimationFrame(() => {
       const target = cardRef.current?.querySelector<HTMLElement>('[data-settings-return]')
         ?? firstFocusable(cardRef.current);
       target?.focus();
     });
+    return () => cancelAnimationFrame(frame);
   }, [shown, stage]);
 
   // ESC 关闭 + Tab 焦点陷阱

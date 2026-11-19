@@ -87,6 +87,9 @@ export function classifyHttpRoute({ method = "GET", path = "" } = {}) {
   if (isWebAuthBootstrapRoute(verb, routePath)) return PUBLIC;
   if (isMcpOAuthCallbackRoute(verb, routePath)) return PUBLIC;
   if (isHtmlPreviewDocumentRoute(verb, routePath)) return PUBLIC;
+  // The document path contains a short-lived view ID issued by the authenticated registration route.
+  if (verb === "GET" && /^\/api\/cards\/view\/[A-Za-z0-9_-]{32}$/.test(routePath)) return PUBLIC;
+  if (verb === "PUT" && /^\/api\/cards\/[A-Za-z0-9_-]{1,128}\/render$/.test(routePath)) return scoped("chat");
 
   if (routePath === "/api/health") return AUTHENTICATED_ONLY;
   if (routePath === "/api/server/identity") return AUTHENTICATED_ONLY;

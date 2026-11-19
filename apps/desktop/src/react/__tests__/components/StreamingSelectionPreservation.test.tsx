@@ -136,4 +136,33 @@ describe('streaming selection preservation', () => {
     expect(paragraphsAfter[1]).not.toBe(changingParagraphBefore);
     expect(paragraphsAfter[1].textContent).toBe('尾部正在流式追加中。');
   });
+
+  it('keeps a backward selection in a growing formatted paragraph', () => {
+    const { container, rerender } = render(
+      <StreamingMarkdownContent source="选择加粗文字" html="<p>选择<strong>加粗文字</strong></p>" active />,
+    );
+    const selection = window.getSelection()!;
+    const original = container.querySelector('strong')!.firstChild!;
+    selection.setBaseAndExtent(original, 4, original, 0);
+    rerender(<StreamingMarkdownContent source="选择加粗文字和后续内容"
+      html="<p>选择<strong>加粗文字和后续内容</strong></p>" active />);
+
+    expect(selection.toString()).toBe('加粗文字');
+    expect(selection.anchorNode).toBe(selection.getRangeAt(0).endContainer);
+    expect(selection.anchorOffset).toBe(selection.getRangeAt(0).endOffset);
+    expect(container.querySelector('strong')?.textContent).toBe('加粗文字和后续内容');
+  });
+
+  it('keeps a selection spanning two paragraphs when the selected tail grows', () => {
+    const { container, rerender } = render(
+      <StreamingMarkdownContent source="First\n\nSecond" html="<p>First</p><p>Second</p>" active />,
+    );
+    const selection = window.getSelection()!;
+    const [first, second] = container.querySelectorAll('p');
+    selection.setBaseAndExtent(first.firstChild!, 2, second.firstChild!, 3);
+    rerender(<StreamingMarkdownContent source="First\n\nSecond paragraph"
+      html="<p>First</p><p>Second paragraph</p>" active />);
+    expect(selection.toString()).toBe('rstSec');
+    expect(container.querySelectorAll('p')[1].textContent).toBe('Second paragraph');
+  });
 });
