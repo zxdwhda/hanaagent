@@ -92,13 +92,13 @@ describe("runAgentSession teardown", () => {
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
-  it("hub 临时 session 结束后走 emit -> unsub -> dispose", async () => {
+  it.each([[["off", "high"]], [["off", "medium", "high"]]])("hub 临时 session 按模型配置选择思考档位并按序关闭 (%j)", async (thinkingLevels) => {
     const cwd = path.join(rootDir, "cwd");
     fs.mkdirSync(cwd, { recursive: true });
     const agent = makeAgent(rootDir);
     const engine = makeEngine(agent, cwd, {
       id: "restricted-reasoning", provider: "test",
-      thinkingLevels: ["off", "high"], defaultThinkingLevel: "high",
+      thinkingLevels, defaultThinkingLevel: "high",
     });
     const sessionFile = path.join(agent.agentDir, "sessions", "temp", "s1.jsonl");
     fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
@@ -981,11 +981,14 @@ describe("runAgentSession teardown", () => {
     expect(createAgentSessionMock.mock.calls[0][0].resourceLoader.getSystemPrompt()).toBe("current system prompt");
   });
 
-  it("phone replies leave regular compaction to the SDK auto-compaction path", async () => {
+  it("phone replies use the model thinking default and SDK auto-compaction", async () => {
     const cwd = path.join(rootDir, "cwd");
     fs.mkdirSync(cwd, { recursive: true });
     const agent = makeAgent(rootDir);
-    const engine = makeEngine(agent, cwd);
+    const engine = makeEngine(agent, cwd, {
+      id: "phone-reasoning", provider: "test",
+      thinkingLevels: ["off", "medium", "high"], defaultThinkingLevel: "high",
+    });
     const sessionFile = path.join(agent.agentDir, "phone", "sessions", "ch_crew", "phone-auto-compact.jsonl");
     fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
     fs.writeFileSync(sessionFile, "", "utf-8");
@@ -1009,6 +1012,7 @@ describe("runAgentSession teardown", () => {
       conversationType: "channel",
     });
 
+    expect(createAgentSessionMock).toHaveBeenCalledWith(expect.objectContaining({ thinkingLevel: "high" }));
     expect(compact).not.toHaveBeenCalled();
   });
 
