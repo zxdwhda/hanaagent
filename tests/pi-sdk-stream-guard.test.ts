@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { streamSimple } from "../node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js";
 import { guardAssistantMessageStream, installAssistantStreamGuard } from "../packages/engine/lib/pi-sdk/stream-guard.ts";
+import { createVisibleTextAccumulator } from "../packages/engine/lib/bridge/visible-text-accumulator.ts";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -133,6 +134,49 @@ describe("Pi SDK stream guard", () => {
 
     expect(events.map((event) => event.type)).toEqual(["start", "done"]);
     expect(result.content).toEqual([]);
+  });
+
+  it("preserves phase projection after removing an earlier invalid tool block", async () => {
+    const invalidTool = { type: "toolCall", id: "call_empty", name: "", arguments: {} };
+    const commentary = { type: "text", text: "internal commentary", textSignature: '{"phase":"commentary"}' };
+    const finalText = { type: "text", text: "visible answer", textSignature: '{"phase":"final_answer"}' };
+    const message = { ...assistantMessage([invalidTool, commentary, finalText]), api: "openai-responses" };
+    const inner = makeStream([
+      { type: "toolcall_end", contentIndex: 0, toolCall: invalidTool, partial: message },
+      { type: "text_delta", contentIndex: 1, delta: commentary.text, partial: message },
+      { type: "text_end", contentIndex: 1, content: commentary.text, partial: message },
+      { type: "text_delta", contentIndex: 2, delta: finalText.text, partial: message },
+      { type: "text_end", contentIndex: 2, content: finalText.text, partial: message },
+      { type: "done", reason: "stop", message },
+    ], message);
+    const visible = createVisibleTextAccumulator();
+    const frames = [];
+    for await (const event of guardAssistantMessageStream(inner)) {
+      if (event.type !== "text_delta" && event.type !== "text_end") continue;
+      const update = visible.appendAssistantEvent({ type: "message_update", message: event.partial, assistantMessageEvent: event });
+      frames.push([event.contentIndex, update?.emittedDelta ?? null]);
+    }
+
+    expect(frames).toEqual([[0, null], [0, null], [1, "visible answer"], [1, null]]);
+    expect(visible.getText()).toBe("visible answer");
+  });
+
+  it("keeps text recovered from a tool in its own block without mutating earlier text", async () => {
+    const heading = { type: "text", text: "Earlier answer. " };
+    const invalidTool = { type: "toolCall", id: "call_empty", name: "", arguments: {}, partialArgs: "Recovered sentence." };
+    const tail = { type: "text", text: " Later answer." };
+    const message = assistantMessage([heading, invalidTool, tail]);
+    const inner = makeStream([
+      { type: "toolcall_end", contentIndex: 1, toolCall: invalidTool, partial: message },
+      { type: "done", reason: "stop", message },
+    ], message);
+
+    const { events, result } = await collect(guardAssistantMessageStream(inner));
+    const recovered = events.find(event => event.type === "text_delta");
+    expect(recovered?.contentIndex).toBe(1);
+    expect(recovered?.partial.content[1].text).toBe("Recovered sentence.");
+    expect(heading.text).toBe("Earlier answer. ");
+    expect(result.content.map(block => block.text).join("")).toBe("Earlier answer. Recovered sentence. Later answer.");
   });
 
   it("recovers plain text that a provider reported as an empty-name tool call", async () => {
