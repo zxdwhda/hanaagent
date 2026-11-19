@@ -1641,9 +1641,10 @@ describe("BridgeManager._handleMessage", () => {
     });
 
     it.each([
-      { error: "provider timeout", outputLimitReached: false, expectedNotice: "失败" },
-      { error: null, outputLimitReached: true, expectedNotice: "输出上限" },
-    ])("fails an RC-attached Feishu CardKit receipt without a visible reply ($expectedNotice)", async ({ error, outputLimitReached, expectedNotice }) => {
+      { error: "provider timeout", outputLimitReached: false, emptyResponse: false, expectedNotice: "失败" },
+      { error: null, outputLimitReached: true, emptyResponse: false, expectedNotice: "输出上限" },
+      { error: null, outputLimitReached: false, emptyResponse: true, expectedNotice: "未返回任何内容" },
+    ])("fails an RC-attached Feishu CardKit receipt without a visible reply ($expectedNotice)", async ({ error, outputLimitReached, emptyResponse, expectedNotice }) => {
       const { bm, hub } = createMocks();
       const feishuAdapter = {
         richStreamingCapabilities: {
@@ -1662,7 +1663,7 @@ describe("BridgeManager._handleMessage", () => {
         stop: vi.fn(),
       };
       bm._platforms.set("feishu:hana", { adapter: feishuAdapter, status: "connected", agentId: "hana", platform: "feishu" });
-      hub.send.mockResolvedValue({ text: "", toolMedia: [], error, truncated: false, outputLimitReached });
+      hub.send.mockResolvedValue({ text: "", toolMedia: [], error, truncated: false, outputLimitReached, emptyResponse });
 
       await bm._flushAttachedDesktopSession({
         sessionKey: "fs_dm_owner123@hana",

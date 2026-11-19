@@ -13,7 +13,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-function makeFakeSession({ replyText = "desktop reply", toolMedia = [], toolMediaDetails = null, settingsUpdate = null, stopReason = null }: any = {}) {
+function makeFakeSession({ replyText = "desktop reply", toolMedia = [], toolMediaDetails = null, settingsUpdate = null, stopReason = null, errorMessage = null }: any = {}) {
   const subs = [];
   return {
     subscribe: (fn) => {
@@ -26,7 +26,7 @@ function makeFakeSession({ replyText = "desktop reply", toolMedia = [], toolMedi
     prompt: vi.fn<(...args: any[]) => Promise<any>>(async () => {
       for (const fn of subs) {
         fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: replyText } });
-        if (stopReason) fn({ type: "message_end", message: { role: "assistant", stopReason } });
+        if (stopReason) fn({ type: "message_end", message: { role: "assistant", stopReason, errorMessage } });
         if (toolMediaDetails) {
           fn({
             type: "tool_execution_end",
@@ -418,6 +418,40 @@ describe("submitDesktopSessionMessage", () => {
       "hello",
       { context: { beforeUser: "world lore", metadata: { pluginId: "tavern" } } },
     );
+  });
+
+  it("distinguishes a successful but empty model completion from a tool-only result", async () => {
+    for (const hasToolResult of [false, true]) {
+      const session = makeFakeSession({
+        replyText: "",
+        stopReason: "stop",
+        toolMedia: hasToolResult ? ["https://example.test/output.png"] : [],
+      });
+      const engine = {
+        ensureSessionLoaded: vi.fn(async () => session),
+        promptSession: vi.fn(async (_path, text, opts) => session.prompt(text, opts)),
+      };
+      const result = await submitDesktopSessionMessage(engine, { sessionPath: "/tmp/desk-empty.jsonl", text: "hello" });
+
+      expect(result.text).toBeNull();
+      expect("emptyResponse" in result).toBe(!hasToolResult);
+    }
+  });
+
+  it("marks the retained partial response as interrupted on provider errors", async () => {
+    const session = makeFakeSession({
+      replyText: "Partial reply", stopReason: "error", errorMessage: "Stream ended without finish_reason",
+    });
+    const engine = {
+      ensureSessionLoaded: vi.fn(async () => session),
+      promptSession: vi.fn(async (_path, text, opts) => session.prompt(text, opts)),
+    };
+
+    const result = await submitDesktopSessionMessage(engine, { sessionPath: "/tmp/desk-partial.jsonl", text: "hello" });
+
+    expect(result).toMatchObject({
+      text: "Partial reply", error: "Stream ended without finish_reason", truncated: true,
+    });
   });
 
   it.each(["", "Partial reply"])("propagates an output limit to the attached channel for %j", async (replyText) => {

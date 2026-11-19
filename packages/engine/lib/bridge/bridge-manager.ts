@@ -2507,8 +2507,10 @@ export class BridgeManager {
         if (replyTruncated) {
           try { await this._sendAdapterReply(adapter, chatId, t("bridge.replyInterrupted"), replyContext); } catch {}
         }
-      } else if ((replyError || (result?.outputLimitReached && toolMedia.length === 0)) && adapter) {
-        const notice = t(result?.outputLimitReached ? "error.code.modelOutputLimitReached" : "bridge.replyFailed");
+      } else if ((replyError || result?.emptyResponse || (result?.outputLimitReached && toolMedia.length === 0)) && adapter) {
+        const notice = t(result?.outputLimitReached
+          ? "error.code.modelOutputLimitReached"
+          : result?.emptyResponse ? "error.modelNoResponse" : "bridge.replyFailed");
         try {
           if (typeof delivery.fail === "function") await delivery.fail(notice);
           else await this._sendAdapterReply(adapter, chatId, notice, replyContext);

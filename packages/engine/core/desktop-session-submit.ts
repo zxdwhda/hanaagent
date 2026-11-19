@@ -379,11 +379,17 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
 
     const visibleText = createVisibleTextAccumulator();
     const toolMedia = [];
-    let outputLimitReached = false;
+    let assistantStopReason: string | null = null;
+    let providerError: string | null = null;
+    let completedToolCall = false;
     const unsub = session.subscribe?.((event) => {
       if (submission.signal.aborted) return;
       if (event.type === "message_end" && event.message?.role === "assistant") {
-        outputLimitReached = event.message.stopReason === "length";
+        assistantStopReason = event.message.stopReason ?? null;
+        const detail = event.message.errorMessage;
+        providerError = assistantStopReason === "error"
+          ? (typeof detail === "string" && detail ? detail : "Provider returned an error")
+          : null;
       }
       const visible = visibleText.appendAssistantEvent(event);
       if (visible) {
@@ -391,6 +397,7 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
       } else if (event.type === "tool_execution_start") {
         visibleText.markHiddenToolBoundary();
       } else if (event.type === "tool_execution_end" && !event.isError) {
+        completedToolCall = true;
         toolMedia.push(...collectMediaItems(event.result?.details?.media));
         let appendedDetail = false;
         const card = event.result?.details?.card;
@@ -437,10 +444,15 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
     }
 
     const replyText = visibleText.getText().trim() || null;
+    const outputLimitReached = assistantStopReason === "length";
+    const emptyResponse = assistantStopReason === "stop" && !replyText && !completedToolCall && toolMedia.length === 0;
     return {
       text: replyText,
       toolMedia,
-      ...(outputLimitReached ? { outputLimitReached, truncated: !!replyText } : {}),
+      ...(outputLimitReached ? { outputLimitReached } : {}),
+      ...(providerError ? { error: providerError } : {}),
+      ...(outputLimitReached || providerError ? { truncated: !!replyText } : {}),
+      ...(emptyResponse ? { emptyResponse } : {}),
     };
   } catch (err) {
     submission.signal.throwIfAborted();
