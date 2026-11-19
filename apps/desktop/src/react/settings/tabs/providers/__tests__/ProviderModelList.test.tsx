@@ -113,7 +113,7 @@ describe('ProviderModelList', () => {
     });
   });
 
-  it('shows image, video, audio and reasoning capability icons after the added model id', () => {
+  it('distinguishes declared video from other available model capabilities', async () => {
     mocks.lookupModelMeta.mockImplementation((id: unknown, provider: unknown) => {
       if (id === 'doubao-seed-2-0-lite-260428' && provider === 'volcengine') {
         return {
@@ -151,9 +151,14 @@ describe('ProviderModelList', () => {
 
     const id = screen.getByText('doubao-seed-2-0-lite-260428');
     expect(id.nextElementSibling).toHaveAttribute('title', 'settings.api.capability.image');
-    expect(id.nextElementSibling?.nextElementSibling).toHaveAttribute('title', 'settings.api.capability.video');
+    expect(id.nextElementSibling?.nextElementSibling).toHaveAttribute('title', 'settings.api.videoTransportUnavailable');
     expect(id.nextElementSibling?.nextElementSibling?.nextElementSibling).toHaveAttribute('title', 'settings.api.capability.audio');
     expect(id.nextElementSibling?.nextElementSibling?.nextElementSibling?.nextElementSibling).toHaveAttribute('title', 'settings.api.capability.reasoning');
+    fireEvent.click(screen.getByTitle('settings.api.editModel'));
+    const warning = await screen.findByRole('status');
+    expect(warning).toHaveTextContent('settings.api.videoTransportUnavailable');
+    fireEvent.click(screen.getByRole('switch', { name: 'settings.api.video' }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('opens fetched models in the add-model dropdown so they can be enabled', async () => {

@@ -48,6 +48,13 @@ function ipcHandlerBody(source, channel) {
 }
 
 describe("desktop browser viewer window state", () => {
+  it("acknowledges showing a tab only after its view is found", () => {
+    const show = caseBody(fs.readFileSync(MAIN_PATH, "utf-8"), "show");
+    expect(show).toContain("const view = _getViewForSession(sp, tabId)");
+    expect(show).toContain("if (!view) return { shown: false }");
+    expect(show).toContain("shown: true");
+  });
+
   it("does not wake secondary windows when showing the primary window", () => {
     const source = fs.readFileSync(MAIN_PATH, "utf-8");
     const body = functionBody(source, "showPrimaryWindow");

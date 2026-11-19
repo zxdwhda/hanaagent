@@ -155,12 +155,18 @@ export class BrowserManager {
   declare _pending: any;
   declare _browserPreferences: any;
   declare _getSessionIdForPath: any;
+  declare _desktopHostExpected: boolean;
   declare _sessions: any;
   declare _transport: any;
   declare _revokedSessions: any;
   declare _userActivityAt: any;
   declare _idleSweepTimer: any;
-  constructor({ getSessionIdForPath = null }: any = {}) {
+  constructor({
+    getSessionIdForPath = null,
+    desktopHostExpected = Boolean(process.env.HANA_DESKTOP_EXEC_PATH || process.send),
+    transport = process.send ? new IpcTransport() : new WsTransport(),
+  }: any = {}) {
+    this._desktopHostExpected = desktopHostExpected;
     this._getSessionIdForPath = typeof getSessionIdForPath === "function" ? getSessionIdForPath : null;
     this._sessions = new Map(); // session identity key → { sessionPath, running, url, headless }
     this._lruOrder = [];        // session identity key[], 最近使用的在末尾
@@ -172,7 +178,7 @@ export class BrowserManager {
     this._browserPreferences = normalizeBrowserPreferences({});
 
     // 根据环境选择 transport：fork 模式用 IPC，spawn 模式用 WS
-    this._transport = process.send ? new IpcTransport() : new WsTransport();
+    this._transport = transport;
 
     // 注册消息处理器（IPC 立即生效，WS 在 attach 时生效）
     this._transport.onMessage((msg) => {
@@ -707,7 +713,15 @@ export class BrowserManager {
   setWsTransport(ws) {
     const transport = this._transport;
     if (transport instanceof WsTransport) {
+      if (transport._ws && transport._ws !== ws) {
+        for (const entry of this._pending.values()) {
+          clearTimeout(entry.timer);
+          entry.reject(new Error(t("error.browserHostDisconnected")));
+        }
+        this._pending.clear();
+      }
       if (ws) {
+        this._desktopHostExpected = true;
         transport.attach(ws);
         this.syncBrowserPreferences().catch((err) => {
           log.warn(`failed to sync browser preferences: ${_errorMessage(err)}`);
@@ -864,7 +878,8 @@ export class BrowserManager {
    */
   _sendCmd(cmd, params: any = {}, timeoutMs = 30000): Promise<any> {
     if (!this._transport.connected) {
-      throw new Error(t("error.browserDesktopOnly"));
+      const key = this._desktopHostExpected ? "error.browserHostDisconnected" : "error.browserDesktopOnly";
+      throw new Error(t(key));
     }
     return new Promise((resolve, reject) => {
       const id = crypto.randomUUID();
@@ -875,7 +890,13 @@ export class BrowserManager {
         }
       }, timeoutMs);
       this._pending.set(id, { resolve, reject, timer });
-      this._transport.send({ type: "browser-cmd", id, cmd, params });
+      try {
+        this._transport.send({ type: "browser-cmd", id, cmd, params });
+      } catch (error) {
+        clearTimeout(timer);
+        this._pending.delete(id);
+        reject(error);
+      }
     });
   }
 
@@ -1399,6 +1420,10 @@ export class BrowserManager {
   async show(sessionPath, tabId = null) {
     const params: any = { sessionPath };
     if (tabId) params.tabId = tabId;
-    await this._sendSessionCmd("show", params);
+    const result = await this._sendSessionCmd("show", params);
+    // Older desktop hosts returned the workspace snapshot without an explicit acknowledgement.
+    const shown = result?.shown === true
+      || (result?.shown === undefined && Array.isArray(result?.tabs) && result.tabs.length > 0);
+    if (!shown) throw new Error(t("error.browserShowUnavailable"));
   }
 }

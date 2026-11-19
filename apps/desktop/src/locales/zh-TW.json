@@ -1770,6 +1770,7 @@
       "video": "影片",
       "audio": "音訊",
       "reasoning": "推理",
+      "videoTransportUnavailable": "已宣告支援影片，但目前的通訊協定無法直接傳送影片。",
       "capability": {
         "image": "支援圖像輸入",
         "video": "支援影片輸入",
@@ -3114,6 +3115,8 @@
     "modelProviderMissingApi": "模型 \"{model}\" 所屬 provider \"{provider}\" 缺少 API 協議設定",
     "modelProviderIncomplete": "模型 \"{model}\" 所屬 provider \"{provider}\" 設定不完整",
     "browserDesktopOnly": "瀏覽器功能僅在 Electron 桌面模式下可用",
+    "browserHostDisconnected": "桌面瀏覽器主機未連線，請等待重新連線後再試。",
+    "browserShowUnavailable": "目前沒有可顯示的瀏覽器分頁。",
     "browserCmdTimeout": "瀏覽器命令逾時: {cmd}",
     "agentExecNotInit": "agent \"{id}\" 不存在或未初始化",
     "bridgeMgrNotStarted": "外部平台管理器未啟動",

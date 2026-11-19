@@ -4246,8 +4246,8 @@ async function handleBrowserCommand(cmd, params) {
     case "show": {
       const sp = params.sessionPath;
       const tabId = params.tabId || null;
-      const view = sp ? _getViewForSession(sp, tabId) : _browserWebView;
-      if (!view) return {};
+      const view = _getViewForSession(sp, tabId);
+      if (!view) return { shown: false };
       const workspace = _getBrowserWorkspace(sp);
       const activeRecord = workspace
         ? (tabId ? workspace.tabs.get(tabId) : _activeBrowserTabRecord(workspace))
@@ -4284,7 +4284,7 @@ async function handleBrowserCommand(cmd, params) {
         createBrowserViewerWindow();
       }
       _notifyViewerUrl(view.webContents.getURL());
-      return workspace ? _serializeBrowserWorkspace(workspace) : {};
+      return { ...(workspace ? _serializeBrowserWorkspace(workspace) : {}), shown: true };
     }
 
     // ── destroyView ──（销毁指定 session 的挂起 view）

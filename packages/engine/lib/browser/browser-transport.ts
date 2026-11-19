@@ -18,7 +18,7 @@ export class IpcTransport {
   }
 
   get connected() {
-    return typeof process.send === "function";
+    return typeof process.send === "function" && process.connected !== false;
   }
 
   send(msg: any) {

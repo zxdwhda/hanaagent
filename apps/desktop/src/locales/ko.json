@@ -1770,6 +1770,7 @@
       "video": "비디오",
       "audio": "오디오",
       "reasoning": "추론",
+      "videoTransportUnavailable": "동영상 입력이 설정되어 있지만 현재 프로토콜은 동영상을 직접 전송할 수 없습니다.",
       "capability": {
         "image": "이미지 입력 지원",
         "video": "비디오 입력 지원",
@@ -3114,6 +3115,8 @@
     "modelProviderMissingApi": "모델 \"{model}\"의 provider \"{provider}\"에 API 프로토콜 설정이 없어요",
     "modelProviderIncomplete": "모델 \"{model}\"의 provider \"{provider}\" 설정이 불완전해요",
     "browserDesktopOnly": "브라우저 기능은 Electron 데스크톱 모드에서만 사용할 수 있어요",
+    "browserHostDisconnected": "데스크톱 브라우저 호스트의 연결이 끊겼습니다. 다시 연결된 후 재시도하세요.",
+    "browserShowUnavailable": "표시할 수 있는 브라우저 탭이 없습니다.",
     "browserCmdTimeout": "브라우저 명령 타임아웃: {cmd}",
     "agentExecNotInit": "agent \"{id}\"가 존재하지 않거나 초기화되지 않았어요",
     "bridgeMgrNotStarted": "외부 플랫폼 관리자가 시작되지 않았어요",

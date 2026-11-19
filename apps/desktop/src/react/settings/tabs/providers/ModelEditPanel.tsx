@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { modelSupportsDirectVideoInput } from '../../../../../../../packages/shared/model-capabilities.ts';
 import { useSettingsStore } from '../../store';
 import { t, lookupModelMeta, CONTEXT_PRESETS, OUTPUT_PRESETS } from '../../helpers';
 import { hanaFetch } from '../../api';
@@ -18,9 +19,11 @@ function firstNumber(meta: Record<string, unknown>, keys: string[]): number | un
   return undefined;
 }
 
-export function ModelEditPanel({ modelId, providerId, modelMeta, anchorEl, onClose, onRefresh }: {
+export function ModelEditPanel({ modelId, providerId, providerApi, providerBaseUrl, modelMeta, anchorEl, onClose, onRefresh }: {
   modelId: string;
   providerId: string;
+  providerApi: string;
+  providerBaseUrl: string;
   modelMeta?: Record<string, unknown>;
   anchorEl: HTMLElement | null;
   onClose: () => void;
@@ -48,6 +51,10 @@ export function ModelEditPanel({ modelId, providerId, modelMeta, anchorEl, onClo
   const initialImage = meta.image === true || (meta.image === undefined && meta.vision === true);
   const [image, setImage] = useState<boolean>(initialImage);
   const [video, setVideo] = useState<boolean>(meta.video === true);
+  const videoTransportUnavailable = video && !modelSupportsDirectVideoInput(
+    { ...meta, id: modelId, provider: providerId, video: true },
+    { api: providerApi, baseUrl: providerBaseUrl },
+  );
   const [audio, setAudio] = useState<boolean>(meta.audio === true);
   const [reasoning, setReasoning] = useState<boolean>(meta.reasoning === true);
   const [dirtyCapabilities, setDirtyCapabilities] = useState<Record<string, boolean>>({});
@@ -138,6 +145,11 @@ export function ModelEditPanel({ modelId, providerId, modelMeta, anchorEl, onClo
           <Toggle ariaLabel={t('settings.api.reasoning')} on={reasoning} onChange={(value) => { setReasoning(value); setDirtyCapabilities(prev => ({ ...prev, reasoning: true })); }} />
         </div>
       </div>
+      {videoTransportUnavailable && (
+        <div className={styles['pv-model-edit-label']} role="status">
+          {t('settings.api.videoTransportUnavailable')}
+        </div>
+      )}
       <div className={styles['pv-model-edit-actions']}>
         <button type="button" className={styles['pv-add-form-btn']} onClick={onClose}>{t('settings.api.cancel')}</button>
         <button type="button" className={`${styles['pv-add-form-btn']} ${styles['primary']}`} onClick={save}>{t('settings.api.save')}</button>
