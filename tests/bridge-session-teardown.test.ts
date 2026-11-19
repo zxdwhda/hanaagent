@@ -44,6 +44,7 @@ import { BridgeSessionManager } from "../packages/engine/core/bridge-session-man
 import { createSessionOps } from "../packages/engine/core/slash-commands/session-ops.ts";
 import { VisionBridge, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
 import { CORE_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
+import { t } from "../packages/engine/lib/i18n.ts";
 
 function makeAgent(rootDir, id = "agent-a") {
   const sessionDir = path.join(rootDir, "sessions");
@@ -494,6 +495,7 @@ describe("BridgeSessionManager teardown", () => {
   it.each([
     { stopReason: "error", errorMessage: "400 Param Incorrect", hasError: true },
     { stopReason: "stop", errorMessage: undefined, hasError: true },
+    { stopReason: "length", errorMessage: undefined, hasError: true },
     { stopReason: "aborted", errorMessage: undefined, hasError: false },
   ])("classifies a Bridge turn ending with $stopReason and no visible reply", async ({ stopReason, errorMessage, hasError }) => {
     const agent = makeAgent(rootDir);
@@ -531,7 +533,9 @@ describe("BridgeSessionManager teardown", () => {
     ).resolves.toEqual({
       text: null,
       toolMedia: [],
-      error: hasError ? errorMessage || expect.any(String) : null,
+      error: stopReason === "length"
+        ? t("error.code.modelOutputLimitReached")
+        : hasError ? errorMessage || expect.any(String) : null,
       truncated: false,
     });
   });

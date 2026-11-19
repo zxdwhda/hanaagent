@@ -1473,10 +1473,13 @@ export class BridgeSessionManager {
       const capturedText = visibleText.getText();
       const emptyCompletion = (assistantStopReason === "stop" || assistantStopReason === "length")
         && !capturedText.trim() && !completedToolCall && toolMediaUrls.length === 0;
+      const emptyCompletionMessage = emptyCompletion
+        ? t(assistantStopReason === "length" ? "error.code.modelOutputLimitReached" : "error.modelNoResponse")
+        : null;
       return buildExternalMessageResult({
         capturedText,
         toolMedia: toolMediaUrls,
-        error: providerErrorMessage || (emptyCompletion ? t("error.modelNoResponse") : null),
+        error: providerErrorMessage || emptyCompletionMessage,
       });
     } catch (err) {
       if (isAbortLikeError(err)) return null;

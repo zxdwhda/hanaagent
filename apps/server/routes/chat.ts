@@ -1564,7 +1564,9 @@ export function createChatRoute(engine: any, hub: any, {
       // 只把用户收到的正文、卡片或已结束的工具调用视为结果。
       if (!ss.hasVisibleResult && !ss.hasError && !turnWasAborted) {
         ss.hasError = true;
-        broadcast({ type: "error", code: "model_no_response", message: t("error.modelNoResponse"), sessionPath });
+        const code = turnWasTruncated ? "model_output_limit_reached" : "model_no_response";
+        const message = t(turnWasTruncated ? "error.code.modelOutputLimitReached" : "error.modelNoResponse");
+        broadcast({ type: "error", code, message, sessionPath });
       }
       const turnWasSuccessful = !turnWasAborted && !ss.hasError && ss.hasVisibleResult;
 

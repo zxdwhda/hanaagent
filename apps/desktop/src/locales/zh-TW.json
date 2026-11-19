@@ -3182,6 +3182,7 @@
       "invalidUpload": "上傳的內容無法辨識",
       "invalidPath": "路徑無效",
       "modelNoResponse": "模型未回傳任何內容，請檢查 API 設定和網路連線。",
+      "modelOutputLimitReached": "模型達到輸出上限，未產生可顯示的回覆。",
       "replyStreamIncomplete": "回覆中斷，以上內容可能不完整",
       "noAvailableModel": "目前沒有可用的對話模型，先去設定裡設定模型和憑證",
       "agentModelNotAvailable": "這個助手設定的模型目前無法使用，去設定裡幫它換一個",
