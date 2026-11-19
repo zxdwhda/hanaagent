@@ -29,6 +29,9 @@ import {
 const DEFAULT_GREP_LIMIT = 100;
 const DEFAULT_FIND_LIMIT = 1000;
 const GREP_MAX_LINE_LENGTH = 500;
+const SEARCH_PROCESS_TIMEOUT_MS = 60_000;
+const SEARCH_PROCESS_TIMEOUT_MESSAGE =
+  "File search timed out after 60 seconds. Narrow the search path or glob and try again.";
 const NETWORK_TIMEOUT_MS = 10_000;
 const DOWNLOAD_TIMEOUT_MS = 120_000;
 
@@ -103,6 +106,20 @@ function spawnHidden(command, args, options = {}) {
     ...options,
     windowsHide: true,
   });
+}
+
+function watchSearchProcessDeadline(child: ReturnType<typeof spawn>) {
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill("SIGKILL");
+  }, SEARCH_PROCESS_TIMEOUT_MS);
+  timer.unref();
+  const clearDeadline = () => clearTimeout(timer);
+  child.once("exit", clearDeadline);
+  child.once("close", clearDeadline);
+  child.once("error", clearDeadline);
+  return () => timedOut;
 }
 
 function spawnSyncHidden(command, args, options = {}) {
@@ -411,7 +428,13 @@ function createGrepExecute(cwd, options: Record<string, any>, toolPaths) {
           if (glob) args.push("--glob", glob);
           args.push(pattern, searchPath);
 
+          if (signal?.aborted) {
+            settle(() => reject(new Error("Operation aborted")));
+            return;
+          }
+
           const child = spawnHidden(rgPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+          const searchTimedOut = watchSearchProcessDeadline(child);
           const rl = createInterface({ input: child.stdout });
           let stderr = "";
           let matchCount = 0;
@@ -496,6 +519,10 @@ function createGrepExecute(cwd, options: Record<string, any>, toolPaths) {
 
           child.on("close", async (code) => {
             cleanup();
+            if (searchTimedOut()) {
+              settle(() => reject(new Error(SEARCH_PROCESS_TIMEOUT_MESSAGE)));
+              return;
+            }
             if (aborted) {
               settle(() => reject(new Error("Operation aborted")));
               return;
@@ -628,6 +655,7 @@ function createFindExecute(cwd, options: Record<string, any>, toolPaths) {
           args.push(effectivePattern, searchPath);
 
           const child = spawnHidden(fdPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+          const searchTimedOut = watchSearchProcessDeadline(child);
           const rl = createInterface({ input: child.stdout });
           let stderr = "";
           const lines = [];
@@ -651,6 +679,10 @@ function createFindExecute(cwd, options: Record<string, any>, toolPaths) {
           });
           child.on("close", (code) => {
             cleanup();
+            if (searchTimedOut()) {
+              settle(() => reject(new Error(SEARCH_PROCESS_TIMEOUT_MESSAGE)));
+              return;
+            }
             if (signal?.aborted) {
               settle(() => reject(new Error("Operation aborted")));
               return;

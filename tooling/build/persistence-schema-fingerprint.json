@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:993a50408aa60047fd6928db67efa1bee3fbc19e07633c487b55d177cc99182f",
+  "payloadFingerprint": "sha256:ae81801bdcefa4b14537fb1bc6143678000a5dcec1458847642bd621fd5ae81b",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Session memory-pressure accounting and idle runtime selection are in-memory only. Persisted session formats, readers, writers, and the data epoch remain unchanged.",
-    "payloadFingerprint": "sha256:993a50408aa60047fd6928db67efa1bee3fbc19e07633c487b55d177cc99182f"
+    "compatibilityReason": "Local search execution deadlines change only rg and fd process lifetime. Search binary locations and persistence formats are unchanged.",
+    "payloadFingerprint": "sha256:ae81801bdcefa4b14537fb1bc6143678000a5dcec1458847642bd621fd5ae81b"
   },
   "schemas": [
     {
@@ -3390,7 +3390,7 @@
       "contract": "read-only known-binary legacy copy source",
       "kind": "directory-contract",
       "module": "packages/engine/lib/pi-sdk/search-tools.ts",
-      "sourceHash": "sha256:66d234f8e7ffcd574f0e2bba76661bd8b1b03650e206b9bd4479347f95b30fc9",
+      "sourceHash": "sha256:c727e5a141299fea0e6d152a32a04647050e8b457e9b2685586e836a3dc1c735",
       "storeId": "legacy-pi-search-cache"
     },
     {
@@ -3418,7 +3418,7 @@
       "contract": "managed search-tool binary and Windows sandbox runtime cache validation",
       "kind": "directory-contract",
       "module": "packages/engine/lib/pi-sdk/search-tools.ts",
-      "sourceHash": "sha256:66d234f8e7ffcd574f0e2bba76661bd8b1b03650e206b9bd4479347f95b30fc9",
+      "sourceHash": "sha256:c727e5a141299fea0e6d152a32a04647050e8b457e9b2685586e836a3dc1c735",
       "storeId": "managed-runtime-caches"
     },
     {
