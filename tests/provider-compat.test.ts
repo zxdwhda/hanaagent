@@ -245,6 +245,31 @@ describe("Qwen-compatible model declarations", () => {
   });
 });
 
+describe("MiniMax M3 thinking transport", () => {
+  const model = { id: "MiniMax-M3", api: "anthropic-messages", provider: "minimax", reasoning: true };
+  const payload = { thinking: { type: "enabled", budget_tokens: 1024 } };
+
+  it.each(["medium", "high"])("uses native adaptive thinking for %s", (reasoningLevel) => {
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel }))
+      .toEqual({ thinking: { type: "adaptive" } });
+  });
+
+  it("enables thinking requested by the user and preserves an explicit off selection", () => {
+    const official = { ...model, provider: "custom", baseUrl: "https://api.minimax.io/anthropic" };
+    expect(normalizeProviderPayload({}, official, { mode: "chat", reasoningLevel: "medium" }))
+      .toEqual({ thinking: { type: "adaptive" } });
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel: "off" }))
+      .toEqual({ thinking: { type: "disabled" } });
+    expect(normalizeProviderPayload({}, model, { mode: "chat" })).toEqual({});
+  });
+
+  it("leaves an explicitly different gateway's MiniMax M3 controls intact", () => {
+    const gateway = { ...model, baseUrl: "https://gateway.example/anthropic" };
+    expect(normalizeProviderPayload(payload, gateway, { mode: "chat", reasoningLevel: "medium" }))
+      .toEqual(payload);
+  });
+});
+
 describe("Claude Opus 4.7 thinking transport", () => {
   const model = { id: "claude-opus-4-7", api: "anthropic-messages", provider: "anthropic", reasoning: true };
   const payload = { thinking: { type: "enabled", budget_tokens: 1024, display: "summarized" } };
@@ -258,10 +283,10 @@ describe("Claude Opus 4.7 thinking transport", () => {
       .not.toHaveProperty("budget_tokens");
   });
 
-  it("preserves the off control on Opus 4.7 and the budget mode on MiniMax", () => {
+  it("preserves the off control on Opus 4.7 and the existing budget mode on older MiniMax models", () => {
     expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel: "off" }).thinking)
       .toEqual({ type: "disabled" });
-    expect(normalizeProviderPayload(payload, { ...model, id: "MiniMax-M3", provider: "minimax" },
+    expect(normalizeProviderPayload(payload, { ...model, id: "MiniMax-M2.7", provider: "minimax" },
       { mode: "chat", reasoningLevel: "medium" }).thinking).toEqual(payload.thinking);
   });
 });

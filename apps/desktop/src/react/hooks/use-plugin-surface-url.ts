@@ -50,6 +50,7 @@ export function usePluginSurfaceUrl(routeUrl: string | null, agentId?: string | 
         connection.baseUrl,
         connection.token || '',
         routeUrl,
+        agentId || '',
         retryNonce,
       ].join('|')
     : '';

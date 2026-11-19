@@ -2084,6 +2084,7 @@ function createTray() {
 
   tray.setContextMenu(buildMenu());
   tray.on("right-click", () => tray.setContextMenu(buildMenu()));
+  if (process.platform === "linux") tray.on("click", () => showPrimaryWindow());
   tray.on("double-click", () => showPrimaryWindow());
 }
 

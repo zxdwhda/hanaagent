@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:331bf0e94e2481ecc759ccfdc20a26b64b63e351f948d09945bc1052a7ecbc30",
+  "payloadFingerprint": "sha256:d7d9219cc75b9fb780bb482f6e957e40e4abad4ddeab6b3053d72162bc82dd83",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Prompt cancellation and workspace query handling do not change stored session, workspace, or database formats.",
-    "payloadFingerprint": "sha256:331bf0e94e2481ecc759ccfdc20a26b64b63e351f948d09945bc1052a7ecbc30"
+    "compatibilityReason": "Desktop tray, plugin presentation and request normalization leave stored formats and the data epoch intact.",
+    "payloadFingerprint": "sha256:d7d9219cc75b9fb780bb482f6e957e40e4abad4ddeab6b3053d72162bc82dd83"
   },
   "schemas": [
     {
@@ -3320,7 +3320,7 @@
       "contract": "desktop window bounds, release announcement bookmark, and update cache version marker readers",
       "kind": "directory-contract",
       "module": "apps/desktop/main.cjs",
-      "sourceHash": "sha256:d97dba010007bb0a1fe8e0f82ddac94821aca113a112ea678c917b9f6e42145f",
+      "sourceHash": "sha256:d8420dd182baf62fc7942bf228efb4105cddf2cf683710ff1a1976ffb417c017",
       "storeId": "desktop-window-version-state"
     },
     {

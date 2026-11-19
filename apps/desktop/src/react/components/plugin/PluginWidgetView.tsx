@@ -17,17 +17,14 @@ export function PluginWidgetView({ pluginId }: Props) {
 
   const surfaceUrl = usePluginSurfaceUrl(widget?.routeUrl ?? null, agentId);
 
-  const { iframeRef, status: iframeStatus, retry: retryIframe } = usePluginIframe(surfaceUrl.iframeSrc, {
+  const { iframeRef, status: iframeStatus } = usePluginIframe(surfaceUrl.iframeSrc, {
     pluginId,
     agentId,
     slot: 'widget',
-    capabilityGrants: widget?.hostCapabilities ?? [],
+    readyOnTimeout: true,
+    capabilityGrants: widget?.hostCapabilities,
   });
   const status = surfaceUrl.status === 'ready' ? iframeStatus : surfaceUrl.status;
-  const retry = () => {
-    surfaceUrl.retry();
-    retryIframe();
-  };
 
   if (!widget) {
     return <div className={s.error}>Widget not found</div>;
@@ -41,7 +38,7 @@ export function PluginWidgetView({ pluginId }: Props) {
       {status === 'error' && (
         <div className={s.overlay}>
           <p>{t('plugin.widget.loadFailed')}</p>
-          <button className={s.retryBtn} onClick={retry}>{t('plugin.widget.retry')}</button>
+          <button className={s.retryBtn} onClick={surfaceUrl.retry}>{t('plugin.widget.retry')}</button>
         </div>
       )}
       <iframe

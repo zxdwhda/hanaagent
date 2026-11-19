@@ -9,7 +9,9 @@ export function execCommandDescription({
   const common = [
     "Run a short, one-shot local command in the current session.",
     "When the OS sandbox is enabled, one-shot commands use its network-blocked path by default on macOS/Linux.",
-    "If a command that matters for the user's request fails because of sandboxing (network, PowerShell, WMI, registry or system reads), rerun it with sandbox_permissions=\"require_escalated\" and a one-sentence justification phrased as an approval question; the user reviews it before it runs unsandboxed.",
+    platform === "win32"
+      ? "If a command that matters for the user's request fails because of sandboxing (network, PowerShell, WMI, registry or system reads), rerun it with sandbox_permissions=\"require_escalated\" and a one-sentence justification phrased as an approval question; the user reviews it before it runs unsandboxed."
+      : 'If a necessary command needs networking, request sandbox_permissions="require_escalated" with a one-sentence approval question. With the sandbox enabled, approved commands keep its file restrictions and can use the network when Allow Sandbox Network is enabled.',
     "In Auto mode, network-blocked one-shot commands run as routine work under the session permission mode; interactive, unsandboxed, and escalated commands remain reviewable. The OS sandbox restricts files and networking but does not isolate every host IPC surface; use Ask mode when each command needs explicit confirmation.",
     "Use tty=true only when the command must remain interactive or long-running; then continue with write_stdin.",
     "For local GUI app control, use the computer tool instead of shell commands.",

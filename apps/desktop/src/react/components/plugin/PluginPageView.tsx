@@ -17,18 +17,14 @@ export function PluginPageView({ pluginId }: Props) {
 
   const surfaceUrl = usePluginSurfaceUrl(page?.routeUrl ?? null, agentId);
 
-  const { iframeRef, status: iframeStatus, postToIframe, retry: retryIframe } = usePluginIframe(surfaceUrl.iframeSrc, {
+  const { iframeRef, status: iframeStatus, postToIframe } = usePluginIframe(surfaceUrl.iframeSrc, {
     pluginId,
     agentId,
     slot: 'page',
     readyOnTimeout: true,
-    capabilityGrants: page?.hostCapabilities ?? [],
+    capabilityGrants: page?.hostCapabilities,
   });
   const status = surfaceUrl.status === 'ready' ? iframeStatus : surfaceUrl.status;
-  const retry = () => {
-    surfaceUrl.retry();
-    retryIframe();
-  };
 
   useEffect(() => {
     if (status === 'ready') postToIframe('visibility-changed', { visible: true });
@@ -51,7 +47,7 @@ export function PluginPageView({ pluginId }: Props) {
       {status === 'error' && (
         <div className={s.overlay}>
           <p>{t('plugin.page.loadFailed')}</p>
-          <button className={s.retryBtn} onClick={retry}>{t('plugin.page.retry')}</button>
+          <button className={s.retryBtn} onClick={surfaceUrl.retry}>{t('plugin.page.retry')}</button>
         </div>
       )}
       <iframe
