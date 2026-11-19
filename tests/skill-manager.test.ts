@@ -365,6 +365,34 @@ describe("SKILL_WATCH_DEPTH", () => {
 });
 
 describe("external skill watchers", () => {
+  it("keeps the shared native watcher when the active workspace paths change", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-external-watch-handoff-"));
+    const [managed, shared, first, second] = ["managed", "shared", "first", "second"].map((name) => path.join(root, name));
+    for (const dir of [managed, shared, first, second]) fs.mkdirSync(dir);
+    const externalPaths = (workspace) => [
+      { dirPath: shared, label: "shared" },
+      { dirPath: workspace, label: "workspace" },
+    ];
+    const manager = new SkillManager({ skillsDir: managed, externalPaths: externalPaths(first) });
+    const loader = { getSkills: () => ({ skills: [] }), reload: async () => {} };
+    manager.watch(loader, new Map(), () => {});
+    const commonWatcher = manager._externalWatchers.get(shared);
+    const removedWatcher = manager._externalWatchers.get(first);
+    try {
+      await Promise.all([once(commonWatcher, "ready"), once(removedWatcher, "ready")]);
+      manager.setExternalPaths(externalPaths(second));
+      expect(manager._externalWatchers.get(shared) === commonWatcher).toBe(true);
+      expect(manager._externalWatchers.has(first)).toBe(false);
+      expect(removedWatcher.closed).toBe(true);
+      await once(manager._externalWatchers.get(second), "ready");
+    } finally {
+      const watchers = new Set([manager._watcher, commonWatcher, removedWatcher, ...manager._externalWatchers.values()]);
+      manager.unwatch();
+      await Promise.all([...watchers].map((watcher) => watcher.close()));
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("ignores ancillary files and reloads when an external manifest appears, changes or is removed", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "hana-external-skill-watch-"));
     const external = path.join(root, "external");
