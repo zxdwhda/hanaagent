@@ -1,6 +1,6 @@
 {
   "name": "hanaagent",
-  "version": "0.450.18",
+  "version": "0.450.19",
   "type": "module",
   "description": "HanaAgent - a personal AI agent with memory and soul",
   "license": "Apache-2.0",

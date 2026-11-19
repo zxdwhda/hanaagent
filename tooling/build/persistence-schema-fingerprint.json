@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:edaba90ba0640d7907c3ec4c967720c3ff997c4a7ba0237fdf4113ad92216626",
+  "payloadFingerprint": "sha256:b3872829cc65445af5d64c42cac2a8b8cb92de14735ae471940bfb7e6b65a66c",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Existing schedules and stored records remain readable. Run logs only gain optional missed-slot metadata, and isolated workflow usage may carry its run identifier.",
-    "payloadFingerprint": "sha256:edaba90ba0640d7907c3ec4c967720c3ff997c4a7ba0237fdf4113ad92216626"
+    "compatibilityReason": "Changes affect transient routing, startup diagnostics, and presentation. Existing workspace data and records remain readable.",
+    "payloadFingerprint": "sha256:b3872829cc65445af5d64c42cac2a8b8cb92de14735ae471940bfb7e6b65a66c"
   },
   "schemas": [
     {
@@ -3320,7 +3320,7 @@
       "contract": "desktop window bounds, release announcement bookmark, and update cache version marker readers",
       "kind": "directory-contract",
       "module": "apps/desktop/main.cjs",
-      "sourceHash": "sha256:275b21fdfddd443f464d27acb534948f5fbdb9b1850d79d4cfdb442cf483577b",
+      "sourceHash": "sha256:d97dba010007bb0a1fe8e0f82ddac94821aca113a112ea678c917b9f6e42145f",
       "storeId": "desktop-window-version-state"
     },
     {

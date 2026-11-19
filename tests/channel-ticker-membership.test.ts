@@ -197,7 +197,7 @@ describe("channel-ticker membership source", () => {
     await delivery;
   });
 
-  it("aborts the active immediate delivery synchronously when a newer channel message arrives", async () => {
+  it("preempts the first pass promptly and lets its replacement finish during a burst", async () => {
     tmpDir = mktemp();
     const channelsDir = path.join(tmpDir, "channels");
     const agentsDir = path.join(tmpDir, "agents");
@@ -214,12 +214,19 @@ describe("channel-ticker membership source", () => {
     await appendMessage(channelFile, "user", "first");
 
     const started = deferred();
+    const replacementStarted = deferred();
+    const releaseReplacement = deferred();
     let firstSignal = null;
+    let replacementSignal = null;
     const executeCheck = vi.fn(async (_agentId, _channelName, _newMessages, _allUpdates, opts) => {
       if (!firstSignal) {
         firstSignal = opts.signal;
         started.resolve();
         await new Promise((resolve) => opts.signal.addEventListener("abort", resolve, { once: true }));
+      } else if (!replacementSignal) {
+        replacementSignal = opts.signal;
+        replacementStarted.resolve();
+        await releaseReplacement.promise;
       }
       return { replied: false, missingDecision: true };
     });
@@ -246,7 +253,16 @@ describe("channel-ticker membership source", () => {
 
     try {
       expect(abortedPromptly).toBe(true);
+      await replacementStarted.promise;
+      await appendMessage(channelFile, "user", "third");
+      const burst = Array.from({ length: 10 }, () => ticker.triggerImmediate(channelId));
+      expect(replacementSignal.aborted).toBe(false);
+      expect(ticker.snapshot(channelId).queued).toBe(true);
+      releaseReplacement.resolve();
+      await Promise.all([firstDelivery, secondDelivery, ...burst]);
+      expect(executeCheck).toHaveBeenCalledTimes(3);
     } finally {
+      releaseReplacement.resolve();
       await ticker.stop();
       await firstDelivery.catch(() => {});
       await secondDelivery.catch(() => {});

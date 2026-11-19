@@ -103,6 +103,7 @@ export function createChannelTicker({
   const _pendingImmediate = new Map<string, { mentions: Set<string>; promise: Promise<void> }>();
   let _stopped = false;          // stop() 后禁止新的 delivery
   let _activeDelivery = null;    // 当前送达进度快照（供 UI 解释等待状态）
+  let _activeDeliveryPreemptible = true;
 
   // ── 工具函数 ──
   function isTickerEnabled() {
@@ -397,23 +398,24 @@ export function createChannelTicker({
    */
   function triggerImmediate(channelName: string, { mentionedAgents }: { mentionedAgents?: string[] } = {}) {
     if (_stopped || !isTickerEnabled()) return Promise.resolve();
-    if (_activeDelivery?.channelName === channelName && _deliveryAbortCtrl && !_deliveryAbortCtrl.signal.aborted) {
-      log.log(`新消息到达，abort 当前送达并重新开始`);
-      debugLog()?.log("ticker", `new message arrived, aborting current delivery to restart`);
-      _deliveryAbortCtrl.abort();
-    }
-
     const queued = _pendingImmediate.get(channelName);
     if (queued) {
       for (const agentId of mentionedAgents || []) queued.mentions.add(agentId);
       return queued.promise;
     }
 
+    const restarted = _activeDelivery?.channelName === channelName
+      && _activeDeliveryPreemptible && !!_deliveryAbortCtrl && !_deliveryAbortCtrl.signal.aborted;
+    if (restarted) {
+      log.log("新消息到达，重新开始当前送达");
+      _deliveryAbortCtrl.abort();
+    }
+
     const mentions = new Set(mentionedAgents);
     const promise = _triggerChain.then(async () => {
       _pendingImmediate.delete(channelName);
       if (_stopped) return;
-      _deliveryPromise = _doDelivery(channelName, { mentionedAgents: [...mentions] });
+      _deliveryPromise = _doDelivery(channelName, { mentionedAgents: [...mentions], preemptible: !restarted });
       try {
         await _deliveryPromise;
       } finally {
@@ -443,7 +445,9 @@ export function createChannelTicker({
   /**
    * 实际执行手机消息送达的内部方法（可被 abort）
    */
-  async function _doDelivery(channelName: string, { mentionedAgents, proactiveAgentId = null }: { mentionedAgents?: string[]; proactiveAgentId?: string | null } = {}) {
+  async function _doDelivery(channelName: string, { mentionedAgents, proactiveAgentId = null, preemptible = true }: {
+    mentionedAgents?: string[]; proactiveAgentId?: string | null; preemptible?: boolean;
+  } = {}) {
     if (!isTickerEnabled()) return;
     // ── 1. 中断正在运行的 cycle ──
     _interruptPending = true;
@@ -502,6 +506,8 @@ export function createChannelTicker({
     // ── 4. 逐个 agent 送达未读消息；有人发言则继续下一轮，直到所有手机都追平 ──
     try {
       const maxChecks = readGuardLimit(channelFile, memberAgents.length);
+      // A restarted pass must get a chance to make progress during a burst.
+      _activeDeliveryPreemptible = preemptible;
       _activeDelivery = {
         channelName,
         mode: proactiveAgentId ? "reminder" : "delivery",
