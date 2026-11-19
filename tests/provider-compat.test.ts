@@ -139,6 +139,79 @@ describe("OpenAI tool parameter schemas", () => {
   });
 });
 
+describe("models that explicitly disable tools", () => {
+  const model = { api: "openai-completions", compat: { supportsTools: false } };
+
+  it("omits tool declarations and choice controls from the outgoing request", () => {
+    const payload = {
+      model: "text-only",
+      tools: [{ type: "function", function: { name: "read", parameters: { type: "object", properties: {} } } }],
+      tool_choice: "required",
+      parallel_tool_calls: true,
+      messages: [{ role: "user", content: "hello" }],
+    };
+    const result = normalizeProviderPayload(payload, model);
+    expect(result.messages).toEqual(payload.messages);
+    for (const key of ["tools", "tool_choice", "parallel_tool_calls"]) expect(result).not.toHaveProperty(key);
+    expect(payload.tools).toHaveLength(1);
+    expect(normalizeProviderPayload(payload, { api: model.api }).tools).toHaveLength(1);
+  });
+
+  it("keeps conversation text while omitting historical tool call and result records from the model view", () => {
+    const text = { type: "text", text: "Earlier answer" };
+    const call = { type: "toolCall", id: "read_1", name: "read", arguments: {} };
+    const messages = [
+      { role: "user", content: "hello" },
+      { role: "assistant", content: [text, call] },
+      { role: "assistant", content: [call] },
+      { role: "toolResult", toolCallId: call.id, content: [{ type: "text", text: "tool output" }] },
+      { role: "user", content: "continue" },
+    ];
+
+    expect(normalizeProviderContextMessages(messages, model)).toEqual([
+      messages[0], { role: "assistant", content: [text] }, messages[4],
+    ]);
+    expect(messages[1].content).toEqual([text, call]);
+    expect(normalizeProviderContextMessages(messages, { api: model.api })).toEqual(messages);
+  });
+});
+
+describe("Qwen-compatible model declarations", () => {
+  it("honors thinking off for custom completions models that have no legacy quirk", () => {
+    const model = { api: "openai-completions", reasoning: true, compat: { thinkingFormat: "qwen" } };
+    const payload = { messages: [{ role: "user", content: "hello" }], max_completion_tokens: 16384 };
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel: "off" }))
+      .toMatchObject({ max_completion_tokens: 16384, enable_thinking: false });
+    expect(normalizeProviderPayload(payload, model, { mode: "utility" }))
+      .toMatchObject({ enable_thinking: false });
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel: "high" }))
+      .not.toHaveProperty("enable_thinking");
+    expect(normalizeProviderPayload(payload, { ...model, api: "openai-responses" }, { mode: "chat", reasoningLevel: "off" }))
+      .not.toHaveProperty("enable_thinking");
+  });
+});
+
+describe("Claude Opus 4.7 thinking transport", () => {
+  const model = { id: "claude-opus-4-7", api: "anthropic-messages", provider: "anthropic", reasoning: true };
+  const payload = { thinking: { type: "enabled", budget_tokens: 1024, display: "summarized" } };
+
+  it.each(["medium", "high"])("uses adaptive thinking for %s effort", (reasoningLevel) => {
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel })).toMatchObject({
+      thinking: { type: "adaptive", display: "summarized" },
+      output_config: { effort: reasoningLevel },
+    });
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel }).thinking)
+      .not.toHaveProperty("budget_tokens");
+  });
+
+  it("preserves the off control on Opus 4.7 and the budget mode on MiniMax", () => {
+    expect(normalizeProviderPayload(payload, model, { mode: "chat", reasoningLevel: "off" }).thinking)
+      .toEqual({ type: "disabled" });
+    expect(normalizeProviderPayload(payload, { ...model, id: "MiniMax-M3", provider: "minimax" },
+      { mode: "chat", reasoningLevel: "medium" }).thinking).toEqual(payload.thinking);
+  });
+});
+
 describe("Anthropic Max effort normalization", () => {
   it("maps Hana's unified Max level to Anthropic max effort", () => {
     const result = normalizeProviderPayload({

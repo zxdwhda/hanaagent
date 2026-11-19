@@ -13,6 +13,7 @@ import {
   getEndpointDefaultReasoningCapability,
   normalizeModelProtocolCompat,
   normalizeToolUseContract,
+  requiresAnthropicAdaptiveThinking,
   normalizeVisionCapabilities,
   withHanaAudioInputCompat,
   withHanaVideoInputCompat,
@@ -207,6 +208,7 @@ function buildModelOverride(modelEntry, modelDefaults = {}, executionHeaders = {
     throw new Error(`invalid toolUse contract for model "${getModelId(modelEntry) || "unknown"}"`);
   }
   if (toolUse) override.toolUse = toolUse;
+  if (toolUse) override.compat = { ...override.compat, supportsTools: toolUse.supportsTools };
   const visionCapabilities = image === true
     ? normalizeVisionCapabilities(modelEntry.visionCapabilities)
     : null;
@@ -363,6 +365,12 @@ function buildModelEntry(
     if (typeof explicitCompat?.supportsPromptCacheKey === "boolean") {
       entry.compat = { ...entry.compat, supportsPromptCacheKey: explicitCompat.supportsPromptCacheKey };
     }
+  }
+  // Pi projects only its own model fields. Keep the configured tool capability
+  // in compat so the request hooks still have it after model lookup.
+  if (toolUse) entry.compat = { ...entry.compat, supportsTools: toolUse.supportsTools };
+  if (requiresAnthropicAdaptiveThinking(entry, { api: modelApi })) {
+    entry.compat = { ...entry.compat, forceAdaptiveThinking: true };
   }
 
   let mediaAwareEntry = video === true ? withHanaVideoInputCompat(entry, true) : entry;

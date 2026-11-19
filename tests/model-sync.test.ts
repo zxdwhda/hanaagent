@@ -336,6 +336,20 @@ function readProviderCatalogProviders() {
 }
 
 describe("syncModels", () => {
+  it("projects adaptive thinking for Opus 4.7 through an Anthropic-compatible gateway", async () => {
+    const syncModels = await loadSync();
+    syncModels({
+      custom: {
+        api: "anthropic-messages", base_url: "https://example.test/v1", api_key: "fixture",
+        models: ["claude-opus-4-7", "MiniMax-M3"],
+      },
+    }, { modelsJsonPath });
+    const { AuthStorage, createModelRegistry } = await import("../packages/engine/lib/pi-sdk/index.ts");
+    const sdk = createModelRegistry(AuthStorage.inMemory(), modelsJsonPath);
+    expect(sdk.find("custom", "claude-opus-4-7")?.compat).toMatchObject({ forceAdaptiveThinking: true });
+    expect(sdk.find("custom", "MiniMax-M3")?.compat).not.toHaveProperty("forceAdaptiveThinking");
+  });
+
   it.each(["custom-gateway", "openai"])("projects Responses cache support for %s", async (provider) => {
     const syncModels = await loadSync();
     syncModels({
@@ -535,6 +549,19 @@ describe("syncModels", () => {
       supportsParallelToolCalls: true,
       toolResultFormat: "message",
     });
+  });
+
+  it("keeps a no-tools declaration on the model returned by the SDK", async () => {
+    const syncModels = await loadSync();
+    syncModels({
+      custom: {
+        api: "openai-completions", base_url: "https://example.test/v1", api_key: "fixture",
+        models: [{ id: "text-only", toolUse: { supportsTools: false, dialect: "none", toolResultFormat: "message" } }],
+      },
+    }, { modelsJsonPath });
+    const { AuthStorage, createModelRegistry } = await import("../packages/engine/lib/pi-sdk/index.ts");
+    const sdk = createModelRegistry(AuthStorage.inMemory(), modelsJsonPath);
+    expect(sdk.find("custom", "text-only")?.compat).toMatchObject({ supportsTools: false });
   });
 
   it("rejects malformed tool use contracts instead of silently falling back", async () => {
