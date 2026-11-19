@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:d7d9219cc75b9fb780bb482f6e957e40e4abad4ddeab6b3053d72162bc82dd83",
+  "payloadFingerprint": "sha256:f99fa88eaaba7ad219ccb7d018cae00cfe814a3dafa82348f98099f58fcb74fb",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Desktop tray, plugin presentation and request normalization leave stored formats and the data epoch intact.",
-    "payloadFingerprint": "sha256:d7d9219cc75b9fb780bb482f6e957e40e4abad4ddeab6b3053d72162bc82dd83"
+    "compatibilityReason": "Browser screenshots now fall back to an in-memory capture in the desktop main process. Persisted formats, keys, readers, and the data epoch are unchanged.",
+    "payloadFingerprint": "sha256:f99fa88eaaba7ad219ccb7d018cae00cfe814a3dafa82348f98099f58fcb74fb"
   },
   "schemas": [
     {
@@ -3320,7 +3320,7 @@
       "contract": "desktop window bounds, release announcement bookmark, and update cache version marker readers",
       "kind": "directory-contract",
       "module": "apps/desktop/main.cjs",
-      "sourceHash": "sha256:d8420dd182baf62fc7942bf228efb4105cddf2cf683710ff1a1976ffb417c017",
+      "sourceHash": "sha256:26e8fe15cd96fb31c565a89d3a79ae84eb00c86ca82cf66f3b1e7c920e479bd7",
       "storeId": "desktop-window-version-state"
     },
     {

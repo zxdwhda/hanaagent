@@ -42,6 +42,32 @@ describe("memory compile output integrity", () => {
     fs.rmSync(directory, { recursive: true, force: true });
   });
 
+  it.each([true, false])("clamps the wire output budget to a small model limit (reasoning=%s)", async (reasoning) => {
+    const outputPath = path.join(directory, "facts.md");
+    fs.writeFileSync(outputPath, facts);
+    fs.writeFileSync(path.join(directory, "editable-facts-state.json"), JSON.stringify({
+      lastCompiledSummaryUpdatedAt: new Date(2026, 10, 18, 13).toISOString(),
+    }));
+    const manager = {
+      getAllSummaries: () => [{
+        session_id: "garden",
+        updated_at: new Date().toISOString(),
+        summary: "### 重要事实\n- 用户喜欢观鸟和种植香草。",
+      }],
+    };
+    const lowBudgetModel = { ...model, model: { id: model.model, maxTokens: 256, reasoning } };
+    const fetchModel = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const request = JSON.parse(String(init?.body));
+      return request.max_tokens === 256
+        ? providerResponse(validFacts, "stop")
+        : Response.json({ error: { message: "output budget exceeds model limit" } }, { status: 400 });
+    });
+
+    await expect(compileEditableFacts(manager, outputPath, lowBudgetModel)).resolves.toBe("compiled");
+    expect(fetchModel).toHaveBeenCalledOnce();
+    expect(fs.readFileSync(outputPath, "utf8")).toBe(validFacts);
+  });
+
   it.each([
     { target: "today", response: cnRefusal, finish: "stop", error: "conversational reply" },
     {
