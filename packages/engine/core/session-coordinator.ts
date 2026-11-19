@@ -758,34 +758,28 @@ function estimateSessionRuntimeRetainedBytes(session: any) {
   return estimateRetainedValueBytes(messages, seen, { count: 0 });
 }
 
+const RUNTIME_ESTIMATE_VALUE_LIMIT = 20_000;
+
 function estimateRetainedValueBytes(value: any, seen: WeakSet<any>, budget: any, depth = 0) {
-  if (value == null || depth > 10 || budget.count > 20_000) return 0;
+  if (value == null || depth > 10 || budget.count >= RUNTIME_ESTIMATE_VALUE_LIMIT) return 0;
   budget.count += 1;
 
-  if (typeof value === "string") {
-    return value.length >= 8192 ? value.length : 0;
-  }
-  if (typeof value !== "object") return 0;
-  if (seen.has(value)) return 0;
+  if (typeof value === "string") return value.length;
+  if (typeof value !== "object" || seen.has(value)) return 0;
   seen.add(value);
+  if (ArrayBuffer.isView(value)) return estimateRetainedValueBytes(value.buffer, seen, budget, depth);
+  if (value instanceof ArrayBuffer || value instanceof SharedArrayBuffer) return value.byteLength;
 
   let total = 0;
   if (Array.isArray(value)) {
-    for (const item of value) total += estimateRetainedValueBytes(item, seen, budget, depth + 1);
+    for (let index = value.length - 1; index >= 0 && budget.count < RUNTIME_ESTIMATE_VALUE_LIMIT; index -= 1) {
+      total += estimateRetainedValueBytes(value[index], seen, budget, depth + 1);
+    }
     return total;
   }
 
-  if ((value.type === "image" || value.type === "video") && typeof value.data === "string") {
-    total += value.data.length;
-  }
-  if ((value.type === "image" || value.type === "video") && typeof value.source?.data === "string") {
-    total += value.source.data.length;
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    if ((value.type === "image" || value.type === "video") && (key === "data" || key === "source")) {
-      continue;
-    }
+  for (const child of Object.values(value)) {
+    if (budget.count >= RUNTIME_ESTIMATE_VALUE_LIMIT) break;
     total += estimateRetainedValueBytes(child, seen, budget, depth + 1);
   }
   return total;
@@ -5846,26 +5840,42 @@ export class SessionCoordinator {
     return this._checkRuntimeMemoryPressure(sessionPath, reason);
   }
 
-  async _checkRuntimeMemoryPressure(sessionPath: any, reason: any) {
+  async _checkRuntimeMemoryPressure(sessionPath: any, reason: any, includeIdlePeers = false) {
     const entry = this._getSessionEntryByPath(sessionPath);
     if (!entry) return { hibernated: false, reason: "not_loaded" };
     if (!this._memoryPressure.enabled) return { hibernated: false, reason: "disabled" };
-    if (!this._canHibernateSessionRuntime(entry, sessionPath)) {
-      return { hibernated: false, reason: "busy" };
-    }
+    const isIdle = this._canHibernateSessionRuntime(entry, sessionPath);
+    if (!isIdle && !includeIdlePeers) return { hibernated: false, reason: "busy" };
 
-    const retainedBytes = estimateSessionRuntimeRetainedBytes(entry.session);
     const memory = this._readMemoryUsage();
     const thresholds = this._memoryPressure.thresholds;
-    const externalBytes = (memory.external || 0) + (memory.arrayBuffers || 0);
-    const payloadPressure = retainedBytes >= thresholds.highPayloadBytes;
+    // Node reports ArrayBuffers as part of external memory.
+    const externalBytes = Math.max(memory.external, memory.arrayBuffers);
     const processPressure = memory.rss >= thresholds.highRssBytes || externalBytes >= thresholds.highExternalBytes;
-    const shouldHibernate = payloadPressure || (processPressure && retainedBytes >= thresholds.minRetainedBytes);
-    if (!shouldHibernate) {
-      return { hibernated: false, reason: "below_threshold", retainedBytes, memory };
+    let retainedBytes = isIdle ? estimateSessionRuntimeRetainedBytes(entry.session) : 0;
+    let targetPath = isIdle && (
+      retainedBytes >= thresholds.highPayloadBytes
+      || (processPressure && retainedBytes >= thresholds.minRetainedBytes)
+    ) ? sessionPath : null;
+
+    if (!targetPath && includeIdlePeers && processPressure) {
+      for (const [key, peer] of this._sessions) {
+        if (peer === entry) continue;
+        const peerPath = this._sessionPathForEntry(peer, key);
+        if (!this._canHibernateSessionRuntime(peer, peerPath)) continue;
+        const peerBytes = estimateSessionRuntimeRetainedBytes(peer.session);
+        if (peerBytes < thresholds.minRetainedBytes || peerBytes <= retainedBytes) continue;
+        retainedBytes = peerBytes;
+        targetPath = peerPath;
+      }
+    }
+    if (!targetPath) {
+      return isIdle
+        ? { hibernated: false, reason: "below_threshold", retainedBytes, memory }
+        : { hibernated: false, reason: "busy" };
     }
 
-    const hibernated = await this.hibernateSessionRuntime(sessionPath, `memory_pressure:${reason}`);
+    const hibernated = await this.hibernateSessionRuntime(targetPath, `memory_pressure:${reason}`);
     return {
       hibernated,
       reason: hibernated ? "memory_pressure" : "busy",
@@ -5900,7 +5910,7 @@ export class SessionCoordinator {
       this._deleteRuntimeValueForPath(this._runtimePressureTimers, sessionPath);
       const current = this._getSessionEntryByPath(sessionPath);
       if (!current || current.session !== scheduledSession) return;
-      this._checkRuntimeMemoryPressure(sessionPath, reason).catch((err) => {
+      this._checkRuntimeMemoryPressure(sessionPath, reason, true).catch((err) => {
         log.warn(`runtime pressure check failed for ${path.basename(sessionPath)}: ${err.message}`);
       });
     }, delay);

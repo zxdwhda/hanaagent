@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:2e401105ee77d98b1e5f59ae6e31882a967ef742bb568c8eafdfd5539d409de2",
+  "payloadFingerprint": "sha256:993a50408aa60047fd6928db67efa1bee3fbc19e07633c487b55d177cc99182f",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Bridge output-limit classification only changes in-memory reply status and delivery. Session sidecar formats, paths, readers, writers, and the data epoch are unchanged.",
-    "payloadFingerprint": "sha256:2e401105ee77d98b1e5f59ae6e31882a967ef742bb568c8eafdfd5539d409de2"
+    "compatibilityReason": "Session memory-pressure accounting and idle runtime selection are in-memory only. Persisted session formats, readers, writers, and the data epoch remain unchanged.",
+    "payloadFingerprint": "sha256:993a50408aa60047fd6928db67efa1bee3fbc19e07633c487b55d177cc99182f"
   },
   "schemas": [
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:cbe0fa95addb82c71b751b84a7ca10c76fcc4f69ca41259b4beef48031fbc84c"
+          "sourceHash": "sha256:4edf2702db8038ea287c87ca4a7fa1ec8013e6cbf52e185407258209a590cbe9"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",

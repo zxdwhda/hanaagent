@@ -109,7 +109,7 @@ function makeCoordinator( overrides: any = {}) {
     getActivityStore: () => null,
     getAgentById: () => agent,
     listAgents: () => [agent],
-    getDeferredResultStore: () => null,
+    getDeferredResultStore: overrides.getDeferredResultStore || (() => null),
     memoryPressure: overrides.memoryPressure,
     getEngine: overrides.getEngine,
   });
@@ -430,4 +430,85 @@ describe("SessionCoordinator runtime hibernation", () => {
     expect(coordinator.getSessionByPath(sessionPath)).toBeNull();
     expect(coordinator.currentSessionPath).toBe(sessionPath);
   });
+  it("includes accumulated short turns in the retained payload", async () => {
+    const sessionPath = "/tmp/hana-runtime-hibernation/agents/hana/sessions/text.jsonl";
+    const messages = Array.from({ length: 20 }, (_, index) => ({
+      role: "assistant", content: [{ type: "thinking", thinking: `Reasoning ${index} ${"a".repeat(2048)}` }],
+    }));
+    const session = makeSession(sessionPath, { messages });
+    const coordinator = makeCoordinator({
+      memoryPressure: { getMemoryUsage: () => ({}), thresholds: { highPayloadBytes: 32 * 1024 } },
+    });
+    coordinator._sessions.set(sessionPath, { session, agentId: "hana" });
+
+    await expect(coordinator.checkRuntimeMemoryPressure(sessionPath)).resolves.toMatchObject({ hibernated: true });
+    expect(coordinator.getSessionByPath(sessionPath)).toBeNull();
+  });
+
+  it("counts one backing allocation shared by multiple message views", async () => {
+    const sessionPath = "/tmp/hana-runtime-hibernation/agents/hana/sessions/binary.jsonl";
+    const buffer = new ArrayBuffer(32 * 1024);
+    const session = makeSession(sessionPath, { messages: [
+      { content: [new Uint8Array(buffer, 0, 24 * 1024), new Uint8Array(buffer, 8 * 1024)] },
+    ] });
+    const coordinator = makeCoordinator({
+      memoryPressure: { getMemoryUsage: () => ({}), thresholds: { highPayloadBytes: 40 * 1024 } },
+    });
+    coordinator._sessions.set(sessionPath, { session, agentId: "hana" });
+
+    await expect(coordinator.checkRuntimeMemoryPressure(sessionPath))
+      .resolves.toMatchObject({ hibernated: false, retainedBytes: buffer.byteLength });
+  });
+
+  it("does not count ArrayBuffers twice when evaluating process pressure", async () => {
+    const sessionPath = "/tmp/hana-runtime-hibernation/agents/hana/sessions/normal.jsonl";
+    const session = makeSession(sessionPath, { messages: [{ role: "user", content: "a".repeat(8192) }] });
+    const coordinator = makeCoordinator({
+      memoryPressure: {
+        getMemoryUsage: () => ({ external: 48 * 1024, arrayBuffers: 32 * 1024 }),
+        thresholds: { highExternalBytes: 64 * 1024, minRetainedBytes: 4096 },
+      },
+    });
+    coordinator._sessions.set(sessionPath, { session, agentId: "hana" });
+
+    await expect(coordinator.checkRuntimeMemoryPressure(sessionPath)).resolves.toMatchObject({ hibernated: false });
+    expect(coordinator.getSessionByPath(sessionPath)).toBe(session);
+  });
+
+  it("reclaims a heavier idle peer under process pressure without interrupting busy sessions", async () => {
+    vi.useFakeTimers();
+    try {
+      const coordinator = makeCoordinator({
+        getDeferredResultStore: () => ({
+          listPending: (sessionPath: string) => sessionPath.endsWith("/deferred.jsonl") ? [{}] : [],
+        }),
+        memoryPressure: {
+          getMemoryUsage: () => ({ rss: 2048 }),
+          thresholds: { checkDelayMs: 1, highRssBytes: 1024, minRetainedBytes: 4096 },
+        },
+      });
+      const sessions = [
+        ["trigger", 100, false],
+        ["smaller-idle", 10000, false],
+        ["largest-idle", 20000, false],
+        ["streaming", 25000, true],
+        ["deferred", 30000, false],
+      ] as const;
+      for (const [name, size, isStreaming] of sessions) {
+        const sessionPath = `/tmp/hana-runtime-hibernation/agents/hana/sessions/${name}.jsonl`;
+        const session = makeSession(sessionPath, { isStreaming, messages: [{ role: "user", content: "x".repeat(size) }] });
+        coordinator._sessions.set(sessionPath, { session, agentId: "hana" });
+      }
+      coordinator._scheduleRuntimePressureCheck("/tmp/hana-runtime-hibernation/agents/hana/sessions/trigger.jsonl");
+      await vi.advanceTimersByTimeAsync(1);
+
+      for (const [name] of sessions) {
+        const sessionPath = `/tmp/hana-runtime-hibernation/agents/hana/sessions/${name}.jsonl`;
+        expect(Boolean(coordinator.getSessionByPath(sessionPath))).toBe(name !== "largest-idle");
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });
