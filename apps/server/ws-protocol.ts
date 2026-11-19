@@ -41,9 +41,23 @@
  *   { type: "stream_resume", sessionPath: "...", streamId: "...", sinceSeq: number, nextSeq: number, reset: bool, truncated: bool, isStreaming: bool, runtimeIsStreaming?: bool, events: [{ seq, event, ts }] }  (新协议；isStreaming 是 replay 缓存状态，runtimeIsStreaming 是 engine 运行态)
  */
 
+// 独立于会话续传缓存，限制单个连接已经积压的出站数据。
+const MAX_PENDING_WS_BYTES = 16 * 1024 * 1024;
+
+function canSend(ws) {
+  if (ws.readyState !== 1) return false; // OPEN
+  const socket = ws.raw ?? ws;
+  if ((socket.bufferedAmount ?? 0) < MAX_PENDING_WS_BYTES) return true;
+
+  // 关闭帧也会排队。Node WebSocket 可以直接释放积压，客户端重连后按序续传。
+  if (typeof socket.terminate === "function") socket.terminate();
+  else ws.close?.(1013, "Output backlog");
+  return false;
+}
+
 /** 安全地发送 JSON 消息到 WebSocket */
 export function wsSend(ws, msg) {
-  if (ws.readyState === 1) { // OPEN
+  if (canSend(ws)) {
     ws.send(JSON.stringify(msg));
   }
 }
@@ -54,7 +68,7 @@ export function wsSend(ws, msg) {
  * 一次再复用，避免对每个 client 重复序列化。
  */
 export function wsSendSerialized(ws, payload) {
-  if (ws.readyState === 1) { // OPEN
+  if (canSend(ws)) {
     ws.send(payload);
   }
 }
