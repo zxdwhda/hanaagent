@@ -6,7 +6,8 @@
  * inserts a normalized `\n\n` when a tool intervenes between visible prose.
  */
 
-import { getMissingCompletedAssistantText } from "../../../shared/text-signature.ts";
+import { getMissingCompletedAssistantText, projectAssistantTextUpdate, type AssistantTextUpdateSlots } from "../../../shared/text-signature.ts";
+import { ThinkTagParser } from "../../core/events.ts";
 
 function paragraphBoundaryPrefix(existing: string, incoming: string): string {
   if (!existing || !incoming) return "";
@@ -20,19 +21,37 @@ export function createVisibleTextAccumulator() {
   let text = "";
   let pendingParagraphBoundary = false;
   let streamedMessageText = "";
+  const pendingPhaseText: AssistantTextUpdateSlots = new Map();
+  const thinkTagParser = new ThinkTagParser();
+
+  function visibleAssistantText(raw: string, complete = false): string {
+    let visible = "";
+    const collect = (event) => {
+      if (event.type === "text") visible += event.data;
+    };
+    if (raw) thinkTagParser.feed(raw, collect);
+    if (complete) {
+      thinkTagParser.flush(collect);
+      thinkTagParser.reset();
+    }
+    return visible;
+  }
 
   return {
     appendAssistantEvent(event: any) {
       if (event.type === "message_update") {
-        const update = event.assistantMessageEvent;
-        if (update?.type !== "text_delta" || !update.delta) return null;
-        streamedMessageText += update.delta;
-        return this.appendTextDelta(update.delta);
+        const delta = projectAssistantTextUpdate(event.message, event.assistantMessageEvent, pendingPhaseText);
+        if (!delta) return null;
+        streamedMessageText += delta;
+        const visible = visibleAssistantText(delta);
+        return visible ? this.appendTextDelta(visible) : null;
       }
       if (event.type !== "message_end" || event.message?.role !== "assistant") return null;
       const tail = getMissingCompletedAssistantText(event.message, streamedMessageText);
       streamedMessageText = "";
-      return tail ? this.appendTextDelta(tail) : null;
+      pendingPhaseText.clear();
+      const visible = visibleAssistantText(tail, true);
+      return visible ? this.appendTextDelta(visible) : null;
     },
 
     appendTextDelta(delta: string) {

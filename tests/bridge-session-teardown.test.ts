@@ -491,7 +491,11 @@ describe("BridgeSessionManager teardown", () => {
     expect(agent.memoryTicker.notifyTurn).toHaveBeenCalledWith(mgrPath);
   });
 
-  it("returns provider message_end errors as structured diagnostics instead of swallowing them", async () => {
+  it.each([
+    { stopReason: "error", errorMessage: "400 Param Incorrect", hasError: true },
+    { stopReason: "stop", errorMessage: undefined, hasError: true },
+    { stopReason: "aborted", errorMessage: undefined, hasError: false },
+  ])("classifies a Bridge turn ending with $stopReason and no visible reply", async ({ stopReason, errorMessage, hasError }) => {
     const agent = makeAgent(rootDir);
     const mgrPath = path.join(agent.sessionDir, "bridge", "owner", "error.jsonl");
     const manager = new BridgeSessionManager(makeDeps(agent));
@@ -505,8 +509,10 @@ describe("BridgeSessionManager teardown", () => {
           fn({
             type: "message_end",
             message: {
-              stopReason: "error",
-              errorMessage: "400 Param Incorrect",
+              role: "assistant",
+              content: [{ type: "thinking", thinking: "Internal" }],
+              stopReason,
+              errorMessage,
             },
           });
         }
@@ -525,7 +531,7 @@ describe("BridgeSessionManager teardown", () => {
     ).resolves.toEqual({
       text: null,
       toolMedia: [],
-      error: "400 Param Incorrect",
+      error: hasError ? errorMessage || expect.any(String) : null,
       truncated: false,
     });
   });

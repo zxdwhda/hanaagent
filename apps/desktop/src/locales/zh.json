@@ -3174,6 +3174,8 @@
       "fileTooLarge": "文件太大，超出了允许的大小",
       "invalidUpload": "上传的内容无法识别",
       "invalidPath": "路径无效",
+      "modelNoResponse": "模型未返回任何内容，请检查 API 配置和网络连接。",
+      "replyStreamIncomplete": "回复中断，以上内容可能不完整",
       "noAvailableModel": "当前没有可用的对话模型，先去设置里配置模型和凭证",
       "agentModelNotAvailable": "这个助手配置的模型当前不可用，去设置里给它换一个",
       "workspaceNotFound": "找不到这个工作台",

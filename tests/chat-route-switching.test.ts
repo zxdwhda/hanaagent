@@ -156,7 +156,14 @@ describe("chat route model switch guard", () => {
     handlers.onClose({}, ws);
   });
 
-  it("does not count a length-limited thinking-only reply as a normal success", async () => {
+  it.each([
+    { stopReason: "length", tagged: false, aborted: false, errors: 1 },
+    { stopReason: "stop", tagged: false, aborted: false, errors: 1 },
+    { stopReason: "stop", tagged: true, aborted: false, errors: 1 },
+    { stopReason: "error", tagged: false, aborted: false, errors: 1 },
+    { stopReason: "error", tagged: false, aborted: false, errors: 1, partial: "Partial answer" },
+    { stopReason: "aborted", tagged: false, aborted: true, errors: 0 },
+  ])("classifies the reply terminal state ($stopReason, tagged=$tagged, partial=$partial)", async ({ stopReason, tagged, aborted, errors, partial }) => {
     let createHandlers;
     let subscriber;
     const upgradeWebSocket = vi.fn((factory) => {
@@ -199,21 +206,50 @@ describe("chat route model switch guard", () => {
     subscriber?.({
       type: "message_update",
       message: { role: "assistant" },
-      assistantMessageEvent: { type: "thinking_delta", delta: "still reasoning" },
+      assistantMessageEvent: tagged
+        ? { type: "text_delta", delta: "<think>still reasoning</think>" }
+        : { type: "thinking_delta", delta: "still reasoning" },
     }, sessionPath);
+    const errorMessage = partial ? "Stream ended without finish_reason" : "provider refused";
+    if (partial) {
+      subscriber?.({
+        type: "message_update",
+        message: { role: "assistant" },
+        assistantMessageEvent: { type: "text_delta", delta: partial },
+      }, sessionPath);
+      subscriber?.({
+        type: "message_update",
+        message: { role: "assistant" },
+        assistantMessageEvent: { type: "error", error: { errorMessage } },
+      }, sessionPath);
+    }
     subscriber?.({
       type: "message_end",
-      message: { role: "assistant", content: [{ type: "thinking", thinking: "still reasoning" }], stopReason: "length" },
+      message: {
+        role: "assistant",
+        content: tagged
+          ? [{ type: "text", text: "<think>still reasoning</think>" }]
+          : [{ type: "thinking", thinking: "still reasoning" }],
+        stopReason,
+        errorMessage: stopReason === "error" ? errorMessage : undefined,
+      },
     }, sessionPath);
-    subscriber?.({ type: "turn_end" }, sessionPath);
+    subscriber?.({ type: "turn_end", aborted }, sessionPath);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const payloads = ws.send.mock.calls.map(([raw]) => JSON.parse(raw));
-    expect(payloads.some((payload) => payload.type === "error")).toBe(true);
-    expect(payloads.find((payload) => payload.type === "turn_end")).toMatchObject({
-      truncated: true,
-      stopReason: "length",
-    });
+    const emittedErrors = payloads.filter((payload) => payload.type === "error");
+    expect(emittedErrors).toHaveLength(errors);
+    if (stopReason === "error") expect(emittedErrors[0].message).toBe(errorMessage);
+    if (partial) {
+      expect(emittedErrors[0].code).toBe("reply_stream_incomplete");
+      expect(payloads.filter(payload => payload.type === "text_delta").map(payload => payload.delta).join("")).toBe(partial);
+    } else if (stopReason === "stop" || stopReason === "length") {
+      expect(emittedErrors[0].code).toBe("model_no_response");
+    }
+    const turnEnd = payloads.find((payload) => payload.type === "turn_end");
+    expect(turnEnd).toBeDefined();
+    if (stopReason === "length") expect(turnEnd).toMatchObject({ truncated: true, stopReason: "length" });
     expect(deliverNotification).not.toHaveBeenCalled();
     handlers.onClose({}, ws);
   });
@@ -988,7 +1024,7 @@ describe("chat route model switch guard", () => {
     handlers.onClose({}, ws);
   });
 
-  it("buffers OpenAI Responses text until text_end and suppresses commentary phase", () => {
+  it("buffers unknown Responses text and streams confirmed final text without duplication", () => {
     let createHandlers;
     let subscriber;
     const commentarySignature = JSON.stringify({
@@ -1077,6 +1113,9 @@ describe("chat route model switch guard", () => {
         partial: { ...commentaryPartial, content: finalContent },
       },
     }, sessionPath);
+    const beforeEnd = ws.send.mock.calls.map(([raw]) => JSON.parse(raw));
+    expect(beforeEnd.filter(payload => payload.type === "text_delta").map(payload => payload.delta))
+      .toEqual(["已经查到状态。"]);
     subscriber?.({
       type: "message_update",
       message: { ...commentaryPartial, content: finalContent },
