@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:f99fa88eaaba7ad219ccb7d018cae00cfe814a3dafa82348f98099f58fcb74fb",
+  "payloadFingerprint": "sha256:2e401105ee77d98b1e5f59ae6e31882a967ef742bb568c8eafdfd5539d409de2",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Browser screenshots now fall back to an in-memory capture in the desktop main process. Persisted formats, keys, readers, and the data epoch are unchanged.",
-    "payloadFingerprint": "sha256:f99fa88eaaba7ad219ccb7d018cae00cfe814a3dafa82348f98099f58fcb74fb"
+    "compatibilityReason": "Bridge output-limit classification only changes in-memory reply status and delivery. Session sidecar formats, paths, readers, writers, and the data epoch are unchanged.",
+    "payloadFingerprint": "sha256:2e401105ee77d98b1e5f59ae6e31882a967ef742bb568c8eafdfd5539d409de2"
   },
   "schemas": [
     {
@@ -3642,7 +3642,7 @@
       "contract": "bridge index, legacy session metadata, title, and vision sidecar readers",
       "kind": "runtime-contract",
       "module": "packages/engine/core/bridge-session-manager.ts",
-      "sourceHash": "sha256:68c0bed9efb1de0ba9f3ee45824f72bd71371e387e2901f9bad507a0b41be903",
+      "sourceHash": "sha256:7d40aa59f4bf8374714444df7f2503e96bcc29471e0ba8fbfa30f918858d2ed1",
       "storeId": "session-sidecars"
     },
     {

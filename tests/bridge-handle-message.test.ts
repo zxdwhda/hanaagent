@@ -1640,7 +1640,10 @@ describe("BridgeManager._handleMessage", () => {
       expect(feishuAdapter.sendReply).toHaveBeenCalledWith("oc_chat", "Hello");
     });
 
-    it("fails an RC-attached Feishu CardKit receipt when the desktop session returns only an error", async () => {
+    it.each([
+      { error: "provider timeout", outputLimitReached: false, expectedNotice: "失败" },
+      { error: null, outputLimitReached: true, expectedNotice: "输出上限" },
+    ])("fails an RC-attached Feishu CardKit receipt without a visible reply ($expectedNotice)", async ({ error, outputLimitReached, expectedNotice }) => {
       const { bm, hub } = createMocks();
       const feishuAdapter = {
         richStreamingCapabilities: {
@@ -1659,7 +1662,7 @@ describe("BridgeManager._handleMessage", () => {
         stop: vi.fn(),
       };
       bm._platforms.set("feishu:hana", { adapter: feishuAdapter, status: "connected", agentId: "hana", platform: "feishu" });
-      hub.send.mockResolvedValue({ text: "", toolMedia: [], error: "provider timeout", truncated: false });
+      hub.send.mockResolvedValue({ text: "", toolMedia: [], error, truncated: false, outputLimitReached });
 
       await bm._flushAttachedDesktopSession({
         sessionKey: "fs_dm_owner123@hana",
@@ -1675,7 +1678,7 @@ describe("BridgeManager._handleMessage", () => {
 
       await vi.waitFor(() => expect(feishuAdapter.finishRichStreamReply).toHaveBeenCalledOnce());
       const finalText = feishuAdapter.finishRichStreamReply.mock.calls[0][2];
-      expect(finalText).toContain("失败");
+      expect(finalText).toContain(expectedNotice);
       expect(finalText).not.toContain("provider timeout");
       expect(bm._processing.has("fs_dm_owner123@hana")).toBe(false);
     });
@@ -1787,6 +1790,30 @@ describe("BridgeManager._handleMessage", () => {
       expect(replies.some((r) => /回复生成失败/.test(r))).toBe(true);
       expect(replies.some((r) => /\[Error\]/.test(r))).toBe(false);
       expect(replies.some((r) => /terminated/.test(r))).toBe(false);
+    });
+
+    it("sends the output-limit notice when the model generated no visible reply", async () => {
+      const { bm, hub, adapter } = createMocks();
+      hub.send.mockResolvedValue({
+        text: null,
+        toolMedia: [],
+        error: "provider detail for logs",
+        truncated: false,
+        outputLimitReached: true,
+      });
+
+      bm._handleMessage("telegram", {
+        sessionKey: "tg_dm_owner123@hana",
+        text: "hi",
+        userId: "owner123",
+        chatId: "owner123",
+        agentId: "hana",
+      });
+      await vi.advanceTimersByTimeAsync(2100);
+
+      const replies = adapter.sendReply.mock.calls.map((c) => c[1]);
+      expect(replies).toContain("模型达到输出上限，未生成可显示的回复。");
+      expect(replies).not.toContain("provider detail for logs");
     });
 
     it("sends nothing extra for a clean reply without error", async () => {

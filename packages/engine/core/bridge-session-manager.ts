@@ -319,15 +319,15 @@ function recordBridgeAssistantUsage({ ledger, event, sessionPath, agent, model, 
  * 构造 executeExternalMessage 的结构化结果（#1607）。
  * 正文 / 错误 / 截断三者正交：provider/transport 出错不再吞掉已生成的 partial text。
  */
-function buildExternalMessageResult({ capturedText, toolMedia, error }) {
+function buildExternalMessageResult({ capturedText, toolMedia, error, outputLimitReached = false }) {
   const text = (capturedText || "").trim() || null;
   const normalizedError = error == null || error === "" ? null : String(error);
   return {
     text,
     toolMedia: Array.isArray(toolMedia) ? [...toolMedia] : [],
     error: normalizedError,
-    // 有错误且已有可见正文 ⇒ 正文不可信为完整
-    truncated: !!(normalizedError && text),
+    truncated: !!(text && (normalizedError || outputLimitReached)),
+    ...(outputLimitReached ? { outputLimitReached: true } : {}),
   };
 }
 
@@ -1116,7 +1116,7 @@ export class BridgeSessionManager {
    * @param {string} sessionKey - 会话标识（如 tg_dm_12345）
    * @param {object} [meta] - 元数据（name, avatarUrl, userId）
    * @param {object} [opts] - { guest: boolean, contextTag?: string, onDelta? }
-   * @returns {Promise<{text: string|null, toolMedia: any[], error: string|null, truncated: boolean}|null>}
+   * @returns {Promise<{text: string|null, toolMedia: any[], error: string|null, truncated: boolean, outputLimitReached?: boolean}|null>}
    */
   async executeExternalMessage(prompt, sessionKey, meta, opts: any = {}) {
     // 捕获状态提升到 try 外：错误路径（含 transport throw）也必须拿得到已生成内容（#1607）
@@ -1471,12 +1471,17 @@ export class BridgeSessionManager {
         debugLog()?.log("bridge-session", `tool media → ${toolMediaUrls.length} url(s) via details.media`);
       }
       const capturedText = visibleText.getText();
-      const emptyCompletion = (assistantStopReason === "stop" || assistantStopReason === "length")
+      const outputLimitReached = assistantStopReason === "length";
+      const emptyCompletion = (assistantStopReason === "stop" || outputLimitReached)
         && !capturedText.trim() && !completedToolCall && toolMediaUrls.length === 0;
+      const emptyCompletionMessage = emptyCompletion
+        ? t(outputLimitReached ? "error.code.modelOutputLimitReached" : "error.modelNoResponse")
+        : null;
       return buildExternalMessageResult({
         capturedText,
         toolMedia: toolMediaUrls,
-        error: providerErrorMessage || (emptyCompletion ? t("error.modelNoResponse") : null),
+        error: providerErrorMessage || emptyCompletionMessage,
+        outputLimitReached,
       });
     } catch (err) {
       if (isAbortLikeError(err)) return null;

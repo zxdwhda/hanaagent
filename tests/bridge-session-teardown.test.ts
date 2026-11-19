@@ -44,6 +44,7 @@ import { BridgeSessionManager } from "../packages/engine/core/bridge-session-man
 import { createSessionOps } from "../packages/engine/core/slash-commands/session-ops.ts";
 import { VisionBridge, VISION_CONTEXT_START } from "../packages/engine/core/vision-bridge.ts";
 import { CORE_TOOL_NAMES } from "../packages/shared/tool-categories.ts";
+import { t } from "../packages/engine/lib/i18n.ts";
 
 function makeAgent(rootDir, id = "agent-a") {
   const sessionDir = path.join(rootDir, "sessions");
@@ -494,6 +495,7 @@ describe("BridgeSessionManager teardown", () => {
   it.each([
     { stopReason: "error", errorMessage: "400 Param Incorrect", hasError: true },
     { stopReason: "stop", errorMessage: undefined, hasError: true },
+    { stopReason: "length", errorMessage: undefined, hasError: true },
     { stopReason: "aborted", errorMessage: undefined, hasError: false },
   ])("classifies a Bridge turn ending with $stopReason and no visible reply", async ({ stopReason, errorMessage, hasError }) => {
     const agent = makeAgent(rootDir);
@@ -531,12 +533,18 @@ describe("BridgeSessionManager teardown", () => {
     ).resolves.toEqual({
       text: null,
       toolMedia: [],
-      error: hasError ? errorMessage || expect.any(String) : null,
+      error: stopReason === "length"
+        ? t("error.code.modelOutputLimitReached")
+        : hasError ? errorMessage || expect.any(String) : null,
       truncated: false,
+      ...(stopReason === "length" ? { outputLimitReached: true } : {}),
     });
   });
 
-  it("preserves captured partial text alongside a provider message_end error (#1607)", async () => {
+  it.each([
+    { stopReason: "error", errorMessage: "terminated" },
+    { stopReason: "length", errorMessage: null },
+  ])("preserves and marks partial text when the provider reports $stopReason", async ({ stopReason, errorMessage }) => {
     const agent = makeAgent(rootDir);
     const mgrPath = path.join(agent.sessionDir, "bridge", "owner", "partial-provider-error.jsonl");
     const manager = new BridgeSessionManager(makeDeps(agent));
@@ -549,7 +557,7 @@ describe("BridgeSessionManager teardown", () => {
         for (const fn of subscribers) {
           fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "我查到一半了，" } });
           fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "结论是" } });
-          fn({ type: "message_end", message: { stopReason: "error", errorMessage: "terminated" } });
+          fn({ type: "message_end", message: { role: "assistant", stopReason, errorMessage } });
         }
       }),
       subscribe: vi.fn((fn) => {
@@ -566,8 +574,9 @@ describe("BridgeSessionManager teardown", () => {
     ).resolves.toEqual({
       text: "我查到一半了，结论是",
       toolMedia: [],
-      error: "terminated",
+      error: errorMessage,
       truncated: true,
+      ...(stopReason === "length" ? { outputLimitReached: true } : {}),
     });
   });
 

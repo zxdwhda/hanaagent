@@ -379,8 +379,12 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
 
     const visibleText = createVisibleTextAccumulator();
     const toolMedia = [];
+    let outputLimitReached = false;
     const unsub = session.subscribe?.((event) => {
       if (submission.signal.aborted) return;
+      if (event.type === "message_end" && event.message?.role === "assistant") {
+        outputLimitReached = event.message.stopReason === "length";
+      }
       const visible = visibleText.appendAssistantEvent(event);
       if (visible) {
         try { onDelta?.(visible.emittedDelta, visible.text); } catch {}
@@ -432,9 +436,11 @@ export async function submitDesktopSessionMessage(engine: any, opts: {
       }
     }
 
+    const replyText = visibleText.getText().trim() || null;
     return {
-      text: visibleText.getText().trim() || null,
+      text: replyText,
       toolMedia,
+      ...(outputLimitReached ? { outputLimitReached, truncated: !!replyText } : {}),
     };
   } catch (err) {
     submission.signal.throwIfAborted();

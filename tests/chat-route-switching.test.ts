@@ -244,7 +244,9 @@ describe("chat route model switch guard", () => {
     if (partial) {
       expect(emittedErrors[0].code).toBe("reply_stream_incomplete");
       expect(payloads.filter(payload => payload.type === "text_delta").map(payload => payload.delta).join("")).toBe(partial);
-    } else if (stopReason === "stop" || stopReason === "length") {
+    } else if (stopReason === "length") {
+      expect(emittedErrors[0].code).toBe("model_output_limit_reached");
+    } else if (stopReason === "stop") {
       expect(emittedErrors[0].code).toBe("model_no_response");
     }
     const turnEnd = payloads.find((payload) => payload.type === "turn_end");

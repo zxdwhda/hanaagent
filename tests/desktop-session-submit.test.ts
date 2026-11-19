@@ -13,7 +13,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-function makeFakeSession({ replyText = "desktop reply", toolMedia = [], toolMediaDetails = null, settingsUpdate = null }: any = {}) {
+function makeFakeSession({ replyText = "desktop reply", toolMedia = [], toolMediaDetails = null, settingsUpdate = null, stopReason = null }: any = {}) {
   const subs = [];
   return {
     subscribe: (fn) => {
@@ -26,6 +26,7 @@ function makeFakeSession({ replyText = "desktop reply", toolMedia = [], toolMedi
     prompt: vi.fn<(...args: any[]) => Promise<any>>(async () => {
       for (const fn of subs) {
         fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: replyText } });
+        if (stopReason) fn({ type: "message_end", message: { role: "assistant", stopReason } });
         if (toolMediaDetails) {
           fn({
             type: "tool_execution_end",
@@ -417,6 +418,18 @@ describe("submitDesktopSessionMessage", () => {
       "hello",
       { context: { beforeUser: "world lore", metadata: { pluginId: "tavern" } } },
     );
+  });
+
+  it.each(["", "Partial reply"])("propagates an output limit to the attached channel for %j", async (replyText) => {
+    const session = makeFakeSession({ replyText, stopReason: "length" });
+    const engine = {
+      ensureSessionLoaded: vi.fn(async () => session),
+      promptSession: vi.fn(async (_path, text, opts) => session.prompt(text, opts)),
+    };
+
+    const result = await submitDesktopSessionMessage(engine, { sessionPath: "/tmp/desk-length.jsonl", text: "hello" });
+
+    expect(result).toMatchObject({ text: replyText || null, truncated: !!replyText, outputLimitReached: true });
   });
 
   it("prefers structured tool media items over legacy mediaUrls", async () => {
