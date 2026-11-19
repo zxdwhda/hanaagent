@@ -180,6 +180,40 @@ describe("Hana Pi SDK search tools", () => {
     );
   });
 
+  it.each(["grep", "find"])("terminates a %s scan that produces no results before the deadline", async (name) => {
+    const { createGrepTool, createFindTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
+    const child: any = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.killed = false;
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      child.stdout.end();
+      child.stderr.end();
+      child.emit("close", null);
+    });
+    spawn.mockReturnValue(child);
+
+    vi.useFakeTimers();
+    try {
+      const createTool = name === "grep" ? createGrepTool : createFindTool;
+      const tool = createTool(process.cwd(), managedPaths());
+      const result = tool.execute("slow-scan", { pattern: "missing", limit: 1 }, undefined, undefined, undefined)
+        .then(() => null, (error) => error);
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(spawn).toHaveBeenCalledOnce();
+      expect(child.kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+      expect(await result).toBeInstanceOf(Error);
+      expect((await result).message).toContain("timed out after 60 seconds");
+    } finally {
+      child.stdout.destroy();
+      child.stderr.destroy();
+      vi.useRealTimers();
+    }
+  });
+
   it("requires an explicit absolute managed binary directory", async () => {
     const { createGrepTool, createFindTool } = await import("../packages/engine/lib/pi-sdk/index.ts");
 
