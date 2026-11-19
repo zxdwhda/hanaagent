@@ -9,7 +9,7 @@ const path = require("path");
 
 // This verifier runs from tooling/scripts in source and a temporary scripts/ copy in server packages.
 const sourceRoot = path.resolve(__dirname, "../..");
-const root = fs.existsSync(path.join(sourceRoot, "tooling", "scripts", "patch-pi-sdk.cjs"))
+const root = __dirname === path.join(sourceRoot, "tooling", "scripts")
   ? sourceRoot
   : path.resolve(__dirname, "..");
 const sdkRoot = path.join(root, "node_modules", "@earendil-works", "pi-coding-agent");
