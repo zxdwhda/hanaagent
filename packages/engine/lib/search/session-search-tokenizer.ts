@@ -1,4 +1,5 @@
 import { createRequire } from "module";
+import { createModuleLogger } from "../debug-log.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -27,6 +28,8 @@ const ASCII_WORD_RE = /[a-z0-9_][a-z0-9_.-]*/giu;
 const SPACED_TERM_RE = /[^\s]+/gu;
 
 let jiebaInstance = null;
+let jiebaUnavailable = false;
+const log = createModuleLogger("session-search");
 
 export class SessionSearchTokenizerUnavailableError extends Error {
   constructor(cause) {
@@ -44,7 +47,7 @@ export function normalizeSessionSearchText(value): string {
     .trim();
 }
 
-export function tokenizeSessionSearchQuery(query): string[] {
+export function tokenizeSessionSearchQuery(query, loadJieba = getJieba): string[] {
   const normalized = normalizeSessionSearchText(query);
   if (!normalized) return [];
 
@@ -58,9 +61,14 @@ export function tokenizeSessionSearchQuery(query): string[] {
     addToken(terms, match[0]);
   }
 
-  const jieba = getJieba();
-  for (const token of jieba.cutForSearch(normalized, true)) {
-    addToken(terms, normalizeSessionSearchText(token));
+  try {
+    const jieba = loadJieba();
+    for (const token of jieba?.cutForSearch(normalized, true) ?? []) {
+      addToken(terms, normalizeSessionSearchText(token));
+    }
+  } catch (err) {
+    if (!(err instanceof SessionSearchTokenizerUnavailableError)) throw err;
+    // The already collected literal terms keep basic search available.
   }
 
   return [...terms];
@@ -68,6 +76,7 @@ export function tokenizeSessionSearchQuery(query): string[] {
 
 function getJieba() {
   if (jiebaInstance) return jiebaInstance;
+  if (jiebaUnavailable) return null;
 
   try {
     const { Jieba } = require("@node-rs/jieba");
@@ -77,6 +86,8 @@ function getJieba() {
     jiebaInstance = jieba;
     return jieba;
   } catch (err) {
+    jiebaUnavailable = true;
+    log.warn("Jieba native tokenizer unavailable. Falling back to literal search.");
     throw new SessionSearchTokenizerUnavailableError(err);
   }
 }

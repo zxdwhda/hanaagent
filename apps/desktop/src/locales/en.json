@@ -1288,6 +1288,7 @@
       "permissionsHint": "macOS requests Accessibility and Screen Recording permissions. Windows usually needs no extra OS permission.",
       "permissionsStatus": "OS Permissions",
       "permissionsEmpty": "No extra permissions or no status yet",
+      "permissionsCheckFailed": "Could not check permissions",
       "approvals": "Approved Apps",
       "approvalsEmpty": "None",
       "activeSession": "Current Holder",

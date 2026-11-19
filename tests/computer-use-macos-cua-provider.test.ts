@@ -211,6 +211,19 @@ describe("macos Cua provider", () => {
     });
   });
 
+  it("keeps a permission RPC error distinct from a denied permission", async () => {
+    const { runner } = makeRunner((_command, args) => {
+      if (args[0] === "status") return { stdout: "helper running", stderr: "", exitCode: 0 };
+      throw new Error("permission RPC read failed");
+    });
+    const provider = createMacosCuaProvider({ platform: "darwin", command: "/tmp/hana-computer-use-helper", runner });
+    await expect(provider.getStatus()).resolves.toMatchObject({
+      available: true,
+      permissions: [],
+      permissionError: expect.stringContaining("permission RPC read failed"),
+    });
+  });
+
   it("falls back to launch_app when the target app is not running", async () => {
     const { runner, calls } = makeRunner((_command, args) => {
       if (args[0] === "list_apps") {

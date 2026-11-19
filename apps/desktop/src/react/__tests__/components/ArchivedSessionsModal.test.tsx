@@ -96,10 +96,10 @@ describe('ArchivedSessionsModal', () => {
       },
     ]);
     restoreMock.mockResolvedValue({ status: 'ok', restoredPath: '/x/a.jsonl', sessionId: 'sess_archived_a' });
-    window.confirm = vi.fn(() => true);
     render(<ArchivedSessionsModal open={true} onClose={() => {}} />);
     await waitFor(() => screen.getByText('Alpha'));
     fireEvent.click(screen.getByText('session.archived.restore'));
+    fireEvent.click(await screen.findByRole('button', { name: 'common.confirm' }));
     await waitFor(() => expect(restoreMock).toHaveBeenCalledWith(expect.objectContaining({
       path: '/x/a.jsonl',
       sessionId: 'sess_archived_a',
@@ -117,11 +117,14 @@ describe('ArchivedSessionsModal', () => {
         agentName: 'Hana',
       },
     ]);
-    window.confirm = vi.fn(() => false);
     render(<ArchivedSessionsModal open={true} onClose={() => {}} />);
     await waitFor(() => screen.getByText('Alpha'));
-    fireEvent.click(screen.getByText('session.archived.restore'));
+    const restore = screen.getByText('session.archived.restore');
+    restore.focus();
+    fireEvent.click(restore);
+    fireEvent.click(await screen.findByRole('button', { name: 'common.cancel' }));
     expect(restoreMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(restore).toHaveFocus());
   });
 
   it('shows conflict toast when restore returns conflict', async () => {
@@ -136,10 +139,10 @@ describe('ArchivedSessionsModal', () => {
       },
     ]);
     restoreMock.mockResolvedValue({ status: 'conflict' });
-    window.confirm = vi.fn(() => true);
     render(<ArchivedSessionsModal open={true} onClose={() => {}} />);
     await waitFor(() => screen.getByText('Alpha'));
     fireEvent.click(screen.getByText('session.archived.restore'));
+    fireEvent.click(await screen.findByRole('button', { name: 'common.confirm' }));
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith('session.archived.restoreConflict'),
     );

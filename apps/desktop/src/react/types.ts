@@ -534,6 +534,8 @@ export interface PlatformApi {
   getServerPort(): Promise<string>;
   getServerToken(): Promise<string>;
   runEditCommand?(command: 'cut' | 'copy' | 'paste' | 'selectAll'): Promise<boolean>;
+  copySessionId?(sessionId: string): Promise<boolean>;
+  authenticateDeviceServer?(baseUrl: string, credential: string): Promise<unknown>;
   openSettings(tab?: string): void;
   openBrowserViewer(target?: string | BrowserViewerOpenTarget): void;
   selectFolder(): Promise<string | null>;

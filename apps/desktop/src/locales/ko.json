@@ -1144,6 +1144,7 @@
       "permissionsHint": "macOS는 손쉬운 사용 및 화면 기록 권한을 요청합니다. Windows는 보통 추가 시스템 권한이 필요 없습니다.",
       "permissionsStatus": "시스템 권한",
       "permissionsEmpty": "추가 권한 없음 또는 아직 상태 없음",
+      "permissionsCheckFailed": "권한 상태를 확인할 수 없음",
       "approvals": "승인된 앱",
       "approvalsEmpty": "없음",
       "activeSession": "현재 점유",

@@ -107,16 +107,29 @@ export function createNotifyTool({ onNotify }) {
             ? ctx.notificationContext
             : null,
         });
-        const sent = result?.ok !== false;
-        const failure = Array.isArray(result?.deliveries)
-          ? result.deliveries.find((d) => d?.status === "failed")?.error
-          : null;
+        const sent = result?.ok === true && result.skipped !== true;
+        const deliveries = Array.isArray(result?.deliveries) ? result.deliveries : [];
+        const successfulChannels = [...new Set<string>(deliveries.flatMap((delivery) => {
+          if (Array.isArray(delivery?.bridgeDeliveries)) {
+            return delivery.bridgeDeliveries
+              .filter((bridge) => bridge?.status === "sent" && typeof bridge.platform === "string")
+              .map((bridge) => bridge.platform);
+          }
+          if (delivery?.status !== "sent") return [];
+          const channel = delivery.platform || delivery.channel;
+          return typeof channel === "string" && channel ? [channel] : [];
+        }))];
+        const failedDelivery = deliveries.find((d) => d?.status === "failed");
+        const failure = failedDelivery?.message || failedDelivery?.error
+          || deliveries.find((d) => d?.status === "skipped")?.reason;
+        const deliveryText = sent
+          ? t("error.notifySent", { title })
+          : t("error.notifyFailed", { msg: failure || "delivery failed" });
+        const channelsText = successfulChannels.length ? ` [${successfulChannels.join(", ")}]` : "";
         return {
           content: [{
             type: "text",
-            text: sent
-              ? t("error.notifySent", { title })
-              : t("error.notifyFailed", { msg: failure || "delivery failed" }),
+            text: deliveryText + channelsText,
           }],
           details: { title, body, sent, result },
         };

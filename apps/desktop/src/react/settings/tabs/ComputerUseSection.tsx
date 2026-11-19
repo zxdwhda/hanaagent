@@ -14,6 +14,7 @@ interface ComputerProviderStatus {
     available?: boolean;
     reason?: string;
     error?: string;
+    permissionError?: string;
     permissions?: Array<{ name?: string; granted?: boolean }>;
   };
 }
@@ -106,7 +107,10 @@ export function ComputerUseSection() {
   const available = selectedProvider?.status?.available === true;
   const availabilityIssue = selectedProvider?.status?.reason || selectedProvider?.status?.error || '';
   const permissions = selectedProvider?.status?.permissions || [];
-  const permissionText = permissions.length > 0
+  const permissionError = selectedProvider?.status?.permissionError;
+  const permissionText = permissionError
+    ? t('settings.computerUse.permissionsCheckFailed')
+    : permissions.length > 0
     ? permissions.map((p) => `${p.name || 'permission'}:${p.granted ? 'ok' : 'missing'}`).join(' · ')
     : t('settings.computerUse.permissionsEmpty');
   const approvals = data?.settings?.app_approvals || [];
@@ -214,7 +218,8 @@ export function ComputerUseSection() {
       />
       <SettingsRow
         label={t('settings.computerUse.permissionsStatus')}
-        control={<StatusText ok={permissions.every((p) => p.granted !== false)} text={permissionText} />}
+        hint={permissionError}
+        control={<StatusText ok={!permissionError && permissions.every((p) => p.granted !== false)} text={permissionText} />}
       />
       <SettingsRow
         label={t('settings.computerUse.approvals')}

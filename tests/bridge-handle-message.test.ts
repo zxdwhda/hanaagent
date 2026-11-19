@@ -796,6 +796,7 @@ describe("BridgeManager._handleMessage", () => {
       expect(result).toMatchObject({
         ok: false,
         error: "target_missing",
+        message: "The connected Bridge is bound to a different assistant.",
       });
       expect(otherAdapter.sendReply).not.toHaveBeenCalled();
       expect(unboundAdapter.sendReply).not.toHaveBeenCalled();

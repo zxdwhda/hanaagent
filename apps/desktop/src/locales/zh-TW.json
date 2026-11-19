@@ -1144,6 +1144,7 @@
       "permissionsHint": "macOS 會請求輔助功能和螢幕錄製權限；Windows 通常無需額外系統權限。",
       "permissionsStatus": "系統權限",
       "permissionsEmpty": "無需額外權限或尚未返回",
+      "permissionsCheckFailed": "無法查詢權限狀態",
       "approvals": "已批准應用",
       "approvalsEmpty": "暫無",
       "activeSession": "目前佔用",

@@ -309,7 +309,7 @@ export function createDeviceServerConnection({
 export async function connectDeviceServerConnection({
   baseUrl,
   credential,
-  fetchImpl = fetch,
+  fetchImpl,
 }: {
   baseUrl: string;
   credential: string;
@@ -318,15 +318,23 @@ export async function connectDeviceServerConnection({
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const token = normalizeToken(credential);
   if (!token) throw new Error('server access key required');
+  const nativeHandshake = !fetchImpl && typeof window !== 'undefined'
+    ? window.platform?.authenticateDeviceServer
+    : undefined;
+  if (nativeHandshake) {
+    const identity = await nativeHandshake(normalizedBaseUrl, token) as ServerIdentity;
+    return createDeviceServerConnection({ baseUrl: normalizedBaseUrl, credential: token, identity });
+  }
 
-  await requestJson(fetchImpl, `${normalizedBaseUrl}/api/web-auth/login`, {
+  const request = fetchImpl ?? fetch;
+  await requestJson(request, `${normalizedBaseUrl}/api/web-auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ credential: token }),
   });
 
-  const identity = await requestJson(fetchImpl, `${normalizedBaseUrl}/api/server/identity`, {
+  const identity = await requestJson(request, `${normalizedBaseUrl}/api/server/identity`, {
     headers: { Authorization: `Bearer ${token}` },
     credentials: 'include',
   }) as ServerIdentity;

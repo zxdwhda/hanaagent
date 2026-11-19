@@ -1144,6 +1144,7 @@
       "permissionsHint": "macOS ではアクセシビリティと画面収録の権限を要求します。Windows は通常追加のシステム権限を必要としません。",
       "permissionsStatus": "システム権限",
       "permissionsEmpty": "追加権限なし、または未取得",
+      "permissionsCheckFailed": "権限の状態を確認できません",
       "approvals": "承認済みアプリ",
       "approvalsEmpty": "なし",
       "activeSession": "現在の保持",
