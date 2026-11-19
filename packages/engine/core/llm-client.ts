@@ -7,11 +7,13 @@ import { logLlmUsage, normalizeLlmUsage } from '../lib/llm/usage-observer.ts';
 import { appendProviderApiPath, withDefaultProviderHeaders } from '../lib/llm/provider-client.ts';
 import { mergeProviderHeaders } from '../../shared/provider-auth.ts';
 import {
+  serializeGeminiContentPart,
   serializeOpenAICompatibleContentBlock,
   serializeResponsesContentBlock,
 } from './provider-media-serializer.ts';
 
 const EMPTY_AFTER_THINKING_MESSAGE = "模型未回复正文，请检查思考内容或稍后重试。";
+const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 const CODEX_ACCOUNT_CLAIM_PATH = "https://api.openai.com/auth";
 const DEFAULT_CODEX_UTILITY_INSTRUCTIONS = [
@@ -23,6 +25,7 @@ const SUPPORTED_BUFFERED_APIS = new Set([
   "openai-completions",
   "openai-responses",
   "openai-codex-responses",
+  "google-generative-ai",
 ]);
 const INCOMPLETE_TEXT_REASONS = new Set([
   "length", "max_tokens", "max_output_tokens", "incomplete", "content_filter",
@@ -81,6 +84,7 @@ export type CallTextOptions = {
  *   - openai-completions:  baseUrl + "/chat/completions"
  *   - anthropic-messages:  baseUrl + "/v1/messages"
  *   - openai-responses:    baseUrl + "/responses"
+ *   - google-generative-ai: baseUrl + "/models/{id}:generateContent"
  *
  * Provider 兼容化：fetch 前统一调 normalizeProviderPayload(body, model, { mode: "utility", ... })，
  * 与 chat 路径（engine.js 的 Pi SDK extension）共享同一个 provider-compat 模块。callText
@@ -384,9 +388,38 @@ function throwAbortOrTimeout(err, signal, modelId): never {
   throw err;
 }
 
+function extractGeminiText(data) {
+  const candidate = data?.candidates?.[0];
+  const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+  const promptBlockReason = data?.promptFeedback?.blockReason;
+  const blocked = (!!promptBlockReason && promptBlockReason !== "BLOCK_REASON_UNSPECIFIED")
+    || ["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"].includes(candidate?.finishReason);
+  return {
+    text: parts.filter(part => part?.thought !== true).map(part => part?.text || "").join(""),
+    reasoning: parts.filter(part => part?.thought === true).map(part => part?.text || "").join(""),
+    stopReason: blocked ? "content_filter"
+      : candidate?.finishReason === "MAX_TOKENS" ? "length"
+        : candidate?.finishReason === "STOP" ? "stop" : candidate?.finishReason ?? null,
+  };
+}
+
+function geminiUsage(metadata) {
+  if (!metadata || typeof metadata !== "object") return null;
+  const reasoning = metadata.thoughtsTokenCount ?? 0;
+  return {
+    prompt_tokens: metadata.promptTokenCount,
+    completion_tokens: (metadata.candidatesTokenCount ?? 0) + reasoning,
+    total_tokens: metadata.totalTokenCount,
+    prompt_tokens_details: { cached_tokens: metadata.cachedContentTokenCount ?? 0 },
+    completion_tokens_details: { reasoning_tokens: reasoning },
+  };
+}
+
 function convertContentForApi(content, api) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return typeof content === "undefined" ? "" : JSON.stringify(content);
+
+  if (api === "google-generative-ai") return content.map(serializeGeminiContentPart);
 
   if (api === "anthropic-messages") {
     return content.map((block) => {
@@ -504,7 +537,30 @@ export async function callText({
   const base = (baseUrl || "").replace(/\/+$/, "");
   let endpoint, headers, body;
 
-  if (api === "anthropic-messages") {
+  if (api === "google-generative-ai") {
+    const url = new URL(base || DEFAULT_GEMINI_BASE_URL);
+    if (!url.pathname.replace(/\/+$/, "")) url.pathname = "/v1beta";
+    const id = encodeURIComponent(modelId.replace(/^models\//, ""));
+    endpoint = appendProviderApiPath(url.toString(), `/models/${id}:generateContent`);
+    headers = { "Content-Type": "application/json" };
+    if (apiKey) headers["x-goog-api-key"] = apiKey;
+    const contents = normalizedMessages
+      .filter(message => message.role === "user" || message.role === "assistant")
+      .map(({ role, content }) => ({
+        role: role === "assistant" ? "model" : "user",
+        parts: Array.isArray(content) ? content : [{ text: content }],
+      }));
+    body = {
+      contents,
+      ...(mergedSystem && { systemInstruction: { parts: [{ text: mergedSystem }] } }),
+      ...((temperature !== undefined || explicitMaxTokens !== null) && {
+        generationConfig: {
+          ...(temperature !== undefined && { temperature }),
+          ...(explicitMaxTokens !== null && { maxOutputTokens: explicitMaxTokens }),
+        },
+      }),
+    };
+  } else if (api === "anthropic-messages") {
     // Anthropic Messages API：baseUrl + /v1/messages（和 Pi SDK Anthropic provider 一致）
     endpoint = appendProviderApiPath(base, "/v1/messages");
     headers = { "Content-Type": "application/json", "anthropic-version": "2023-06-01" };
@@ -652,7 +708,7 @@ export async function callText({
       throw new Error(`LLM returned invalid JSON (status=${res.status})`);
     }
   }
-  observedUsagePayload = data?.usage ?? null;
+  observedUsagePayload = api === "google-generative-ai" ? geminiUsage(data?.usageMetadata) : data?.usage ?? null;
 
   if (!res.ok) {
     const message = providerErrorMessage(data, rawText, res.status);
@@ -678,7 +734,10 @@ export async function callText({
   let reasoning = "";
   let stopReason = null;
   let removedStructuredThinking = false;
-  if (api === "anthropic-messages") {
+  if (api === "google-generative-ai") {
+    ({ text, reasoning, stopReason } = extractGeminiText(data));
+    removedStructuredThinking = reasoning.length > 0;
+  } else if (api === "anthropic-messages") {
     const extracted = extractAnthropicText(data?.content || []);
     text = extracted.text;
     removedStructuredThinking = extracted.removedThinking;
@@ -731,17 +790,17 @@ export async function callText({
     });
   }
 
-  const usage = normalizeLlmUsage(data?.usage, { costRates: modelObj?.cost });
+  const usage = normalizeLlmUsage(observedUsagePayload, { costRates: modelObj?.cost });
   (logLlmUsage as (...args: any[]) => any)({
     source: "utility",
     api,
     provider,
     modelId,
-    usage: data?.usage,
+    usage: observedUsagePayload,
     costRates: modelObj?.cost,
   });
   usageLedger?.finish?.(usageRequest?.requestId, {
-    usage: data?.usage,
+    usage: observedUsagePayload,
     model: { provider, modelId, api },
     costRates: modelObj?.cost,
   });

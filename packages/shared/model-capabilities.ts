@@ -652,6 +652,10 @@ export function modelSupportsDirectImageInput(model: any, context: any = {}) {
   return transport !== MODEL_IMAGE_TRANSPORTS.NONE;
 }
 
+export function modelNeedsAuxiliaryVision(model: any): boolean {
+  return model != null && !modelSupportsDirectImageInput(model);
+}
+
 export function modelSupportsVideoInput(model: any): boolean {
   if (!isPlainObject(model)) return false;
   if (model.video === true) return true;

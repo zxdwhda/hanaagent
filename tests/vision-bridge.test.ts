@@ -84,12 +84,15 @@ describe("VisionBridge", () => {
     expect(callText).not.toHaveBeenCalled();
   });
 
-  it("analyzes text-only model images and registers notes by attachment path", async () => {
+  it.each([
+    ["text-only", ["text"]],
+    ["capability-unknown", undefined],
+  ])("analyzes %s model images and registers notes by attachment path", async (_label, input) => {
     const { bridge, callText } = makeBridge();
 
     const result = await bridge.prepare({
       sessionPath: "/tmp/session.jsonl",
-      targetModel: { id: "deepseek-chat", provider: "deepseek", input: ["text"] },
+      targetModel: { id: "deepseek-chat", provider: "deepseek", ...(input ? { input } : {}) },
       text: `[attached_image: ${pathA}]\nwhat is this?`,
       images: [image],
       imageAttachmentPaths: [pathA],

@@ -7,7 +7,7 @@ import {
   prepareSingleModelImageInputForPrompt,
 } from "./model-image-preprocess.ts";
 import { modelSupportsImage } from "./message-sanitizer.ts";
-import { getVisionCapabilities, modelSupportsDirectImageInput } from "../../shared/model-capabilities.ts";
+import { getVisionCapabilities, modelNeedsAuxiliaryVision } from "../../shared/model-capabilities.ts";
 
 export const VISION_CONTEXT_START = "<vision-context>";
 export const VISION_CONTEXT_END = "</vision-context>";
@@ -59,10 +59,6 @@ function abortError() {
 
 function throwIfAborted(signal) {
   if (signal?.aborted) throw abortError();
-}
-
-function requiresAuxiliaryVision(model) {
-  return Array.isArray(model?.input) && !modelSupportsDirectImageInput(model);
 }
 
 function uniquePathsFromText(text) {
@@ -459,7 +455,7 @@ export class VisionBridge {
 
   async prepare({ sessionPath, targetModel, text, images, imageAttachmentPaths, signal }: any = {}) {
     if (!images?.length) return { text, images };
-    if (!requiresAuxiliaryVision(targetModel)) return { text, images };
+    if (!modelNeedsAuxiliaryVision(targetModel)) return { text, images };
     throwIfAborted(signal);
 
     const config = await this._resolveVisionConfig?.();
@@ -500,7 +496,7 @@ export class VisionBridge {
 
   async prepareResources({ sessionPath, targetModel, userRequest, text, resources, signal }: any = {}) {
     if (!resources?.length) return { notes: [] };
-    if (!requiresAuxiliaryVision(targetModel)) return { notes: [] };
+    if (!modelNeedsAuxiliaryVision(targetModel)) return { notes: [] };
     return this._summarizeResources({
       sessionPath,
       targetModel,

@@ -42,7 +42,10 @@ describe("prepareVisionInputForTextOnlyModel", () => {
     expect(result.opts.images).toBe(images);
   });
 
-  it("prepares image inputs before sending them to auxiliary vision", async () => {
+  it.each([
+    ["text-only", textOnlyModel],
+    ["capability-unknown", { id: "unknown", provider: "custom" }],
+  ])("prepares %s image inputs before sending them to auxiliary vision", async (_label, targetModel) => {
     const prepareModelImages = vi.fn(async ({ text, opts }) => ({
       text: `dimension note\n${text}`,
       opts: {
@@ -57,7 +60,7 @@ describe("prepareVisionInputForTextOnlyModel", () => {
     }));
 
     const result = await prepareVisionInputForTextOnlyModel({
-      targetModel: textOnlyModel,
+      targetModel,
       text: "what is this?",
       opts: { images: [{ type: "image", data: "large-b64", mimeType: "image/png" }] },
       sessionPath: "/tmp/session.jsonl",

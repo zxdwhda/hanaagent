@@ -1,5 +1,5 @@
 import { getLocale } from "../lib/i18n.ts";
-import { modelSupportsDirectImageInput } from "../../shared/model-capabilities.ts";
+import { modelNeedsAuxiliaryVision } from "../../shared/model-capabilities.ts";
 import { prepareModelImageInputsForPrompt } from "./model-image-preprocess.ts";
 import { requireVisionAuxiliaryEnabled } from "./vision-auxiliary-policy.ts";
 
@@ -41,10 +41,6 @@ function appendVisionFailureNotice(text, err) {
   return text ? `${notice}\n\n${text}` : notice;
 }
 
-function requiresAuxiliaryVision(targetModel) {
-  return Array.isArray(targetModel?.input) && !modelSupportsDirectImageInput(targetModel);
-}
-
 export async function prepareVisionInputForTextOnlyModel({
   targetModel,
   text,
@@ -56,7 +52,7 @@ export async function prepareVisionInputForTextOnlyModel({
   signal,
   prepareModelImages = prepareModelImageInputsForPrompt,
 }) {
-  if (!opts?.images?.length || !requiresAuxiliaryVision(targetModel)) {
+  if (!opts?.images?.length || !modelNeedsAuxiliaryVision(targetModel)) {
     return { text, opts };
   }
 
