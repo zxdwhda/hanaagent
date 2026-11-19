@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HanaEngine } from "../packages/engine/core/engine.ts";
-import { toMcpToolId } from "../packages/engine/core/mcp/manager.ts";
+import { isMcpToolEnabledForAgentConfig, toMcpToolId } from "../packages/engine/core/mcp/manager.ts";
 import { resolveToolInvocationPermission } from "../packages/engine/lib/permission/tool-invocation-permission.ts";
 
 const BRIDGE_NAMES = ["mcp_search_tools", "mcp_describe_tool", "mcp_call"];
@@ -31,17 +31,19 @@ function makeEngine({
   deferThreshold = 10,
   pluginTools = [],
   builtinDefer = false,
+  agentConfig = {},
 }: {
   connectors: { id: string; name?: string; tools: any[]; pinnedTools?: Record<string, boolean> }[];
   deferEnabled?: boolean;
   deferThreshold?: number;
   pluginTools?: any[];
   builtinDefer?: boolean;
+  agentConfig?: Record<string, unknown>;
 }) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-defer-engine-"));
   const agentDir = path.join(tmpDir, "agents", "focus");
   const workspace = path.join(tmpDir, "workspace");
-  const agent = { id: "focus", agentDir, config: {}, tools: [] };
+  const agent = { id: "focus", agentDir, config: agentConfig, tools: [] };
 
   const normalized = connectors.map((connector) => ({
     id: connector.id,
@@ -55,6 +57,11 @@ function makeEngine({
     description: tool.description,
     parameters: tool.inputSchema,
     _pluginId: "mcp",
+    ...(agentConfig.mcp ? {
+      isEnabledForAgentConfig: (config: unknown) => isMcpToolEnabledForAgentConfig(config, {
+        globalEnabled: true, connectorId: connector.id, toolName: tool.name,
+      }),
+    } : {}),
     sessionPermission: {
       resolveInvocation: () => ({
         action: "invoke",
@@ -130,6 +137,82 @@ describe("engine deferred tool assembly", () => {
     expect(names).toContain("mcp_github_t_0");
     expect(names).toContain("mcp_github_t_9");
     for (const bridge of BRIDGE_NAMES) expect(names).not.toContain(bridge);
+  });
+
+  it.each([false, true])("isolates plugin and MCP name collisions with deferred tools set to %s", async (deferEnabled) => {
+    const pluginTool = {
+      name: "mcp_github_t_0",
+      _pluginId: "mcp",
+      description: "Conflicting community tool",
+      parameters: { type: "object" },
+      execute: vi.fn(),
+    };
+    const made = makeEngine({
+      connectors: [{ id: "github", tools: manyTools(5) }],
+      pluginTools: [pluginTool],
+      deferEnabled,
+      deferThreshold: 1,
+    });
+    dirs.push(made.tmpDir);
+    const { customTools, toolCatalogManifest } = made.build();
+    expect(customTools.map((tool) => tool.name)).not.toContain(pluginTool.name);
+    if (!deferEnabled) {
+      expect(customTools.map((tool) => tool.name)).toContain("mcp_github_t_1");
+    } else {
+      expect(toolCatalogManifest.names).not.toContain("github_t_0");
+      expect(toolCatalogManifest.names).toContain("github_t_1");
+    }
+
+    made.engine._pluginManager.getAllTools = () => [];
+    const next = made.build();
+    if (deferEnabled) {
+      expect(next.toolCatalogManifest.names).toContain("github_t_0");
+      made.engine._pluginManager.getAllTools = () => [pluginTool];
+      const call = next.customTools.find((tool) => tool.name === "mcp_call");
+      const result = await call.execute("from-existing-session", {
+        server: "github", tool: "github_t_0", arguments: { owner: "sample" },
+      });
+      expect(result.content[0].text).toContain("invalid target");
+      expect(made.engine._mcp.callTool).not.toHaveBeenCalled();
+    } else {
+      expect(next.customTools.map((tool) => tool.name)).toContain(pluginTool.name);
+    }
+    expect(pluginTool.execute).not.toHaveBeenCalled();
+  });
+
+  it("applies the agent's MCP choices to direct tools, deferred lookup, and deferred calls", async () => {
+    const tools = manyTools(14);
+    const enabled = Object.fromEntries(tools.map(tool => [tool.name, true]));
+    const choices: Record<string, boolean> = { ...enabled, t_0: false, t_1: false };
+    const agentConfig = { mcp: { connectors: { github: { enabled: true, tools: choices } } } };
+    const connectors = [{ id: "github", tools, pinnedTools: { t_0: true } }];
+    const direct = build({ connectors, agentConfig, deferEnabled: false });
+    expect(direct.customTools.map(tool => tool.name)).not.toContain("mcp_github_t_1");
+
+    const made = makeEngine({ connectors, agentConfig });
+    dirs.push(made.tmpDir);
+    made.engine._mcp.resolveToolPermissionKind = () => "read";
+    const { customTools, toolCatalogManifest } = made.build();
+    expect(customTools.map(tool => tool.name)).not.toContain("mcp_github_t_0");
+    expect(toolCatalogManifest.names).not.toContain("github_t_1");
+    const sessionPath = path.join(made.agentDir, "sessions", "main.jsonl");
+    const call = (name: string, params: object) => customTools.find(tool => tool.name === name)
+      .execute("fixture", params, { sessionPath });
+    const describe = await call("mcp_describe_tool", { name: "github_t_1" });
+    expect(describe.content[0].text).toMatch(/no tool|not found/i);
+    await call("mcp_call", { server: "github", tool: "github_t_1", arguments: { owner: "fixture" } });
+    expect(made.engine._mcp.callTool).not.toHaveBeenCalled();
+
+    const enabledDescription = await call("mcp_describe_tool", { name: "github_t_2" });
+    expect(enabledDescription.content[0].text).toContain("github_t_2");
+    await call("mcp_call", { server: "github", tool: "github_t_2", arguments: { owner: "fixture" } });
+    expect(made.engine._mcp.callTool).toHaveBeenCalledOnce();
+    made.engine._mcp.callTool.mockClear();
+    choices.t_2 = false;
+    const search = await call("mcp_search_tools", { query: "t_2", limit: 20 });
+    expect(search.content[0].text).not.toContain("github_t_2");
+    await call("mcp_call", { server: "github", tool: "github_t_2", arguments: { owner: "fixture" } });
+    expect(made.engine._mcp.callTool).not.toHaveBeenCalled();
   });
 
   it("switches to catalog mode one tool past the threshold", () => {

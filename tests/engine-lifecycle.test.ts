@@ -164,17 +164,33 @@ describe("HanaEngine extension factories", () => {
     expect(engine._resourceLoader.reload).toHaveBeenCalledTimes(1);
   });
 
-  it("does not reload live sessions after plugin extension factories change", async () => {
+  it("marks loaded sessions for a safe refresh only when the plugin factory set changes", async () => {
     const engine = makeEngine({
       pluginFactories: [makeFactory("plugin-a")],
     });
     engine._sessionCoord = {
-      reloadExtensionRunners: vi.fn().mockResolvedValue({ reloaded: 1, skipped: 0, failed: 0 }),
+      markPluginExtensionsChanged: vi.fn(),
     };
 
     await engine.syncPluginExtensions();
 
-    expect(engine._sessionCoord.reloadExtensionRunners).not.toHaveBeenCalled();
+    expect(engine._sessionCoord.markPluginExtensionsChanged).toHaveBeenCalledOnce();
+    await engine.syncPluginExtensions();
+    expect(engine._sessionCoord.markPluginExtensionsChanged).toHaveBeenCalledOnce();
+    await engine.registerExtensionFactory(makeFactory("framework"));
+    expect(engine._sessionCoord.markPluginExtensionsChanged).toHaveBeenCalledOnce();
+  });
+
+  it("marks sessions when the same plugin set is retried after a failed loader refresh", async () => {
+    const engine = makeEngine({ pluginFactories: [makeFactory("plugin-a")] });
+    const markPluginExtensionsChanged = vi.fn();
+    engine._sessionCoord = { markPluginExtensionsChanged };
+    engine._resourceLoader.reload.mockRejectedValueOnce(new Error("reload failed"));
+
+    await expect(engine.syncPluginExtensions()).rejects.toThrow("reload failed");
+    expect(markPluginExtensionsChanged).not.toHaveBeenCalled();
+    await engine.syncPluginExtensions();
+    expect(markPluginExtensionsChanged).toHaveBeenCalledOnce();
   });
 });
 

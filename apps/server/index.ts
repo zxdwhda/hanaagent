@@ -46,7 +46,7 @@ import { authorizeHttpRoute, isPublicHttpRoute } from "./http/route-security.ts"
 setMaxListeners(50);
 
 import { loadLocale } from "../../packages/engine/lib/i18n.ts";
-import { verifyPluginIframeTicketForHostRequest } from "./routes/plugins.ts";
+import { isPluginIframeTicketRequest, verifyPluginIframeTicketForHostRequest } from "./routes/plugins.ts";
 import { PluginIframeTicketError } from "../../packages/engine/core/plugin-iframe-ticket-service.ts";
 import { PluginAssetSessionError } from "../../packages/engine/core/plugin-asset-session-service.ts";
 import {
@@ -686,13 +686,6 @@ export async function startServer(root: CompositionRoot = {}): Promise<void> {
     return (method === "GET" || method === "HEAD")
       && /^\/api\/resources\/[^/]+\/content$/.test(routePath)
       && !!c.req.query("ticket");
-  }
-
-  function isPluginIframeTicketRequest(c: any, routePath: any) {
-    const method = c.req.method;
-    return (method === "GET" || method === "HEAD")
-      && /^\/api\/plugins\/[^/]+\/.+$/.test(routePath)
-      && !!c.req.query("pluginIframeTicket");
   }
 
   function isPluginAssetSessionRequest(c: any, routePath: any) {

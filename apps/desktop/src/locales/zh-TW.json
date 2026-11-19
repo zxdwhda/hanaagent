@@ -2157,7 +2157,7 @@
       "statusFailed": "重新連線失敗",
       "statusNeedsAuth": "需重新登入",
       "command": "命令",
-      "args": "參數",
+      "args": "參數（每行一個）",
       "cwd": "工作目錄",
       "cwdPlaceholder": "可選",
       "registryUrl": "Registry",

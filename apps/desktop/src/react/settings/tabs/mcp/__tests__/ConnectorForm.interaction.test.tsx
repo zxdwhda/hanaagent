@@ -3,6 +3,10 @@
  */
 
 import React from 'react';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorForm } from '../ConnectorForm';
@@ -136,5 +140,52 @@ describe('ConnectorForm connection type switch', () => {
 
     expect(screen.queryByText('settings.mcp.modeSwitchBody')).toBeNull();
     expect(screen.getByPlaceholderText('npx')).toBeTruthy();
+  });
+});
+
+describe('ConnectorForm stdio arguments', () => {
+  const local = (args: string[]): McpConnector => ({
+    id: 'local-1', name: 'Local MCP', transport: 'stdio', command: 'node',
+    args, status: 'stopped', tools: [],
+  });
+
+  it.each([
+    { args: ['/fixture dir/server.mjs'] },
+    { args: ['--message', '  keep spaces  ', '', 'line 1\nline 2'] },
+  ])('round-trips an existing argv without editing it: $args', async ({ args }) => {
+    const onUpdate = vi.fn(async () => {});
+    render(<ConnectorForm editingConnector={local(args)} onAdd={vi.fn()} onUpdate={onUpdate} />);
+
+    fireEvent.click(screen.getByText('settings.mcp.updateConnector'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith('local-1', expect.objectContaining({ args })));
+  });
+
+  it('uses one literal argument per line when editing argv', async () => {
+    const onUpdate = vi.fn(async () => {});
+    render(<ConnectorForm editingConnector={local([])} onAdd={vi.fn()} onUpdate={onUpdate} />);
+
+    fireEvent.change(screen.getByLabelText('settings.mcp.args'), {
+      target: { value: '/new location/server.mjs\n--mode\nread only' },
+    });
+    fireEvent.click(screen.getByText('settings.mcp.updateConnector'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith('local-1', expect.objectContaining({
+      args: ['/new location/server.mjs', '--mode', 'read only'],
+    })));
+  });
+
+  it('starts a Node script whose single argument is a path with spaces after a settings edit', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hana mcp form '));
+    try {
+      const file = path.join(dir, 'test server.mjs');
+      fs.writeFileSync(file, 'process.stdout.write("fixture-started");');
+      const onUpdate = vi.fn(async () => {});
+      render(<ConnectorForm editingConnector={{ ...local([file]), command: process.execPath }} onAdd={vi.fn()} onUpdate={onUpdate} />);
+      fireEvent.click(screen.getByText('settings.mcp.updateConnector'));
+      await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
+      const [, { command, args }] = onUpdate.mock.calls[0] as unknown as [string, { command: string; args: string[] }];
+      expect(execFileSync(command, args, { encoding: 'utf8', timeout: 5000 })).toBe('fixture-started');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -1055,15 +1055,16 @@ describe("HanaEngine.buildTools", () => {
     expect(customTools.some((tool) => tool.name.startsWith("plugin_dev_"))).toBe(false);
   });
 
-  it("adds plugin dev Agent tools when the user enables the dev setting", () => {
+  it("adds plugin dev Agent tools and passes the session workspace after approval", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-build-tools-dev-"));
     const agentDir = path.join(tmpDir, "agents", "focus");
     const engine = Object.create(HanaEngine.prototype);
     engine.hanakoHome = tmpDir;
     engine.getAgent = vi.fn(() => ({ id: "focus", agentDir, tools: [] }));
     engine._pluginManager = null;
+    const installFromSource = vi.fn(async () => ({ ok: true }));
     engine._pluginDevService = {
-      installFromSource: vi.fn(),
+      installFromSource,
       reloadPlugin: vi.fn(),
       enablePlugin: vi.fn(),
       disablePlugin: vi.fn(),
@@ -1080,7 +1081,11 @@ describe("HanaEngine.buildTools", () => {
       getPluginDevToolsEnabled: () => true,
     };
     engine._readPreferences = () => ({ sandbox: true });
-    engine._confirmStore = null;
+    const confirm = vi.fn(() => ({
+      confirmId: "plugin-dev",
+      promise: Promise.resolve({ action: "confirmed" }),
+    }));
+    engine._confirmStore = { create: confirm };
     engine._emitEvent = vi.fn();
     engine.getSessionPermissionMode = vi.fn(() => "operate");
     engine._agentMgr = {
@@ -1091,10 +1096,13 @@ describe("HanaEngine.buildTools", () => {
       },
     };
 
-    const { customTools } = engine.buildTools(tmpDir, [], {
+    const workspace = path.join(tmpDir, "selected-workspace");
+    const sessionPath = path.join(agentDir, "sessions", "project.jsonl");
+    const { customTools } = engine.buildTools(workspace, [], {
       agentDir,
-      workspace: tmpDir,
-      getPermissionMode: () => "operate",
+      workspace,
+      getSessionPath: () => sessionPath,
+      getPermissionMode: () => "ask",
     });
 
     expect(customTools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
@@ -1104,5 +1112,18 @@ describe("HanaEngine.buildTools", () => {
       "plugin_dev_invoke_tool",
       "plugin_dev_run_scenario",
     ]));
+
+    const install = customTools.find((tool) => tool.name === "plugin_dev_install");
+    const sourcePath = path.join(workspace, "demo");
+    const result = await install.execute("plugin-dev-install", { sourcePath }, {
+      sessionManager: { getSessionFile: () => sessionPath },
+    });
+    expect(result.details).toEqual({ ok: true });
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(installFromSource).toHaveBeenCalledWith({
+      sourcePath,
+      pluginId: undefined,
+      allowFullAccess: false,
+    }, workspace);
   });
 });

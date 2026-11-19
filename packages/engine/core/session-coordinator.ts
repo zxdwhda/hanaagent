@@ -1050,6 +1050,7 @@ export class SessionCoordinator {
   declare _pinMutationQueue: Promise<unknown>;
   declare _envChangeLedger: any;
   declare _ensureSessionLoadedInFlight: Map<string, Promise<any>>;
+  declare _pluginExtensionRevision: number;
   declare _metaQuarantines: Map<string, { metaPath: string; backupPath: string; quarantinedAt: string }>;
 
   /**
@@ -1102,6 +1103,7 @@ export class SessionCoordinator {
     this._pinMutationQueue = Promise.resolve();
     this._envChangeLedger = deps.envChangeLedger || null;
     this._ensureSessionLoadedInFlight = new Map();
+    this._pluginExtensionRevision = 0;
     // 运行期 session-meta 隔离记录：key 是 metaPath，value 是隔离详情。
     // 只记内存态（不落盘）——重启后 quarantine 文件仍在磁盘上，但这份
     // "刚刚发生过隔离"的提示只需要覆盖当前进程生命周期；重启后的存量隔离
@@ -2020,6 +2022,7 @@ export class SessionCoordinator {
     let initialAccessMode = legacyAccessModeFromPermissionMode(initialPermissionMode);
     let initialPlanMode = isReadOnlyPermissionMode(initialPermissionMode);
     const sessionEntry = {
+      pluginExtensionRevision: this._pluginExtensionRevision,
       permissionMode: initialPermissionMode,
       accessMode: initialAccessMode,
       planMode: initialPlanMode,
@@ -4903,6 +4906,11 @@ export class SessionCoordinator {
 
   async prompt(text: any, opts: any) {
     const turnContext = normalizeSessionTurnContext(opts?.context);
+    const activePath = this.currentSessionPath;
+    const activeEntry = activePath && this._getSessionEntryByPath(activePath);
+    if (this._needsPluginExtensionRefresh(activeEntry)) {
+      await this.ensureSessionLoaded(activePath);
+    }
     if (!this._session) {
       const currentPath = this.currentSessionPath;
       if (!currentPath) throw new Error(t("error.noActiveSessionPrompt"));
@@ -4994,7 +5002,7 @@ export class SessionCoordinator {
     const turnContext = normalizeSessionTurnContext(opts?.context);
     this._assertActiveDesktopSessionPath(sessionPath, "promptSession");
     let entry = this._getSessionEntryByPath(sessionPath);
-    if (!entry) {
+    if (!entry || this._needsPluginExtensionRefresh(entry)) {
       await this.ensureSessionLoaded(sessionPath);
       entry = this._getSessionEntryByPath(sessionPath);
     }
@@ -5098,7 +5106,7 @@ export class SessionCoordinator {
     if (!sessionPath) throw new Error("deliverCustomMessage: sessionPath is required");
     this._assertActiveDesktopSessionPath(sessionPath, "deliverCustomMessage");
     let entry = this._getSessionEntryByPath(sessionPath);
-    if (!entry) {
+    if (!entry || this._needsPluginExtensionRefresh(entry)) {
       await this.ensureSessionLoaded(sessionPath);
       entry = this._getSessionEntryByPath(sessionPath);
     }
@@ -6091,7 +6099,7 @@ export class SessionCoordinator {
   _computeCatalogBroadcastForEntry(entry: any, isZh: boolean) {
     const snapshot = entry?.toolCatalogManifest;
     if (!snapshot) return null;
-    const liveNames = this._d.getLiveToolCatalogNames?.();
+    const liveNames = this._d.getLiveToolCatalogNames?.(entry.agentId);
     if (!Array.isArray(liveNames)) return null;
 
     const liveFingerprint = hashCacheContractValue(liveNames);
@@ -6299,7 +6307,23 @@ export class SessionCoordinator {
       .sort((left, right) => left.localeCompare(right));
   }
 
-  async reloadSessionRuntime(sessionPath: any, { refreshCapabilitySnapshots = false }: any = {}) {
+  markPluginExtensionsChanged() {
+    this._pluginExtensionRevision += 1;
+  }
+
+  _needsPluginExtensionRefresh(entry: any) {
+    return !!entry && (entry.pluginExtensionRevision ?? 0) < this._pluginExtensionRevision;
+  }
+
+  _isRuntimeBusyForReload(sessionPath: string, entry: any) {
+    return !!(entry?.session?.isStreaming || entry?.session?.isCompacting || entry?._switching
+      || this._hasRuntimeValueForPath(this._prePromptAbortControllers, sessionPath));
+  }
+
+  async reloadSessionRuntime(sessionPath: any, {
+    refreshCapabilitySnapshots = false,
+    refreshForPluginExtensions = false,
+  }: any = {}) {
     this._assertActiveDesktopSessionPath(sessionPath, "reloadSessionRuntime");
     if (this._isDeletedAgentSessionPath(sessionPath)) {
       throw new Error("reloadSessionRuntime: session belongs to a deleted agent");
@@ -6321,14 +6345,17 @@ export class SessionCoordinator {
     const hibernating = this._runtimeHibernations.get(path.resolve(sessionPath));
     if (hibernating) await hibernating;
     const oldEntry = this._getSessionEntryByPath(sessionPath);
-    if (oldEntry) {
-      if (oldEntry.session?.isStreaming || oldEntry.session?.isCompacting || oldEntry._switching) {
-        throw new Error("reloadSessionRuntime: session is busy");
-      }
+    if (this._isRuntimeBusyForReload(sessionPath, oldEntry)) {
+      if (refreshForPluginExtensions && oldEntry) return oldEntry.session;
+      throw new Error("reloadSessionRuntime: session is busy");
     }
     const hibernatedEntry = this._getRuntimeValueForPath(this._hibernatedSessionMeta, sessionPath);
     const reminderState = oldEntry || hibernatedEntry || null;
     if (oldEntry) {
+      if (refreshForPluginExtensions && this._session === oldEntry.session) {
+        this._currentSessionPath = this.currentSessionPath;
+        this._session = null;
+      }
       await this._teardownSessionEntry(oldEntry, sessionPath, "reload");
       this._deleteRuntimeValueForPath(this._sessions, sessionPath);
     }
@@ -6346,12 +6373,16 @@ export class SessionCoordinator {
     const cwd = sessionMgr.getCwd?.() || undefined;
     const result = await this.createSession(sessionMgr, cwd, memoryEnabled, null, {
       restore: true,
+      focus: !refreshForPluginExtensions,
       agent: readyAgent,
       agentId: targetAgentId,
       preserveAgentMemoryState: true,
       refreshCapabilitySnapshots,
       reminderState,
     });
+    if (refreshForPluginExtensions && this.currentSessionPath === sessionPath) {
+      this._session = result.session;
+    }
     return result.session;
   }
 
@@ -6380,7 +6411,10 @@ export class SessionCoordinator {
     const inFlight = this._ensureSessionLoadedInFlight.get(loadKey);
     if (inFlight) return inFlight;
     const existing = this._getSessionEntryByPath(sessionPath);
-    if (existing) {
+    const refresh = this._needsPluginExtensionRefresh(existing)
+      && !this._isRuntimeBusyForReload(sessionPath, existing)
+      && fs.existsSync(sessionPath);
+    if (existing && !refresh) {
       existing.lastTouchedAt = Date.now();
       return existing.session;
     }
@@ -6393,7 +6427,10 @@ export class SessionCoordinator {
     // 键用 sessionPath：入口的 _assertCurrentActiveSessionLocator 保证同一
     // session 同一时刻只有一个 active locator path，避免 manifest 创建过程中
     // sessionId/path 双键漂移绕过去重。
-    const loadPromise = this._loadSessionForAttach(sessionPath).finally(() => {
+    const operation = refresh
+      ? this.reloadSessionRuntime(sessionPath, { refreshForPluginExtensions: true })
+      : this._loadSessionForAttach(sessionPath);
+    const loadPromise = operation.finally(() => {
       this._ensureSessionLoadedInFlight.delete(loadKey);
     });
     this._ensureSessionLoadedInFlight.set(loadKey, loadPromise);

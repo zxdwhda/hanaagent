@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { PluginManager } from "../packages/engine/core/plugin-manager.ts";
 import { PluginDevService } from "../packages/engine/core/plugin-dev-service.ts";
+import { createPluginDevTools } from "../packages/engine/core/plugin-dev-tools.ts";
 
 function makeBus() {
   return {
@@ -318,6 +319,33 @@ describe("PluginDevService", () => {
     await expect(service.installFromSource({ sourcePath }))
       .rejects.toThrow(/outside allowed plugin dev roots/i);
     expect(fs.existsSync(path.join(devPluginsDir, "outside-dev"))).toBe(false);
+  });
+
+  it("installs plugins from the owning session workspace and remembers the canonical source for reload", async () => {
+    const workspace = path.join(tmpDir, "session-workspace");
+    const sourcePath = writeDevPlugin(workspace, "workbench");
+    const outside = writeDevPlugin(path.join(tmpDir, "neighbor"), "workbench");
+    const install = createPluginDevTools({
+      pluginDevService: service,
+      getSessionWorkspace: () => workspace,
+    }).find(({ name }) => name === "plugin_dev_install");
+
+    const denied = await install.execute("denied", { sourcePath: outside, sessionWorkspace: path.dirname(outside) });
+    expect(denied.details).toMatchObject({ errorCode: "PLUGIN_DEV_SOURCE_OUTSIDE_ALLOWED_ROOTS" });
+
+    const result = await install.execute("install", { sourcePath });
+    expect(result.details).toMatchObject({ ok: true, plugin: { id: "workbench", source: "dev" } });
+    writeDevPlugin(workspace, "workbench", { prefix: "Updated" });
+    const refreshed = await service.reloadPlugin("workbench", { devRunId: service.getDevSlot("workbench").lastDevRunId });
+    expect(refreshed).toMatchObject({ ok: true, plugin: { status: "loaded" } });
+    const invocation = await service.invokeTool({ pluginId: "workbench", toolName: "echo", input: { text: "plugin" } });
+    expect(invocation.result.content[0].text).toBe("Updated plugin");
+
+    fs.renameSync(sourcePath, `${sourcePath}-old`);
+    fs.symlinkSync(outside, sourcePath, "dir");
+    const deniedLink = await install.execute("link", { sourcePath });
+    expect(deniedLink.details).toMatchObject({ errorCode: "PLUGIN_DEV_SOURCE_OUTSIDE_ALLOWED_ROOTS" });
+    await expect(service.reloadPlugin("workbench")).rejects.toMatchObject({ code: "PLUGIN_DEV_SOURCE_OUTSIDE_ALLOWED_ROOTS" });
   });
 
   it("registers EventBus dev capabilities and request handlers", async () => {

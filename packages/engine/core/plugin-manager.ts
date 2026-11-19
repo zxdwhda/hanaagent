@@ -10,6 +10,7 @@ import { createPluginConfigStore, normalizePluginConfigSchema } from "./plugin-c
 import { semverGte } from "../lib/plugin-versioning.ts";
 import { detectIncompatiblePluginFormat } from "../lib/plugin-format-guard.ts";
 import { createModuleLogger } from "../lib/debug-log.ts";
+import type { PluginInstallRecords } from "../lib/plugin-install-records.ts";
 import { getToolSessionPath, normalizeToolRuntimeContext } from "../lib/tools/tool-session.ts";
 
 const log = createModuleLogger("plugin-manager");
@@ -99,6 +100,21 @@ class PluginLoadTimeoutError extends Error {
   }
 }
 
+async function withPluginDeadline<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => Error): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(onTimeout()), timeoutMs);
+        timer.unref?.();
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function normalizeUiHostCapabilities(raw, pluginId) {
   if (!Array.isArray(raw)) return [];
   const result = [];
@@ -151,6 +167,13 @@ function normalizePluginToolResult(raw, pluginId) {
     result = { content: [{ type: "text", text: raw }] };
   } else if (raw && raw.content) {
     result = raw;
+    if (Array.isArray(raw.content) && raw.content.some((block) => block?.type === "text" && typeof block.text !== "string")) {
+      const content = raw.content.map((block) => {
+        if (block?.type !== "text" || typeof block.text === "string") return block;
+        return { ...block, text: String(block.text ?? "") };
+      });
+      result = { ...raw, content };
+    }
   } else {
     result = { content: [{ type: "text", text: String(raw ?? "") }] };
   }
@@ -233,6 +256,7 @@ export class PluginManager {
   declare _plugins: any;
   declare _pluginsDirs: any;
   declare _preferencesManager: any;
+  declare _installRecords: PluginInstallRecords | null;
   declare _providerPlugins: any;
   declare _registerSessionFile: any;
   declare _emitResourceChanged: any;
@@ -258,6 +282,7 @@ export class PluginManager {
     dataDir,
     bus,
     preferencesManager,
+    installRecords = null as PluginInstallRecords | null,
     appVersion,
     getSessionPath,
     registerSessionFile,
@@ -274,6 +299,7 @@ export class PluginManager {
     this._dataDir = dataDir;
     this._bus = bus;
     this._preferencesManager = preferencesManager || null;
+    this._installRecords = installRecords;
     this._appVersion = appVersion || "0.0.0";
     this._getSessionPath = getSessionPath || (() => null);
     this._registerSessionFile = registerSessionFile || null;
@@ -380,7 +406,12 @@ export class PluginManager {
   _isMissingReconcileablePlugin(entry) {
     if (!entry?.pluginDir) return false;
     if (normalizePluginSource(entry.source) !== "community") return false;
-    return !fs.existsSync(entry.pluginDir);
+    try {
+      fs.lstatSync(entry.pluginDir);
+      return false;
+    } catch (error) {
+      return error?.code === "ENOENT";
+    }
   }
 
   _cleanupPluginContributions(entry) {
@@ -401,7 +432,7 @@ export class PluginManager {
     this._refreshRouteRegistryForId(pluginId);
   }
 
-  _startPluginRuntimeCleanup(entry) {
+  async _startPluginRuntimeCleanup(entry) {
     entry._loadCancelled = true;
     const instance = entry.instance || null;
     const disposables = Array.isArray(entry._disposables)
@@ -409,39 +440,45 @@ export class PluginManager {
       : [];
     entry._disposables = [];
     entry.instance = null;
+    entry._activationPromise = null;
     entry.activationState = entry.hasLifecycle ? "inactive" : "none";
 
-    const run = async () => {
-      if (instance && typeof instance.onunload === "function") {
-        try { await instance.onunload(); } catch (err) {
-          log.error(`"${entry.id}" onunload error: ${err.message}`);
-        }
+    if (instance && typeof instance.onunload === "function") {
+      try {
+        await withPluginDeadline(Promise.resolve().then(() => instance.onunload()), this._loadTimeoutMs, () =>
+          new Error(`Plugin "${entry.id}" onunload timed out after ${this._loadTimeoutMs}ms`));
+      } catch (err) {
+        log.error(`"${entry.id}" onunload error: ${err.message}`);
       }
-      for (const d of disposables) {
-        try { d(); } catch (err) {
-          log.error(`"${entry.id}" disposable error: ${err.message}`);
-        }
+    }
+    for (const dispose of disposables) {
+      try { dispose(); } catch (err) {
+        log.error(`"${entry.id}" disposable error: ${err.message}`);
       }
-    };
-    void run();
+    }
   }
 
-  _forgetPluginEntry(entry, options: any = {}) {
+  _forgetPluginEntry(entry) {
     const pluginId = entry.id;
     const pluginKey = entry.pluginKey;
-    const source = normalizePluginSource(entry.source);
-    this._startPluginRuntimeCleanup(entry);
+    void this._startPluginRuntimeCleanup(entry);
     this._cleanupPluginContributions(entry);
     this._plugins.delete(pluginKey);
+    this._scanned = this._scanned.filter(descriptor => descriptor.pluginDir !== entry.pluginDir);
 
-    if (source === "community" && options.removePreferences !== false && this._preferencesManager) {
-      const disabled = this._preferencesManager.getDisabledPlugins();
+    this._refreshRouteRegistryForId(pluginId);
+  }
+
+  _clearMissingPluginInstall(pluginId) {
+    try {
+      const disabled = this._preferencesManager?.getDisabledPlugins();
       if (Array.isArray(disabled) && disabled.includes(pluginId)) {
         this._preferencesManager.setDisabledPlugins(disabled.filter(id => id !== pluginId));
       }
+      this._installRecords?.remove(pluginId);
+    } catch (error) {
+      log.warn(`failed to reconcile persisted community plugin "${pluginId}": ${error.message}`);
     }
-
-    this._refreshRouteRegistryForId(pluginId);
   }
 
   reconcileMissingPluginDirectories(options: any = {}) {
@@ -449,7 +486,8 @@ export class PluginManager {
     for (const entry of [...this._plugins.values()]) {
       if (!this._isMissingReconcileablePlugin(entry)) continue;
       log.warn(`community plugin "${entry.id}" directory missing, reconciling stale registry entry: ${entry.pluginDir}`);
-      this._forgetPluginEntry(entry, { removePreferences: true });
+      this._forgetPluginEntry(entry);
+      if (!options.presentCommunityIds?.has(entry.id)) this._clearMissingPluginInstall(entry.id);
       removed.push({
         id: entry.id,
         pluginKey: entry.pluginKey,
@@ -491,11 +529,19 @@ export class PluginManager {
   scan() {
     const results = [];
     const seen = new Set();
+    let completeCommunityScan = this._pluginsDirs.length > 1;
     for (let i = 0; i < this._pluginsDirs.length; i++) {
       const dir = this._pluginsDirs[i];
       const source = i === 0 ? "builtin" : "community";
-      if (!fs.existsSync(dir)) continue;
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (error) {
+        if (source === "community") completeCommunityScan = false;
+        if (error?.code !== "ENOENT") log.warn(`failed to scan plugin directory "${dir}": ${error.message}`);
+        continue;
+      }
+      for (const entry of entries) {
         if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
         const dirKey = `${source}:${entry.name}`;
         if (seen.has(dirKey)) continue;
@@ -513,12 +559,21 @@ export class PluginManager {
           seen.add(idKey);
           results.push(desc);
         } catch (err) {
+          if (source === "community") completeCommunityScan = false;
           log.error(`failed to read plugin "${entry.name}": ${err.message}`);
         }
       }
     }
     this._scanned = results;
-    this.reconcileMissingPluginDirectories();
+    const presentCommunityIds = new Set(results.filter(entry => entry.source === "community").map(entry => entry.id));
+    this.reconcileMissingPluginDirectories({ presentCommunityIds });
+    // A complete scan also finds stale records from a previous process,
+    // when there is no in-memory plugin entry to reconcile.
+    if (completeCommunityScan && this._installRecords) {
+      for (const pluginId of this._installRecords.listPluginIds()) {
+        if (!presentCommunityIds.has(pluginId)) this._clearMissingPluginInstall(pluginId);
+      }
+    }
     return results;
   }
 
@@ -637,21 +692,10 @@ export class PluginManager {
   }
 
   async _withLoadTimeout(entry, promise, stage) {
-    let timer = null;
-    try {
-      return await Promise.race([
-        promise,
-        new Promise((_, reject) => {
-          timer = setTimeout(() => {
-            entry._loadCancelled = true;
-            reject(new PluginLoadTimeoutError(entry.id, entry._loadStage || stage, this._loadTimeoutMs));
-          }, this._loadTimeoutMs);
-          timer.unref?.();
-        }),
-      ]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
+    return withPluginDeadline(promise, this._loadTimeoutMs, () => {
+      entry._loadCancelled = true;
+      return new PluginLoadTimeoutError(entry.id, entry._loadStage || stage, this._loadTimeoutMs);
+    });
   }
 
   async _runLoadStage(entry, stage, fn) {
@@ -754,6 +798,7 @@ export class PluginManager {
       try {
         const indexPath = resolvePluginEntry(entry.pluginDir);
         const mod = await this._runLoadStage(entry, "lifecycle import", () => freshImport(indexPath));
+        this._assertActiveLoad(entry, loadToken);
         const PluginClass = mod.default;
         if (PluginClass && typeof PluginClass === "function") {
           const instance = new PluginClass();
@@ -784,15 +829,18 @@ export class PluginManager {
             await this._runLoadStage(entry, "lifecycle onload", () => instance.onload());
           }
         }
+        this._assertActiveLoad(entry, loadToken);
         entry.activationState = "activated";
         entry.activationError = null;
         return entry;
       } catch (err) {
-        entry.activationState = "failed";
-        entry.activationError = err.message;
+        if (entry._loadToken === loadToken && !entry._loadCancelled) {
+          entry.activationState = "failed";
+          entry.activationError = err.message;
+        }
         throw err;
       } finally {
-        entry._activationPromise = null;
+        if (entry._loadToken === loadToken) entry._activationPromise = null;
       }
     };
 
@@ -1598,26 +1646,7 @@ export class PluginManager {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   async _cleanupPluginEntry(entry) {
-    const pluginId = entry.id;
-
-    // 1. 生命周期清理（onunload + disposables）
-    if (entry.instance) {
-      if (typeof entry.instance.onunload === "function") {
-        try { await entry.instance.onunload(); } catch (err) {
-          log.error(`"${pluginId}" onunload error: ${err.message}`);
-        }
-      }
-      for (const d of entry._disposables.reverse()) {
-        try { d(); } catch (err) {
-          log.error(`"${pluginId}" disposable error: ${err.message}`);
-        }
-      }
-      entry._disposables = [];
-    }
-    entry.instance = null;
-    entry.activationState = entry.hasLifecycle ? "inactive" : "none";
-
-    // 2. 清理静态贡献（文件约定加载的 tools、commands 等）
+    await this._startPluginRuntimeCleanup(entry);
     this._cleanupPluginContributions(entry);
   }
 

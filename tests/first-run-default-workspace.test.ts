@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import YAML from "js-yaml";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Hono } from "hono";
 import { resolvePersonaSource } from "../packages/engine/core/persona-source.ts";
 
 describe("first run default workspace", () => {
@@ -55,6 +56,40 @@ describe("first run default workspace", () => {
     expect(cfg.desk.heartbeat_enabled).toBe(false);
     expect(cfg.desk.heartbeat_interval).toBe(31);
     expect(cfg.memory.enabled).toBe(true);
+  });
+
+  it("lists the bundled skill creator after materialization and after reinstalling its directory", async () => {
+    const { ensureFirstRun } = await import("../packages/engine/core/first-run.ts");
+    const { fromRoot } = await import("../packages/shared/hana-root.ts");
+    const { HanaEngine } = await import("../packages/engine/core/engine.ts");
+    const { createSkillsRoute } = await import("../apps/server/routes/skills.ts");
+    const bundledProductDir = fromRoot("lib");
+    ensureFirstRun(hanakoHome, bundledProductDir);
+    const skillDir = path.join(hanakoHome, "skills", "skill-creator");
+    const original = fs.readFileSync(path.join(skillDir, "SKILL.md"), "utf8");
+    const engine = new HanaEngine({ hanakoHome, productDir: bundledProductDir, agentId: "hanako", appVersion: "0.450.14", builtinMediaAdapters: [] });
+    vi.spyOn(engine, "syncModelsAndRefresh").mockResolvedValue(undefined);
+    try {
+      await engine.init();
+      const app = new Hono().route("/api", createSkillsRoute(engine));
+      const listVisible = async () => {
+        const response = await app.request("/api/skills?agentId=hanako");
+        expect(response.status).toBe(200);
+        return (await response.json()).skills.filter((skill) => !skill.hidden);
+      };
+
+      expect(await listVisible()).toContainEqual(expect.objectContaining({ name: "skill-creator" }));
+      const response = await app.request("/api/skills/install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: skillDir }),
+      });
+      expect(response.status).toBe(200);
+      expect(await listVisible()).toContainEqual(expect.objectContaining({ name: "skill-creator" }));
+      expect(fs.readFileSync(path.join(skillDir, "SKILL.md"), "utf8")).toBe(original);
+    } finally {
+      await engine.dispose();
+    }
   });
 
   it("does not seed identity.md/AGENTS.md to disk on first run (lazy materialization)", async () => {

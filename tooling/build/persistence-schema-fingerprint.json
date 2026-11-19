@@ -668,7 +668,7 @@
     ],
     "version": 3
   },
-  "payloadFingerprint": "sha256:7b63d950226ac12a3a9ca3d1fbdbf399ba22bd7e23c20fa1184de105b0546bec",
+  "payloadFingerprint": "sha256:ba22ba6e1473fc25b702e8e1abe6731d62bb673c462d1fcd151809f223af95f2",
   "registry": [
     {
       "affectedByEpochMigration": true,
@@ -3122,8 +3122,8 @@
   ],
   "review": {
     "classification": "compatible",
-    "compatibilityReason": "Preserve the data epoch and current store contracts. Bridge session and deferred subagent routing add optional fields and retain readers for earlier records.",
-    "payloadFingerprint": "sha256:7b63d950226ac12a3a9ca3d1fbdbf399ba22bd7e23c20fa1184de105b0546bec"
+    "compatibilityReason": "Preserve the data epoch and stored record formats. Plugin install reconciliation only removes records for confirmed missing plugin directories.",
+    "payloadFingerprint": "sha256:ba22ba6e1473fc25b702e8e1abe6731d62bb673c462d1fcd151809f223af95f2"
   },
   "schemas": [
     {
@@ -3383,7 +3383,7 @@
       "contract": "installed manifest, install receipt, backup, and source-package directory protocols",
       "kind": "directory-contract",
       "module": "packages/engine/core/plugin-manager.ts",
-      "sourceHash": "sha256:78098ac67519299dd169da7eab6abef5f960141551fb63a5266c3d36210d9497",
+      "sourceHash": "sha256:ec49e70c220037b9e9477ace1daf61aeab0af724f4c7319f8b563dccd628cf54",
       "storeId": "installed-plugins"
     },
     {
@@ -3446,14 +3446,14 @@
       "contract": "dev plugin source promotion and run receipt protocol",
       "kind": "directory-contract",
       "module": "packages/engine/core/plugin-dev-service.ts",
-      "sourceHash": "sha256:6ff79c035f1d349f4be0d225f21ff14cb4943ac8cadc879898dc622e2d13fb36",
+      "sourceHash": "sha256:bac6c20d1246e2defe2b17f0c0d5dee4ac6bf81cf1610b21661b49bc66639527",
       "storeId": "plugin-development-state"
     },
     {
       "contract": "verified plugin release ZIP naming by pluginId/version and expected sha256",
       "kind": "directory-contract",
       "module": "apps/server/routes/plugins.ts",
-      "sourceHash": "sha256:6b7c9855ab526e904ba9b2425a4b7d404e110612760ea74a38a262fbb3bd5408",
+      "sourceHash": "sha256:806ad4e7cd5cad8a23acf330ae0211c7cb40d215717f17a1f82268b8868d92c7",
       "storeId": "plugin-download-cache"
     },
     {
@@ -3522,7 +3522,7 @@
       "contract": "server-info writer and desktop bootstrap reader",
       "kind": "runtime-contract",
       "module": "apps/server/index.ts",
-      "sourceHash": "sha256:9c2b89a10e088bbbaae7cc4aed139ab5e3dd78392fd9ae854ccfca92c0d2a69a",
+      "sourceHash": "sha256:1c196b15ed5c5932ad5338f4e44b1bf753b0e7a5b449d1e286382fdaaaa8365b",
       "storeId": "server-runtime-info"
     },
     {
@@ -3544,7 +3544,7 @@
         {
           "contract": "packages/engine/core/session-coordinator.ts Hana metadata extensions",
           "module": "packages/engine/core/session-coordinator.ts",
-          "sourceHash": "sha256:d239de11b0d0882b66298ce2d256adecb0399dae2ad0ae3372222cbe1437c322"
+          "sourceHash": "sha256:2544fcc139b52b784323ef0514f8a6bce92a09eea7b208895f6bb8beb0c07839"
         },
         {
           "contract": "packages/engine/core/session-jsonl-file.ts repair contract",

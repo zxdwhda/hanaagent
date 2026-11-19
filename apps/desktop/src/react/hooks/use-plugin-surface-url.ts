@@ -15,6 +15,7 @@ interface IssuedSurfaceCredentials {
   key: string;
   ticket: string | null;
   surfaceSession: string | null;
+  surfaceSessionExpiresAt: number | null;
 }
 
 interface SurfaceIssueError {
@@ -62,6 +63,7 @@ export function usePluginSurfaceUrl(routeUrl: string | null, agentId?: string | 
     }
 
     const controller = new AbortController();
+    const requestStartedAt = Date.now();
     setIssued(null);
     setIssueError(null);
 
@@ -80,10 +82,19 @@ export function usePluginSurfaceUrl(routeUrl: string | null, agentId?: string | 
       const surfaceSession = typeof data?.surfaceSession?.token === 'string' && data.surfaceSession.token
         ? data.surfaceSession.token
         : null;
+      const expiresAt = Date.parse(data?.surfaceSession?.expiresAt);
+      const issuedAt = Date.parse(data?.surfaceSession?.issuedAt);
+      // When both server times are available, use the TTL so a remote
+      // server's wall clock does not determine the local renewal deadline.
+      const expiresLocally = Number.isFinite(issuedAt) ? requestStartedAt + (expiresAt - issuedAt) : expiresAt;
       if (!localOwner && !ticket) {
         throw new Error('plugin iframe ticket missing');
       }
-      setIssued({ key: requestKey, ticket, surfaceSession });
+      const surfaceSessionExpiresAt = surfaceSession && Number.isFinite(expiresLocally) ? expiresLocally : null;
+      if (surfaceSessionExpiresAt !== null && surfaceSessionExpiresAt <= Date.now()) {
+        throw new Error('plugin surface session expired before it could be loaded');
+      }
+      setIssued({ key: requestKey, ticket, surfaceSession, surfaceSessionExpiresAt });
     }).catch((err) => {
       if (controller.signal.aborted) return;
       setIssueError({ key: requestKey, message: err instanceof Error ? err.message : String(err) });
@@ -91,6 +102,26 @@ export function usePluginSurfaceUrl(routeUrl: string | null, agentId?: string | 
 
     return () => controller.abort();
   }, [connection, localOwner, requestKey, routeUrl]);
+
+  useEffect(() => {
+    const expiresAt = issued?.surfaceSessionExpiresAt;
+    if (issued?.key !== requestKey || expiresAt == null) return;
+
+    let renewing = false;
+    const renewIfExpired = () => {
+      if (renewing || Date.now() < expiresAt) return;
+      renewing = true;
+      setRetryNonce(n => n + 1);
+    };
+    const timer = window.setTimeout(renewIfExpired, Math.max(0, expiresAt - Date.now()));
+    window.addEventListener('focus', renewIfExpired);
+    document.addEventListener('visibilitychange', renewIfExpired);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', renewIfExpired);
+      document.removeEventListener('visibilitychange', renewIfExpired);
+    };
+  }, [issued, requestKey]);
 
   const iframeSrc = useMemo(() => {
     if (!connection || !routeUrl) return null;

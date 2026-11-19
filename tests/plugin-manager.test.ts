@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { PluginManager } from "../packages/engine/core/plugin-manager.ts";
+import { PluginInstallRecords } from "../packages/engine/lib/plugin-install-records.ts";
 
 const tmpHome = path.join(os.tmpdir(), "hana-pm-test-" + Date.now());
 const pluginsDir = path.join(tmpHome, "plugins");
@@ -360,11 +361,18 @@ describe("loadAll", () => {
     expect(pm.getPlugin("good-plugin").status).toBe("loaded");
   });
 
-  it("timed out onload marks plugin as failed, does not block startup", async () => {
+  it("runs disposables and continues startup when onload and onunload share a pending promise", async () => {
     const stuck = path.join(pluginsDir, "stuck-plugin");
     fs.mkdirSync(stuck, { recursive: true });
     fs.writeFileSync(path.join(stuck, "index.js"), `
-      export default class Stuck { async onload() { await new Promise(() => {}); } }
+      export default class Stuck {
+        pending = new Promise(() => {});
+        onload() {
+          this.register(() => { globalThis.__stuckPluginDisposed = true; });
+          return this.pending;
+        }
+        onunload() { return this.pending; }
+      }
     `);
     const good = path.join(pluginsDir, "after-stuck");
     fs.mkdirSync(good, { recursive: true });
@@ -378,13 +386,18 @@ describe("loadAll", () => {
 
     const result = await Promise.race([
       pm.loadAll().then(() => "loaded"),
-      new Promise((resolve) => setTimeout(() => resolve("hung"), 100)),
+      new Promise((resolve) => setTimeout(() => resolve("hung"), 300)),
     ]);
 
-    expect(result).toBe("loaded");
-    expect(pm.getPlugin("stuck-plugin").status).toBe("failed");
-    expect(pm.getPlugin("stuck-plugin").error).toMatch(/timed out/i);
-    expect(pm.getPlugin("after-stuck").status).toBe("loaded");
+    try {
+      expect(result).toBe("loaded");
+      expect(pm.getPlugin("stuck-plugin").status).toBe("failed");
+      expect(pm.getPlugin("stuck-plugin").error).toMatch(/timed out/i);
+      expect(pm.getPlugin("after-stuck").status).toBe("loaded");
+      expect(globalThis.__stuckPluginDisposed).toBe(true);
+    } finally {
+      delete globalThis.__stuckPluginDisposed;
+    }
   });
 
   it("plugin without index.js loads as static (no lifecycle)", async () => {
@@ -561,6 +574,43 @@ describe("tool loading", () => {
     });
 
     expect(result.content[0].text).toBe("/sessions/static.jsonl:hello");
+  });
+
+  it("returns string text from legacy plugin blocks without changing image content or details", async () => {
+    const dir = path.join(pluginsDir, "legacy-result");
+    fs.mkdirSync(path.join(dir, "tools"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "tools", "probe.js"), `
+      export const name = "probe";
+      export const description = "Return old-style tool content";
+      export const parameters = {};
+      export async function execute() {
+        return {
+          content: [
+            { type: "text", text: null },
+            { type: "text", text: 0 },
+            { type: "text", text: "complete" },
+            { type: "image", data: "AA==", mimeType: "image/png" },
+          ],
+          details: { state: "complete" },
+        };
+      }
+    `);
+    const pm = new PluginManager({ pluginsDir, dataDir, bus: await makeBus() } as any);
+    pm.scan();
+    await pm.loadAll();
+
+    const tool = pm.getPluginTool("legacy-result", "probe");
+    const result = await pm.executePluginTool(tool, { toolCallId: "call-legacy", input: {} });
+
+    expect(result).toEqual({
+      content: [
+        { type: "text", text: "" },
+        { type: "text", text: "0" },
+        { type: "text", text: "complete" },
+        { type: "image", data: "AA==", mimeType: "image/png" },
+      ],
+      details: { state: "complete" },
+    });
   });
 
   it("preserves static plugin tool sessionPermission metadata", async () => {
@@ -1837,6 +1887,8 @@ describe("hot operations", () => {
     const communityDir = path.join(tmpHome, "community-missing-reload");
     const dir = writeToolRoutePlugin(communityDir, "missing-reload", { text: "gone" });
     const mockPrefs = createMockPrefs({ allow_full_access_plugins: true });
+    const installRecords = new PluginInstallRecords({ hanakoHome: tmpHome });
+    installRecords.recordInstall({ pluginId: "missing-reload", installedVersion: "1.0.0" });
     const bus = await makeBus();
     const events = [];
     bus.subscribe((event) => events.push(event), { types: ["plugin_ui_changed"] });
@@ -1845,6 +1897,7 @@ describe("hot operations", () => {
       dataDir,
       bus,
       preferencesManager: mockPrefs,
+      installRecords,
     } as any);
     pm.scan();
     await pm.loadAll();
@@ -1854,7 +1907,6 @@ describe("hot operations", () => {
     expect(pm.routeRegistry.has("missing-reload")).toBe(true);
 
     fs.rmSync(dir, { recursive: true, force: true });
-    pm.scan();
     await pm.loadAll();
 
     expect(pm.getPlugin("missing-reload", { source: "community" })).toBeNull();
@@ -1862,7 +1914,39 @@ describe("hot operations", () => {
     expect(pm.getDiagnostics().some(entry => entry.id === "missing-reload")).toBe(false);
     expect(pm.getAllTools({ includeShadowed: true }).some(t => t._pluginId === "missing-reload")).toBe(false);
     expect(pm.routeRegistry.has("missing-reload")).toBe(false);
+    expect(installRecords.get("missing-reload")).toBeNull();
     expect(events.some(event => event.type === "plugin_ui_changed")).toBe(true);
+  });
+
+  it.each([false, true])("reconciles persisted community installs only after a complete scan (read error %s)", async (readError) => {
+    const builtinDir = path.join(tmpHome, "builtin-startup");
+    const communityDir = path.join(tmpHome, "community-startup");
+    fs.mkdirSync(builtinDir, { recursive: true });
+    writeToolRoutePlugin(communityDir, "still-installed", { text: "saved" });
+    if (readError) {
+      const malformed = path.join(communityDir, "unreadable-descriptor");
+      fs.mkdirSync(malformed);
+      fs.writeFileSync(path.join(malformed, "manifest.json"), "{");
+    }
+    const prefs = createMockPrefs({ disabled_plugins: ["missing-on-start", "still-installed"] });
+    const installRecords = new PluginInstallRecords({ hanakoHome: tmpHome });
+    installRecords.recordInstall({ pluginId: "missing-on-start", installedVersion: "1.0.0", source: "marketplace" });
+    installRecords.recordInstall({ pluginId: "still-installed", installedVersion: "1.0.0", source: "marketplace" });
+    const pm = new PluginManager({
+      pluginsDirs: [builtinDir, communityDir], dataDir, bus: await makeBus(),
+      preferencesManager: prefs, installRecords,
+    } as any);
+
+    pm.scan();
+    const reopenedRecords = new PluginInstallRecords({ hanakoHome: tmpHome });
+    if (readError) {
+      expect(reopenedRecords.get("missing-on-start")).not.toBeNull();
+      expect(prefs.getDisabledPlugins()).toEqual(["missing-on-start", "still-installed"]);
+    } else {
+      expect(reopenedRecords.get("missing-on-start")).toBeNull();
+      expect(prefs.getDisabledPlugins()).toEqual(["still-installed"]);
+    }
+    expect(reopenedRecords.get("still-installed")).toMatchObject({ installedVersion: "1.0.0" });
   });
 
   it("reconciles missing community plugin directories before diagnostics", async () => {
