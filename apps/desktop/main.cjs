@@ -58,6 +58,7 @@ const {
 const {
   waitForBrowserState,
 } = require("./src/shared/browser-wait.cjs");
+const { captureBrowserPage } = require("./src/shared/browser-page-capture.cjs");
 const {
   normalizeNetworkProxyConfig,
   electronProxyRulesForConfig,
@@ -4167,7 +4168,7 @@ async function handleBrowserCommand(cmd, params, signal) {
     // ── screenshot ──
     case "screenshot": {
       return await _withLiveWebContents(params.sessionPath, async (wc) => {
-        const img = await wc.capturePage();
+        const img = await captureBrowserPage(wc, nativeImage);
         return { base64: encodeCapturedPageToJpegBase64(img, 75, "screenshot"), tabId: params.tabId || _currentBrowserTabId };
       }, params.tabId || null);
     }
@@ -4175,7 +4176,7 @@ async function handleBrowserCommand(cmd, params, signal) {
     // ── thumbnail ──
     case "thumbnail": {
       return await _withLiveWebContents(params.sessionPath, async (wc) => {
-        const img = await wc.capturePage();
+        const img = await captureBrowserPage(wc, nativeImage);
         const resized = img.resize({ width: 400 });
         return { base64: encodeCapturedPageToJpegBase64(resized, 60, "thumbnail") };
       }, params.tabId || null);

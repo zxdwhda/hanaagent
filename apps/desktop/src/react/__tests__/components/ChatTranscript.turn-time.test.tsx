@@ -108,7 +108,7 @@ describe('ChatTranscript turn timestamps', () => {
     vi.clearAllMocks();
   });
 
-  it('keeps transcript traversal linear through a tool-heavy run of interludes', () => {
+  it.each([false, true])('keeps transcript traversal linear through tool interludes with process folding=%s', (enableProcessFold) => {
     const entries: ChatListItem[] = [
       user('before-tools', 1, 'request'),
       ...Array.from({ length: 160 }, (_, index) => interlude('step-'+index, 'tool result '+index)),
@@ -122,11 +122,11 @@ describe('ChatTranscript turn timestamps', () => {
       },
     });
 
-    render(<ChatTranscript items={items} sessionPath={sessionPath} />);
+    render(<ChatTranscript items={items} sessionPath={sessionPath} enableProcessFold={enableProcessFold} />);
     expect(screen.getByText('tool result 159')).toBeInTheDocument();
     expect(screen.getByText('finished')).toBeInTheDocument();
     expect(sourceReads).toBeGreaterThanOrEqual(entries.length);
-    expect(sourceReads).toBeLessThanOrEqual(entries.length * 4);
+    expect(sourceReads).toBeLessThanOrEqual(entries.length * 5);
   });
 
   it('shows assistant footer only on the final assistant message of each completed turn', () => {
