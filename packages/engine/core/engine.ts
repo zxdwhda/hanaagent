@@ -1584,7 +1584,13 @@ export class HanaEngine {
    * themselves whether reasoning is on. Both ask this.
    */
   resolveRequestReasoningLevel(ctx) {
-    return resolveRequestReasoningLevelForContext(this._models, this._prefs, ctx);
+    const sessionPath = ctx?.sessionManager?.getSessionFile?.();
+    // Pi can restore a new effective level without rewriting an existing
+    // journal event. A retry may also branch from before that event.
+    const runtimeThinkingLevel = sessionPath
+      ? this._sessionCoord?.getSessionByPath(sessionPath)?.thinkingLevel
+      : null;
+    return resolveRequestReasoningLevelForContext(this._models, this._prefs, ctx, runtimeThinkingLevel);
   }
   getSessionStreamFn(p) {
     return this._sessionCoord.getSessionStreamFn(p);

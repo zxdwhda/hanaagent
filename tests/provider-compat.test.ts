@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createServer } from "node:http";
 import { once } from "node:events";
+import { withProviderCacheAffinity } from "../packages/engine/lib/llm/provider-cache-affinity.ts";
 import {
   normalizeProviderPayload,
   normalizeProviderContextMessages,
@@ -69,6 +70,59 @@ describe("Responses cache fields", () => {
     expect(normalizeProviderPayload(payload, { ...compatible, baseUrl: "https://api.openai.com/v1" })).toMatchObject(payload);
     expect(normalizeProviderPayload(payload, { ...compatible, compat: { supportsPromptCacheKey: true } })).toMatchObject(payload);
     expect(normalizeProviderPayload(payload, { ...compatible, api: "openai-codex-responses" })).toMatchObject(payload);
+  });
+
+  it("keeps the Claude Responses gateway's opted-in cache route stable and reads its reported hits", async () => {
+    const { stream } = await import("@earendil-works/pi-ai/api/openai-responses");
+    const requests: Array<Record<string, any>> = [];
+    const gateway = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const payload = JSON.parse(Buffer.concat(chunks).toString());
+      const previous = requests.at(-1);
+      requests.push(payload);
+      const prefixReused = previous && payload.prompt_cache_key === previous.prompt_cache_key
+        && JSON.stringify(payload.input.slice(0, previous.input.length)) === JSON.stringify(previous.input);
+      const completed = {
+        type: "response.completed",
+        response: { id: "resp_fixture", status: "completed", usage: {
+          input_tokens: 4096, input_tokens_details: { cached_tokens: prefixReused ? 3072 : 0 },
+          output_tokens: 0, total_tokens: 4096,
+        } },
+      };
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end(`data: ${JSON.stringify(completed)}\n\ndata: [DONE]\n\n`);
+    });
+    gateway.listen(0, "127.0.0.1");
+    try {
+      await once(gateway, "listening");
+      const { port } = gateway.address() as import("node:net").AddressInfo;
+      const model: Parameters<typeof stream>[0] = {
+        id: "claude-opus-4-7", name: "Claude", provider: "custom", api: "openai-responses",
+        baseUrl: `http://127.0.0.1:${port}/v1`, input: ["text"], reasoning: false,
+        contextWindow: 200_000, maxTokens: 16_384, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        compat: { supportsPromptCacheKey: true } as any,
+      };
+      const prefix: Parameters<typeof stream>[1] = {
+        systemPrompt: "Stable system instructions.",
+        messages: [{ role: "user", content: "Stable source text.", timestamp: 1 }],
+      };
+      const next = { ...prefix, messages: [...prefix.messages, { role: "user" as const, content: "Follow-up.", timestamp: 2 }] };
+      for (const [index, context] of [prefix, next].entries()) {
+        const requestOptions = withProviderCacheAffinity({
+          apiKey: "fixture", sessionId: `pi-session-${index}`, cacheRetention: "short",
+          signal: AbortSignal.timeout(5000),
+          onPayload: (payload: any) => normalizeProviderPayload(payload, model, { mode: "chat" }),
+        }, model, "stable-lineage");
+        const result = await stream(model, context, requestOptions).result();
+        expect(result.stopReason).toBe("stop");
+        expect(result.usage.cacheRead).toBe(index === 0 ? 0 : 3072);
+      }
+      expect(requests.map(request => request.prompt_cache_key)).toEqual(["stable-lineage", "stable-lineage"]);
+    } finally {
+      gateway.closeAllConnections();
+      await new Promise<void>(resolve => gateway.close(() => resolve()));
+    }
   });
 
   it("sends Responses requests through a strict gateway using the actual SDK", async () => {

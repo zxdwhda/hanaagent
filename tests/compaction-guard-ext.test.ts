@@ -226,6 +226,35 @@ describe("CompactionGuardExtension", () => {
       expect(result.messages[1].usage.totalTokens).toBe(0);
       expect(retainedAssistant.usage.totalTokens).toBe(127_000);
       expect(clampMaxTokensToContext(model, providerContextAfter, 32_000)).toBe(32_000);
+
+      // Check the serialized budget too. A correct local estimate would not
+      // catch a later default overwrite in the provider request pipeline.
+      const { streamSimple } = await import("@earendil-works/pi-ai/api/openai-completions");
+      const sentCaps: number[] = [];
+      const fetchMock = vi.fn<typeof fetch>(async (_url, init) => {
+        const payload = JSON.parse(String(init?.body));
+        sentCaps.push(payload.max_completion_tokens ?? payload.max_tokens);
+        const chunk = {
+          id: "fixture", object: "chat.completion.chunk", created: 1, model: model.id,
+          choices: [{ index: 0, delta: { content: "answer" }, finish_reason: "stop" }],
+        };
+        return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      try {
+        for (const context of [providerContextBefore, providerContextAfter]) {
+          const result = await streamSimple(model, context, {
+            apiKey: "fixture",
+            onPayload: (payload) => normalizeProviderPayload(payload, model, { mode: "chat" }),
+          }).result();
+          expect(result.stopReason).toBe("stop");
+        }
+        expect(sentCaps).toEqual([1, 32_000]);
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it("does not project ordinary non-compacted conversations", async () => {
