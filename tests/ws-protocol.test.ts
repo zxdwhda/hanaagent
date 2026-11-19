@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import * as wsProtocol from "../apps/server/ws-protocol.ts";
 
@@ -9,6 +9,46 @@ function protocolHelper(name: string) {
   expect(helper).toBeTypeOf("function");
   return helper as ProtocolHelper;
 }
+
+describe("ws protocol output", () => {
+  it("terminates only the socket with a full output queue", () => {
+    const slow = {
+      readyState: 1,
+      raw: { bufferedAmount: 16 * 1024 * 1024, terminate: vi.fn() },
+      send: vi.fn(),
+    };
+    const healthy = {
+      readyState: 1,
+      raw: { bufferedAmount: 64, terminate: vi.fn() },
+      send: vi.fn(),
+    };
+    const payload = JSON.stringify({ type: "text_delta", delta: "hello" });
+
+    wsProtocol.wsSendSerialized(slow, payload);
+    wsProtocol.wsSendSerialized(healthy, payload);
+
+    expect(slow.raw.terminate).toHaveBeenCalledOnce();
+    expect(slow.send).not.toHaveBeenCalled();
+    expect(healthy.raw.terminate).not.toHaveBeenCalled();
+    expect(healthy.send).toHaveBeenCalledExactlyOnceWith(payload);
+  });
+
+  it("closes a full socket without serializing the next message", () => {
+    const socket = {
+      readyState: 1,
+      bufferedAmount: 16 * 1024 * 1024,
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+    const toJSON = vi.fn();
+
+    wsProtocol.wsSend(socket, { toJSON });
+
+    expect(socket.close).toHaveBeenCalledExactlyOnceWith(1013, "Output backlog");
+    expect(socket.send).not.toHaveBeenCalled();
+    expect(toJSON).not.toHaveBeenCalled();
+  });
+});
 
 describe("ws protocol session event builders", () => {
   it("wraps session stream events with routing and replay metadata", () => {
