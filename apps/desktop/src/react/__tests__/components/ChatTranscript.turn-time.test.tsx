@@ -108,6 +108,27 @@ describe('ChatTranscript turn timestamps', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps transcript traversal linear through a tool-heavy run of interludes', () => {
+    const entries: ChatListItem[] = [
+      user('before-tools', 1, 'request'),
+      ...Array.from({ length: 160 }, (_, index) => interlude('step-'+index, 'tool result '+index)),
+      assistant('after-tools', 1000, [textBlock('finished')]),
+    ];
+    let sourceReads = 0;
+    const items = new Proxy(entries, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && /^[0-9]+$/.test(property)) sourceReads++;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    render(<ChatTranscript items={items} sessionPath={sessionPath} />);
+    expect(screen.getByText('tool result 159')).toBeInTheDocument();
+    expect(screen.getByText('finished')).toBeInTheDocument();
+    expect(sourceReads).toBeGreaterThanOrEqual(entries.length);
+    expect(sourceReads).toBeLessThanOrEqual(entries.length * 4);
+  });
+
   it('shows assistant footer only on the final assistant message of each completed turn', () => {
     const items: ChatListItem[] = [
       user('u1', new Date(2026, 4, 7, 8, 0).getTime(), '第一轮'),

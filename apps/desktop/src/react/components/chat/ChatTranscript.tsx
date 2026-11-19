@@ -235,7 +235,9 @@ const TranscriptRenderItemView = memo(function TranscriptRenderItemView({
   onForkCreated?: ForkedSessionHandler;
 }) {
   const originalIndex = renderItem.originalIndex;
-  const prevMessageItem = previousMessageItem(sourceItems, originalIndex);
+  const prevMessageItem = renderItem.type === 'process_fold' || renderItem.item.type === 'message'
+    ? previousMessageItem(sourceItems, originalIndex)
+    : undefined;
 
   if (renderItem.type === 'process_fold') {
     const prevRole = prevMessageItem?.data.role ?? null;
