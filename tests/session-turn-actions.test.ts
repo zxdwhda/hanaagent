@@ -16,6 +16,7 @@ import {
   AGENT_REVIEW_RECORD_TYPE,
   MESSAGE_ORIGIN_RECORD_TYPE,
   MESSAGE_PRESENTATION_RECORD_TYPE,
+  cancelDesktopSessionSubmission,
 } from "../packages/engine/core/desktop-session-submit.ts";
 
 function makeNavigableSession(manager) {
@@ -916,6 +917,41 @@ describe("retrySessionTurn", () => {
 
     releaseSubmit?.({ text: "new answer", toolMedia: [] });
     await first;
+  });
+
+  it("allows another edit after Stop while the canceled replay is still settling", async () => {
+    const manager = SessionManager.inMemory("/workspace");
+    const priorId = manager.appendMessage({ role: "user", content: "earlier question" } as any);
+    manager.appendMessage({ role: "assistant", content: "earlier answer" } as any);
+    const latestId = manager.appendMessage({ role: "user", content: "latest question" } as any);
+    manager.appendMessage({ role: "assistant", content: "latest answer" } as any);
+    const oldProvider = Promise.withResolvers<void>();
+    const promptSession = vi.fn()
+      .mockImplementationOnce(() => oldProvider.promise)
+      .mockResolvedValueOnce(undefined);
+    const engine = { ...makeStableEngine(makeNavigableSession(manager)), promptSession };
+    const invalidateDerivedState = vi.fn();
+
+    const first = retrySessionTurn(engine, {
+      sessionId: "sess-main",
+      target: { role: "user", entryId: latestId },
+      replacementText: "first edit",
+    }, { invalidateDerivedState });
+    const canceled = expect(first).rejects.toMatchObject({ name: "AbortError" });
+    try {
+      await vi.waitFor(() => expect(promptSession).toHaveBeenCalledTimes(1));
+      cancelDesktopSessionSubmission("/tmp/main.jsonl", "sess-main");
+      await expect(retrySessionTurn(engine, {
+        sessionId: "sess-main",
+        target: { role: "user", entryId: priorId },
+        replacementText: "second edit",
+      }, { invalidateDerivedState })).resolves.toMatchObject({ text: null });
+      expect(promptSession.mock.calls.map(([, text]) => text)).toEqual(["first edit", "second edit"]);
+      expect(invalidateDerivedState).toHaveBeenCalledTimes(2);
+    } finally {
+      oldProvider.resolve();
+    }
+    await canceled;
   });
 
   it("allows the same edit again after a temporary busy response settles", async () => {

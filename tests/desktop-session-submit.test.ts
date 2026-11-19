@@ -4,6 +4,7 @@ import {
   AGENT_REVIEW_RECORD_TYPE,
   MESSAGE_ORIGIN_RECORD_TYPE,
   MESSAGE_PRESENTATION_RECORD_TYPE,
+  cancelDesktopSessionSubmission,
   submitDesktopSessionInterjection,
   submitDesktopSessionMessage,
   submitDesktopSessionMessageWithReceipt,
@@ -108,6 +109,42 @@ describe("submitDesktopSessionMessage", () => {
       expect.objectContaining({ type: "session_status", isStreaming: true }),
       "/tmp/desk.jsonl",
     );
+  });
+
+  it("allows Stop and immediate resend before the old provider exits", async () => {
+    const sessionPath = "/tmp/stop-and-resend.jsonl";
+    const sessionId = "sess_stop_and_resend";
+    const firstProvider = Promise.withResolvers<void>();
+    const replacementProvider = Promise.withResolvers<void>();
+    const session = makeFakeSession();
+    const engine = {
+      getSessionIdForPath: () => sessionId,
+      ensureSessionLoaded: async () => session,
+      emitEvent: vi.fn(),
+      isSessionStreaming: () => false,
+      promptSession: vi.fn()
+        .mockReturnValueOnce(firstProvider.promise)
+        .mockReturnValueOnce(replacementProvider.promise),
+    };
+
+    const first = submitDesktopSessionMessage(engine, { sessionPath, text: "old input" });
+    const firstAborted = expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await vi.waitFor(() => expect(engine.promptSession).toHaveBeenCalledTimes(1));
+
+    cancelDesktopSessionSubmission(sessionPath, sessionId);
+    const replacement = submitDesktopSessionMessage(engine, { sessionPath, text: "new input" });
+    try {
+      await vi.waitFor(() => expect(engine.promptSession).toHaveBeenCalledTimes(2));
+      firstProvider.resolve();
+      await firstAborted;
+      expect(engine.emitEvent).not.toHaveBeenCalledWith({ type: "session_status", isStreaming: false }, sessionPath);
+      await expect(submitDesktopSessionMessage(engine, { sessionPath, text: "third input" })).rejects.toThrow("session_busy");
+    } finally {
+      firstProvider.resolve();
+      replacementProvider.resolve();
+    }
+    await replacement;
+    expect(engine.emitEvent).toHaveBeenLastCalledWith({ type: "session_status", isStreaming: false }, sessionPath);
   });
 
   it("rejects concurrent submissions for moved paths with the same session id", async () => {

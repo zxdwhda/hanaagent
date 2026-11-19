@@ -161,6 +161,28 @@ describe('ModelSelector', () => {
     );
   });
 
+  it('keeps a late model-switch response from changing the newly focused thinking level', async () => {
+    const originalPath = '/sessions/a.jsonl';
+    storeState.currentSessionPath = originalPath;
+    storeState.pendingNewSession = false;
+    storeState.chatSessions = { [originalPath]: { items: [{ type: 'message' }] } };
+    storeState.sessionModelsByPath = { [originalPath]: models[0] };
+    const response = Promise.withResolvers<Response>();
+    vi.mocked(hanaFetch).mockReturnValueOnce(response.promise);
+
+    render(<ModelSelector models={models} sessionModel={models[0]} />);
+    fireEvent.click(screen.getByRole('button', { name: /DeepSeek V4 Flash/ }));
+    fireEvent.click(screen.getByRole('option', { name: /MiMo V2 Omni/ }));
+    expect(hanaFetch).toHaveBeenCalledWith('/api/models/switch', expect.anything());
+
+    storeState.currentSessionPath = '/sessions/b.jsonl';
+    response.resolve(jsonResponse({ model: models[1], thinkingLevel: 'high' }));
+
+    await waitFor(() => expect(storeState.setModelSwitching).toHaveBeenLastCalledWith(false));
+    expect(storeState.updateSessionModel).toHaveBeenCalledWith(originalPath, expect.objectContaining(models[1]));
+    expect(storeState.setThinkingLevel).not.toHaveBeenCalled();
+  });
+
   it('maps a server streaming-switch rejection to the same explicit warning', async () => {
     storeState.currentSessionPath = '/sessions/a.jsonl';
     storeState.pendingNewSession = false;

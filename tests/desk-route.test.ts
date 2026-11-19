@@ -299,6 +299,42 @@ describe("desk route", () => {
     }
   });
 
+  it("preserves literal percent sequences in approved workspace paths", async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-desk-literal-"));
+    try {
+      const cwd = path.join(tempRoot, "workspace + 50% and %25");
+      fs.mkdirSync(path.join(cwd, "notes"), { recursive: true });
+      fs.writeFileSync(path.join(cwd, "notes", "example.md"), "example");
+      fs.writeFileSync(path.join(cwd, "jian.md"), "readback");
+      const engine = {
+        hanakoHome: path.join(tempRoot, "hana-home"),
+        deskCwd: cwd,
+        homeCwd: cwd,
+        isApprovedWorkspaceDir: vi.fn((dir) => dir === cwd),
+      };
+      const { createDeskRoute } = await import("../apps/server/routes/desk.ts");
+      const app = new Hono();
+      app.route("/api", createDeskRoute(engine, null));
+
+      const request = async (route: string, fields: Record<string, string> = {}) => {
+        const query = new URLSearchParams({ dir: cwd, agentId: "fixture", ...fields });
+        const response = await app.request("/api/desk/" + route + "?" + query);
+        expect(response.status).toBe(200);
+        return response.json();
+      };
+      expect(await request("files", { subdir: "notes" })).toMatchObject({
+        basePath: cwd,
+        files: [expect.objectContaining({ name: "example.md" })],
+      });
+      expect(await request("path")).toEqual({ path: cwd });
+      expect(await request("search-files", { q: "example" })).toMatchObject({ basePath: cwd });
+      expect(await request("jian")).toEqual({ content: "readback" });
+      expect(engine.isApprovedWorkspaceDir).toHaveBeenCalledWith(cwd, expect.anything());
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it("allows a selected agent explicit home folder without switching the engine focus", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-desk-route-"));
     try {

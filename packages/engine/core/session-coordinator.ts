@@ -5,6 +5,7 @@
  * isolated 执行、session 标题、activity session 提升。
  * 不持有 engine 引用，通过构造器注入依赖。
  */
+import { cancelDesktopSessionSubmission } from "./desktop-session-submit.ts";
 import fs from "fs";
 import fsp from "fs/promises";
 import { randomUUID } from "crypto";
@@ -5075,13 +5076,18 @@ export class SessionCoordinator {
       this.preflightSessionInput(sessionPath);
       await entry.session.prompt(text, promptOpts);
     } finally {
-      if (turnContext) this._deleteRuntimeValueForPath(this._turnContextBySession, sessionPath);
+      if (turnContext && this._getRuntimeValueForPath(this._turnContextBySession, sessionPath) === turnContext) {
+        this._deleteRuntimeValueForPath(this._turnContextBySession, sessionPath);
+      }
       engine?.endCurrentTurnNativeMedia?.(nativeMediaTurn);
-      pruneSessionInlineMediaHistory(entry.session);
-      this._projectOversizedSessionHistory(entry.session, sessionPath);
-      this._syncSessionBranchHeadQuiet(sessionPath, entry.session.sessionManager, "prompt_session_finally");
-      this._scheduleRuntimePressureCheck(sessionPath, "prompt_session");
+      if (this._getSessionEntryByPath(sessionPath) === entry) {
+        pruneSessionInlineMediaHistory(entry.session);
+        this._projectOversizedSessionHistory(entry.session, sessionPath);
+        this._syncSessionBranchHeadQuiet(sessionPath, entry.session.sessionManager, "prompt_session_finally");
+        this._scheduleRuntimePressureCheck(sessionPath, "prompt_session");
+      }
     }
+    if (this._getSessionEntryByPath(sessionPath) !== entry) return;
     const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();
     const forceSummary = entry.memoryBranchReplacementPending === true;
     entry.memoryBranchReplacementPending = false;
@@ -5234,6 +5240,7 @@ export class SessionCoordinator {
       // 错绑到本轮的乐观消息上。
       pending.abort();
       this._deleteRuntimeValueForPath(this._prePromptAbortControllers, sessionPath);
+      cancelDesktopSessionSubmission(sessionPath, this._d.getSessionIdForPath?.(sessionPath));
       this._cleanupAbortedSessionSidecars(sessionPath, reason);
       this._d.emitEvent?.({
         type: "session_status",
@@ -5706,6 +5713,7 @@ export class SessionCoordinator {
       log.warn(`forceRelease[${reason}] ${spShort}: unsub failed: ${err.message}`);
     }
 
+    cancelDesktopSessionSubmission(sessionPath, this._d.getSessionIdForPath?.(sessionPath));
     this._d.emitEvent?.({
       type: "session_status",
       isStreaming: false,

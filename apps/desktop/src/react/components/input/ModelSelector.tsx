@@ -87,8 +87,9 @@ export function ModelSelector({ models, sessionModel, isStreaming = false }: {
             unavailableReason: null,
           });
         }
-        if (data.thinkingLevel) {
-          useStore.getState().setThinkingLevel(data.thinkingLevel);
+        const latest = useStore.getState();
+        if (data.thinkingLevel && latest.currentSessionPath === currentSessionPath && !latest.pendingNewSession) {
+          latest.setThinkingLevel(data.thinkingLevel);
         }
 
         if (data.adaptations?.length) {
