@@ -341,13 +341,13 @@ export class SkillManager {
   }
 
   /**
-   * 更新外部路径，重新扫描外部 skill，重建 watcher
+   * 更新外部路径并重新扫描技能，保留共用目录的监听。
    * @param {Array<{ dirPath: string, label: string, scope?: string }>} paths
    */
   setExternalPaths(paths) {
     this._externalPaths = paths;
     this._appendExternalSkills();
-    this._closeExternalWatchers();
+    this._closeExternalWatchers(new Set<string>(paths.map((entry) => entry.dirPath)));
     if (this._reloadDeps) {
       this._watchExternalPaths();
     }
@@ -454,11 +454,12 @@ export class SkillManager {
     }
   }
 
-  _closeExternalWatchers() {
-    for (const [, w] of this._externalWatchers) {
-      try { w.close(); } catch {}
+  _closeExternalWatchers(keepPaths?: ReadonlySet<string>) {
+    for (const [dirPath, watcher] of this._externalWatchers) {
+      if (keepPaths?.has(dirPath)) continue;
+      this._externalWatchers.delete(dirPath);
+      void watcher.close().catch((error) => log.warn(`external watcher close failed (${dirPath}): ${error.message}`));
     }
-    this._externalWatchers.clear();
   }
 
   _isRuntimeEnabledForAgent(skill, enabledSet) {
