@@ -128,7 +128,7 @@ export const EXPORT_SKELETON = [
   },
   {
     path: "tooling/scripts/patch-pi-sdk.cjs",
-    reason: "tooling/scripts/build-server-phases.mjs copies and executes this file by relative path (tooling/scripts/patch-pi-sdk.cjs) as a read-only Pi SDK verification step during external dependency install.",
+    reason: "tooling/scripts/build-server-phases.mjs copies and executes this file during external dependency install to verify the Pi SDK and preserve Responses stream phases.",
   },
   {
     path: "tooling/scripts/smoke-open-server.mjs",

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { streamSimple } from "../node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js";
+import { streamSimple as streamResponses } from "../node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js";
 import { guardAssistantMessageStream, installAssistantStreamGuard } from "../packages/engine/lib/pi-sdk/stream-guard.ts";
 import { createVisibleTextAccumulator } from "../packages/engine/lib/bridge/visible-text-accumulator.ts";
 
@@ -34,6 +35,55 @@ function assistantMessage(content) {
 }
 
 describe("Pi SDK stream guard", () => {
+  it.each([
+    { initialPhase: "commentary", terminalPhase: null, expectedPhases: ["commentary", "commentary"], emissions: [null, null] },
+    { initialPhase: "final_answer", terminalPhase: null, expectedPhases: ["final_answer", "final_answer"], emissions: ["fixture reply", null] },
+    { initialPhase: null, terminalPhase: "commentary", expectedPhases: [null, "commentary"], emissions: [null, null] },
+    { initialPhase: null, terminalPhase: null, expectedPhases: [null, null], emissions: [null, "fixture reply"] },
+  ])("projects Responses text with wire phases $initialPhase → $terminalPhase", async ({ initialPhase, terminalPhase, expectedPhases, emissions }) => {
+    const item = { id: "msg_fixture", type: "message", role: "assistant", status: "in_progress", content: [] };
+    const info = { id: "resp_fixture", status: "in_progress" };
+    const bytes = new TextEncoder();
+    let finish: () => void = () => { throw new Error("Fixture response has not started"); };
+    const responseBody = new ReadableStream({
+      start(controller) {
+        const send = (type, payload) => controller.enqueue(bytes.encode(`data: ${JSON.stringify({ type, ...payload })}\n\n`));
+        send("response.created", { response: info });
+        send("response.output_item.added", { output_index: 0, item: { ...item, phase: initialPhase ?? undefined } });
+        send("response.output_text.delta", { output_index: 0, content_index: 0, item_id: item.id, delta: "fixture reply" });
+        finish = () => {
+          send("response.output_item.done", { output_index: 0, item: {
+            ...item, status: "completed", phase: terminalPhase ?? undefined,
+            content: [{ type: "output_text", text: "fixture reply", annotations: [] }],
+          } });
+          send("response.completed", { response: { ...info, status: "completed" } });
+          controller.close();
+        };
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(responseBody, { headers: { "Content-Type": "text/event-stream" } })));
+    const model = {
+      api: "openai-responses", provider: "openai", id: "gpt-fixture", name: "Fixture",
+      baseUrl: "http://127.0.0.1:41999/v1", reasoning: false, input: ["text"],
+      contextWindow: 32_768, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as const;
+    const stream = streamResponses(model as any, { messages: [{ role: "user", content: "fixture", timestamp: 1 }] }, { apiKey: "fixture" });
+    const visible = createVisibleTextAccumulator();
+    const signatures: string[] = [];
+    const emittedDeltas: Array<string | null> = [];
+    for await (const event of guardAssistantMessageStream(stream)) {
+      if (event.type !== "text_delta" && event.type !== "text_end") continue;
+      const block = event.partial.content[event.contentIndex];
+      signatures.push(block?.type === "text" ? block.textSignature ?? "" : "");
+      const update = visible.appendAssistantEvent({ type: "message_update", message: event.partial, assistantMessageEvent: event });
+      emittedDeltas.push(update?.emittedDelta ?? null);
+      if (event.type === "text_delta") finish();
+    }
+
+    expect(signatures.map(signature => signature ? (JSON.parse(signature).phase ?? null) : null)).toEqual(expectedPhases);
+    expect(emittedDeltas).toEqual(emissions);
+  });
+
   it("uses unique names on the Qiniu Kimi wire and restores the tool call before execution and replay", async () => {
     const model = {
       id: "moonshotai/kimi-k3",

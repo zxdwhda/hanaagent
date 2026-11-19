@@ -451,8 +451,8 @@ export async function resolveAndInstallExternalServerDeps({
 
   verifyExternalEntrypoints(outDir, Object.keys(externalPkg.dependencies));
 
-  // Pi SDK verification: the packaged package.json has no root postinstall,
-  // so run the same read-only verification script by hand.
+  // The packaged package.json has no root postinstall, so apply the same
+  // verified Pi SDK compatibility step before packaging.
   const patchScript = path.join(rootDir, "tooling", "scripts", "patch-pi-sdk.cjs");
   if (fs.existsSync(patchScript)) {
     fs.mkdirSync(path.join(outDir, "scripts"), { recursive: true });
