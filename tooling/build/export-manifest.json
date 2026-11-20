@@ -248,6 +248,7 @@
     "packages/engine/lib/bridge/telegram-format.ts",
     "packages/engine/lib/bridge/visible-text-accumulator.ts",
     "packages/engine/lib/bridge/wechat-adapter.ts",
+    "packages/engine/lib/bridge/wechat-ilink-api.ts",
     "packages/engine/lib/bridge/wechat-ilink-media-crypto.ts",
     "packages/engine/lib/bridge/wechat-login.ts",
     "packages/engine/lib/browser/browser-manager.ts",

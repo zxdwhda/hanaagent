@@ -18,6 +18,11 @@ import { AgentNotFoundError, resolveAgentStrict } from "../utils/resolve-agent.t
 import { telegramBotOptions } from "../../../packages/engine/lib/net/outbound-proxy.ts";
 import { createBridgeOutboundHttp } from "../../../packages/engine/lib/bridge/outbound-http.ts";
 import {
+  resolveWechatIlinkOrigin,
+  WECHAT_ILINK_BASE_INFO,
+  wechatIlinkHeaders,
+} from "../../../packages/engine/lib/bridge/wechat-ilink-api.ts";
+import {
   DINGTALK_API_BASE_URL,
   assertNoUnsupportedDingTalkRobotFields,
   canonicalizeDingTalkBridgeConfig,
@@ -421,6 +426,12 @@ export function createBridgeRoute(engine: any, bridgeManagerRef: any) {
         return c.json({ ok: false, error: err?.message || String(err) }, 400);
       }
     }
+    if (platform === "wechat") {
+      // Regional iLink origins are assigned by the provider during QR confirmation.
+      patch.baseUrl = patch.botToken && patch.botToken === bridgeCfg.botToken
+        ? bridgeCfg.baseUrl || null
+        : null;
+    }
     if (platform === "dingtalk") {
       try {
         assertNoUnsupportedDingTalkRobotFields(patch);
@@ -822,9 +833,9 @@ export function createBridgeRoute(engine: any, bridgeManagerRef: any) {
         ? { ...saved, ...resolvedCredentials }
         : resolvedCredentials;
       if (platform === "telegram") {
-        const TelegramBot = (await import("node-telegram-bot-api")).default;
-        const bot = new TelegramBot(effectiveCredentials.token, telegramBotOptions());
-        const me = await bot.getMe();
+        const { Api } = await import("node-telegram-bot-api");
+        const api = new Api(effectiveCredentials.token, { ...telegramBotOptions(), timeoutMs: 10_000 });
+        const me = await api.getMe();
         return c.json({ ok: true, info: { username: me.username, name: me.first_name } });
       } else if (platform === "feishu") {
         const domainInfo = resolveFeishuDomain(effectiveCredentials.region);
@@ -934,22 +945,20 @@ export function createBridgeRoute(engine: any, bridgeManagerRef: any) {
       }
       if (platform === "wechat") {
         // 用 getconfig 验证 token（不污染 cursor）
-        const crypto = await import("node:crypto");
-        const uin = Buffer.from(String(crypto.randomBytes(4).readUInt32BE(0)), "utf-8").toString("base64");
-        const res = await fetch("https://ilinkai.weixin.qq.com/ilink/bot/getconfig", {
+        const origin = resolveWechatIlinkOrigin(
+          effectiveCredentials.botToken === saved.botToken ? saved.baseUrl : undefined,
+        );
+        const res = await fetch(origin + "/ilink/bot/getconfig", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "AuthorizationType": "ilink_bot_token",
-            "Authorization": `Bearer ${effectiveCredentials.botToken}`,
-            "X-WECHAT-UIN": uin,
-          },
-          body: JSON.stringify({ base_info: { channel_version: "1.0.0" } }),
+          headers: wechatIlinkHeaders(effectiveCredentials.botToken),
+          body: JSON.stringify({ base_info: WECHAT_ILINK_BASE_INFO }),
+          redirect: "error",
           signal: AbortSignal.timeout(10_000),
         });
+        if (!res.ok) return c.json({ ok: false, error: `WeChat iLink HTTP ${res.status}` });
         const data = await res.json();
-        if (data.ret && data.ret !== 0) {
-          return c.json({ ok: false, error: data.errmsg || `errcode ${data.ret}` });
+        if (data.ret || data.errcode) {
+          return c.json({ ok: false, error: data.errmsg || `errcode ${data.errcode || data.ret}` });
         }
         return c.json({ ok: true, info: { msg: "微信 iLink 连接成功" } });
       }
@@ -960,18 +969,54 @@ export function createBridgeRoute(engine: any, bridgeManagerRef: any) {
   });
 
   /** 获取微信扫码登录二维码 */
-  route.post("/bridge/wechat/qrcode", async (c) => {
+  route.post("/bridge/wechat/qrcode", withReadAgent(async (c, agent) => {
+    const denied = denyWithoutScope(c, "bridge.manage")
+      || denySecretMutationWithoutScope(c, ["bridge.wechat.botToken"]);
+    if (denied) return denied;
     const { getWechatQrcode } = await import("../../../packages/engine/lib/bridge/wechat-login.ts");
-    return c.json(await getWechatQrcode());
-  });
+    return c.json(await getWechatQrcode(agent.id, agent.config?.bridge?.wechat?.botToken));
+  }));
 
   /** 轮询微信扫码状态 */
-  route.post("/bridge/wechat/qrcode-status", async (c) => {
-    const body = await safeJson(c);
-    const { qrcodeId } = body;
-    const { pollWechatQrcodeStatus } = await import("../../../packages/engine/lib/bridge/wechat-login.ts");
-    return c.json(await pollWechatQrcodeStatus(qrcodeId));
-  });
+  route.post("/bridge/wechat/qrcode-status", withReadAgent(async (c, agent) => {
+    const denied = denyWithoutScope(c, "bridge.manage")
+      || denySecretMutationWithoutScope(c, ["bridge.wechat.botToken"]);
+    if (denied) return denied;
+    const { qrcodeId, verifyCode } = await safeJson(c);
+    const manager = await ensureBridgeManager();
+    if (!manager) return bridgeUnavailable(c, bridgeRef.getState?.() || {});
+    const { completeWechatQrcodeLogin, pollWechatQrcodeStatus } = await import("../../../packages/engine/lib/bridge/wechat-login.ts");
+    const result = await pollWechatQrcodeStatus(agent.id, qrcodeId, verifyCode);
+    if (result.status === "completed") return c.json({ status: "confirmed" });
+    if (result.status !== "confirmed") return c.json(result);
+
+    const current = agent.config?.bridge?.wechat || {};
+    agent.updateConfig({
+      bridge: {
+        wechat: {
+          ...current,
+          botToken: result.botToken,
+          baseUrl: result.baseUrl,
+          owner: result.userId || null,
+          enabled: true,
+        },
+      },
+    });
+    const saved = agent.config?.bridge?.wechat;
+    if (!saved?.enabled || saved.botToken !== result.botToken || saved.baseUrl !== result.baseUrl
+      || (saved.owner || null) !== (result.userId || null)) {
+      return c.json({ status: "error", error: "WeChat credentials could not be saved" }, 500);
+    }
+    manager.startPlatformFromConfig("wechat", saved, agent.id);
+    completeWechatQrcodeLogin(agent.id, qrcodeId);
+    recordSecurityAuditEvent(c, engine, {
+      action: "settings.bridge.config.update",
+      target: "bridge.wechat",
+      secretFields: ["bridge.wechat.botToken"],
+      metadata: { agentId: agent.id, platform: "wechat", enabled: true },
+    } as any);
+    return c.json({ status: "confirmed" });
+  }));
 
   return route;
 }

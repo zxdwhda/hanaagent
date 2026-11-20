@@ -27,6 +27,57 @@ describe("secret custody across HTTP routes", () => {
     vi.unstubAllGlobals();
   });
 
+  it("binds a WeChat QR to its agent on the server and returns no credentials", async () => {
+    const { createBridgeRoute } = await import("../apps/server/routes/bridge.ts");
+    const app = new Hono();
+    const agent = {
+      id: "wx-route-agent",
+      config: { bridge: { wechat: { enabled: false } } },
+      updateConfig(patch) {
+        this.config.bridge.wechat = patch.bridge.wechat;
+      },
+    };
+    const startPlatformFromConfig = vi.fn();
+    const engine = { getAgent: (id) => id === agent.id ? agent : null };
+    app.route("/api", createBridgeRoute(engine, { startPlatformFromConfig } as any));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ qrcode: "fixture-qr" }))
+      .mockResolvedValueOnce(Response.json({
+        status: "confirmed",
+        ilink_bot_id: "fixture-bot",
+        ilink_user_id: "fixture-owner",
+        bot_token: "routing-secret",
+        baseurl: "https://idc-3.weixin.qq.com",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const qr = await app.request("/api/bridge/wechat/qrcode?agentId=wx-route-agent", { method: "POST" });
+    expect(qr.status).toBe(200);
+    const { qrcodeId } = await qr.json();
+    const poll = await app.request("/api/bridge/wechat/qrcode-status?agentId=wx-route-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qrcodeId }),
+    });
+
+    expect(await poll.json()).toEqual({ status: "confirmed" });
+    expect(agent.config.bridge.wechat).toEqual({
+      botToken: "routing-secret",
+      baseUrl: "https://idc-3.weixin.qq.com",
+      owner: "fixture-owner",
+      enabled: true,
+    });
+    expect(startPlatformFromConfig).toHaveBeenCalledWith("wechat", agent.config.bridge.wechat, agent.id);
+    const retry = await app.request("/api/bridge/wechat/qrcode-status?agentId=wx-route-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qrcodeId }),
+    });
+    expect(await retry.json()).toEqual({ status: "confirmed" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(startPlatformFromConfig).toHaveBeenCalledTimes(1);
+  });
+
   it("masks provider secrets in summary responses", async () => {
     const { createProvidersRoute } = await import("../apps/server/routes/providers.ts");
     const app = new Hono();

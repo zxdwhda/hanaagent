@@ -26,6 +26,10 @@ const log = createModuleLogger("qq");
 const API_BASE = "https://api.sgroup.qq.com";
 const TOKEN_URL = "https://bots.qq.com/app/getAppAccessToken";
 const MAX_MSG_SIZE = 100_000;
+const GATEWAY_HANDSHAKE_TIMEOUT_MS = 30_000;
+const GATEWAY_INVALID_SESSION_DELAY_MS = 3_000;
+const GATEWAY_RATE_LIMIT_DELAY_MS = 60_000;
+const GATEWAY_RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000, 60_000];
 const QQ_PLACEHOLDER_NAMES = new Set(["user"]);
 export const QQ_MEDIA_CAPABILITIES = createMediaCapabilities({
   platform: "qq",
@@ -242,8 +246,9 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
   let sessionId = null;
   let stopped = false;
   let reconnectAttempts = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectDelayFloorMs = 0;
   let heartbeatAckReceived = true;
-  let lastConnectedAt = 0;
 
   const userGuildMap = new Map(Object.entries(dmGuildMap || {}));
   const passiveReplySeq = new Map();
@@ -360,47 +365,73 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
 
   // ── WebSocket ──
 
+  function resetGatewaySession() {
+    sessionId = null;
+    lastSeq = null;
+    accessToken = null;
+  }
+
   async function connect() {
     if (stopped) return;
     try {
-      const token = await getToken();
       const { url } = await apiRequest("GET", "/gateway", undefined, { stage: "gateway", idempotent: true });
+      if (stopped) return;
+      const token = await getToken();
+      if (stopped) return;
+      const socket = new WebSocket(url, {
+        ...webSocketOptionsForUrl(url),
+        handshakeTimeout: GATEWAY_HANDSHAKE_TIMEOUT_MS,
+      });
+      ws = socket;
 
-      ws = new WebSocket(url, webSocketOptionsForUrl(url));
-
-      ws.on("open", () => {
+      socket.on("open", () => {
         debugLog()?.log("bridge", "[qq] WebSocket 已连接");
-        lastConnectedAt = Date.now();
-        reconnectAttempts = 0;
       });
 
-      ws.on("message", (raw) => {
+      socket.on("message", (raw) => {
+        if (stopped || ws !== socket) return;
         let payload;
         try { payload = JSON.parse(raw); } catch { return; }
         handlePayload(payload, token);
       });
 
-      ws.on("close", (code) => {
+      socket.on("close", (code) => {
+        if (ws !== socket) return;
+        ws = null;
         debugLog()?.log("bridge", `[qq] WebSocket 断开 (code: ${code})`);
         stopHeartbeat();
-        if (!stopped) scheduleReconnect();
+        const minDelay = reconnectDelayFloorMs;
+        reconnectDelayFloorMs = 0;
+        if (stopped) return;
+        // QQ v2 Gateway close rules as implemented by the official QQ Bot Node SDK.
+        if (code === 4914 || code === 4915) {
+          onStatus?.("error", `QQ Gateway 不允许重连 (code: ${code})`);
+          return;
+        }
+        if (code === 4004) accessToken = null;
+        if (code === 4006 || code === 4007 || code === 4009 || (code >= 4900 && code <= 4913)) {
+          resetGatewaySession();
+        }
+        scheduleReconnect(code === 4008 ? GATEWAY_RATE_LIMIT_DELAY_MS : minDelay);
       });
 
-      ws.on("error", (err) => {
+      socket.on("error", (err) => {
+        if (stopped || ws !== socket) return;
         log.error(`WebSocket error: ${err.message}`);
         debugLog()?.error("bridge", `[qq] WebSocket error: ${err.message}`);
         onStatus?.("error", err.message);
       });
     } catch (err) {
+      if (stopped) return;
       log.error(`连接失败: ${err.message}`);
       onStatus?.("error", err.message);
-      if (!stopped) scheduleReconnect();
+      scheduleReconnect(err instanceof QQApiError && err.status === 429 ? GATEWAY_RATE_LIMIT_DELAY_MS : 0);
     }
   }
 
   function handlePayload(payload, token) {
     const { op, d, s, t } = payload;
-    if (s) lastSeq = s;
+    if (Number.isSafeInteger(s)) lastSeq = s;
 
     switch (op) {
       case OP.HELLO:
@@ -425,9 +456,11 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
       case OP.DISPATCH:
         if (t === "READY") {
           sessionId = d.session_id;
+          reconnectAttempts = 0;
           debugLog()?.log("bridge", `[qq] 鉴权成功，session: ${sessionId}`);
           onStatus?.("connected");
         } else if (t === "RESUMED") {
+          reconnectAttempts = 0;
           debugLog()?.log("bridge", "[qq] 会话已恢复");
           onStatus?.("connected");
         } else {
@@ -445,9 +478,9 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
         break;
 
       case OP.INVALID_SESSION:
-        debugLog()?.log("bridge", "[qq] 会话失效，重新鉴权");
-        sessionId = null;
-        lastSeq = null;
+        debugLog()?.log("bridge", d === true ? "[qq] 网关要求恢复会话" : "[qq] 会话失效，重新鉴权");
+        if (d !== true) resetGatewaySession();
+        reconnectDelayFloorMs = GATEWAY_INVALID_SESSION_DELAY_MS;
         ws?.close();
         break;
     }
@@ -611,17 +644,18 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
     }
   }
 
-  function scheduleReconnect() {
-    if (stopped) return;
-    // 如果上次连接保活超过 5 分钟，说明不是启动阶段频繁失败，重置计数
-    if (lastConnectedAt && Date.now() - lastConnectedAt > 5 * 60 * 1000) {
-      reconnectAttempts = 0;
-    }
-    const delays = [1000, 2000, 5000, 10000, 30000, 60000];
-    const delay = delays[Math.min(reconnectAttempts, delays.length - 1)];
+  function scheduleReconnect(minDelay = 0) {
+    if (stopped || reconnectTimer) return;
+    const retryIndex = Math.min(reconnectAttempts, GATEWAY_RECONNECT_DELAYS_MS.length - 1);
+    const delay = Math.max(minDelay, GATEWAY_RECONNECT_DELAYS_MS[retryIndex]);
     reconnectAttempts++;
     debugLog()?.log("bridge", `[qq] ${delay / 1000}s 后重连（第 ${reconnectAttempts} 次）`);
-    setTimeout(() => connect(), delay);
+    onStatus?.("connecting");
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      void connect();
+    }, delay);
+    reconnectTimer.unref?.();
   }
 
   // ── 启动 ──
@@ -753,6 +787,8 @@ export function createQQAdapter({ appID, appSecret, agentId, onMessage, dmGuildM
     stop() {
       stopped = true;
       stopHeartbeat();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
       clearInterval(tokenRefreshTimer);
       if (ws) {
         try { ws.close(); } catch {}

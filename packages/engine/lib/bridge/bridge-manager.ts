@@ -126,6 +126,7 @@ const ADAPTER_REGISTRY = {
     create: (creds, onMessage, hooks, agentId) => createTelegramAdapter({ token: creds.token, agentId, onMessage, onStatus: hooks?.onStatus }),
     getCredentials: (cfg) => cfg?.enabled && cfg?.token ? { token: cfg.token } : null,
     ownerSessionKey: (userId, agentId) => `tg_dm_${userId}@${agentId}`,
+    connectsAsync: true,
   },
   feishu: {
     create: (creds, onMessage, hooks, agentId) => createFeishuAdapter({ appId: creds.appId, appSecret: creds.appSecret, region: creds.region, agentId, onMessage, onStatus: hooks?.onStatus }),
@@ -164,16 +165,20 @@ const ADAPTER_REGISTRY = {
         : null;
     },
     ownerSessionKey: (userId, agentId) => `qq_dm_${userId}@${agentId}`,
+    connectsAsync: true,
   },
   wechat: {
     create: (creds, onMessage, hooks, agentId) => createWechatAdapter({
       botToken: creds.botToken,
+      apiOrigin: creds.baseUrl,
       hanaHome: creds.hanaHome,
       agentId,
       onMessage,
       onStatus: hooks?.onStatus,
     }),
-    getCredentials: (cfg) => cfg?.enabled && cfg?.botToken ? { botToken: cfg.botToken, hanaHome: cfg._hanaHome || "" } : null,
+    getCredentials: (cfg) => cfg?.enabled && cfg?.botToken
+      ? { botToken: cfg.botToken, baseUrl: cfg.baseUrl ?? undefined, hanaHome: cfg._hanaHome || "" }
+      : null,
     ownerSessionKey: (userId, agentId) => `wx_dm_${userId}@${agentId}`,
     connectsAsync: true,
   },

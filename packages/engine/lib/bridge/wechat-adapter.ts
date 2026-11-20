@@ -2,7 +2,7 @@
  * wechat-adapter.js — 微信 iLink Bridge Adapter
  *
  * 基于腾讯 iLink 协议（ilinkai.weixin.qq.com）实现。
- * 参考 @tencent-weixin/openclaw-weixin v1.0.2 源码（MIT 协议）。
+ * 参考 @tencent-weixin/openclaw-weixin 2.4.10 的 iLink API（MIT 协议）。
  */
 
 import crypto from "node:crypto";
@@ -18,10 +18,10 @@ import {
   encodeIlinkMediaAesKey,
 } from "./wechat-ilink-media-crypto.ts";
 import { createModuleLogger } from "../debug-log.ts";
+import { resolveWechatIlinkOrigin, WECHAT_ILINK_BASE_INFO, wechatIlinkHeaders } from "./wechat-ilink-api.ts";
 
 const log = createModuleLogger("wechat");
 
-const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";
 const CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c";
 
 export const WECHAT_ILINK_MEDIA_CAPABILITIES = createMediaCapabilities({
@@ -78,20 +78,6 @@ function aesEcbPaddedSize(plaintextSize) {
 
 // ── iLink HTTP API ──
 
-function randomWechatUin() {
-  const uint32 = crypto.randomBytes(4).readUInt32BE(0);
-  return Buffer.from(String(uint32), "utf-8").toString("base64");
-}
-
-function buildHeaders(token) {
-  return {
-    "Content-Type": "application/json",
-    "AuthorizationType": "ilink_bot_token",
-    "X-WECHAT-UIN": randomWechatUin(),
-    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-  };
-}
-
 function isSessionExpiredError(err) {
   const message = String(err?.message || "");
   return /(?:ret|errcode)=-14\b/.test(message);
@@ -112,7 +98,8 @@ async function apiPost(baseUrl, endpoint, body, token, timeoutMs, parentSignal) 
   try {
     const res = await fetch(url.toString(), {
       method: "POST",
-      headers: buildHeaders(token),
+      headers: wechatIlinkHeaders(token),
+      redirect: "error",
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -261,8 +248,8 @@ function isMediaItem(item) {
  * @param {(msg: object) => void} opts.onMessage
  * @param {(status: string, error?: string) => void} [opts.onStatus]
  */
-export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, onStatus }) {
-  const baseUrl = DEFAULT_BASE_URL;
+export function createWechatAdapter({ botToken, apiOrigin = undefined, hanaHome, agentId, onMessage, onStatus }) {
+  const baseUrl = resolveWechatIlinkOrigin(apiOrigin);
   let generation = 0;
   let abortController = new AbortController();
   const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -352,7 +339,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
         item_list: text ? [{ type: MessageItemType.TEXT, text_item: { text } }] : undefined,
         context_token: contextToken,
       },
-      base_info: { channel_version: "1.0.0" },
+      base_info: WECHAT_ILINK_BASE_INFO,
     });
   }
 
@@ -364,7 +351,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
     const resp = await api("ilink/bot/getconfig", {
       ilink_user_id: chatId,
       context_token: contextToken,
-      base_info: { channel_version: "1.0.0" },
+      base_info: WECHAT_ILINK_BASE_INFO,
     }, 10_000);
     const ticket = resp?.typing_ticket;
     if (!ticket) throw new Error("微信: getconfig 未返回 typing_ticket");
@@ -378,7 +365,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
       ilink_user_id: chatId,
       typing_ticket: typingTicket,
       status,
-      base_info: { channel_version: "1.0.0" },
+      base_info: WECHAT_ILINK_BASE_INFO,
     }, 10_000);
   }
 
@@ -397,7 +384,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
       rawsize, rawfilemd5, filesize,
       no_need_thumb: true,
       aeskey: aesKeyHex,
-      base_info: { channel_version: "1.0.0" },
+      base_info: WECHAT_ILINK_BASE_INFO,
     });
 
     const signedUrl = signedCdnUploadUrl(uploadResp.upload_full_url);
@@ -441,7 +428,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
           message_type: MessageType.BOT, message_state: MessageState.FINISH,
           item_list: [item], context_token: contextToken,
         },
-        base_info: { channel_version: "1.0.0" },
+        base_info: WECHAT_ILINK_BASE_INFO,
       });
     }
   }
@@ -466,7 +453,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
         }],
         context_token: contextToken,
       },
-      base_info: { channel_version: "1.0.0" },
+      base_info: WECHAT_ILINK_BASE_INFO,
     });
   }
 
@@ -567,7 +554,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
       try {
         const resp = await api("ilink/bot/getupdates", {
           get_updates_buf: getUpdatesBuf,
-          base_info: { channel_version: "1.0.0" },
+          base_info: WECHAT_ILINK_BASE_INFO,
         }, LONG_POLL_TIMEOUT_MS);
 
         consecutiveFailures = 0;
@@ -698,7 +685,7 @@ export function createWechatAdapter({ botToken, hanaHome, agentId, onMessage, on
       // 用 getconfig 验证 token（不污染 cursor）
       try {
         const resp = await api("ilink/bot/getconfig", {
-          base_info: { channel_version: "1.0.0" },
+          base_info: WECHAT_ILINK_BASE_INFO,
         }, 10_000);
         if (resp.ret && resp.ret !== 0) {
           throw new Error(resp.errmsg || `errcode ${resp.ret}`);

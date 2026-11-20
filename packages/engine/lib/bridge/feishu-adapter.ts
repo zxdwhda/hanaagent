@@ -73,11 +73,8 @@ export const FEISHU_CARDKIT_STREAMING_CAPABILITIES = createStreamingCapabilities
   source: "https://open.feishu.cn/api-explorer?from=op_doc_tab&apiName=content&project=cardkit&resource=card.element&version=v1",
 });
 
-const FEISHU_WS_OPEN = 1;
-const FEISHU_WS_INITIAL_POLL_MS = 500;
-const FEISHU_WS_INITIAL_MAX_CHECKS = 20;
-const FEISHU_WS_HEALTH_INTERVAL_MS = 30_000;
-const FEISHU_WS_DISCONNECTED_ERROR = "WebSocket disconnected";
+const FEISHU_WS_HANDSHAKE_TIMEOUT_MS = 10_000;
+const FEISHU_WS_RESTART_DELAY_MS = 30_000;
 const FEISHU_STREAM_CARD_TRANSITION_TEXT = "已切换为表格卡片。";
 export const DEFAULT_FEISHU_REGION = "feishu_cn";
 
@@ -107,11 +104,6 @@ type FeishuCardKitStreamState = {
   elementId: string;
   sequence: number;
 };
-
-function unrefTimer(timer: any) {
-  if (typeof timer?.unref === "function") timer.unref();
-  return timer;
-}
 
 export function normalizeFeishuRegion(region: any = DEFAULT_FEISHU_REGION) {
   const value = typeof region === "string" ? region.trim() : region;
@@ -572,110 +564,74 @@ export function createFeishuAdapter({ appId, appSecret, region, agentId, onMessa
     },
   });
 
+  let stopped = false;
+  let initialConnectionTimer: ReturnType<typeof setTimeout> | undefined;
+  let restartTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastReportedStatus: "connecting" | "connected" | "error" | undefined;
+  let lastReportedError: string | undefined;
+
+  function reportStatus(status: "connecting" | "connected" | "error", error?: string) {
+    if (stopped || (lastReportedStatus === status && lastReportedError === error)) return;
+    lastReportedStatus = status;
+    lastReportedError = error;
+    if (error === undefined) onStatus?.(status);
+    else onStatus?.(status, error);
+  }
+
+  function reportConnected() {
+    clearTimeout(initialConnectionTimer);
+    clearRestartTimer();
+    reportStatus("connected");
+  }
+
+  function clearRestartTimer() {
+    clearTimeout(restartTimer);
+    restartTimer = undefined;
+  }
+
+  function reportConnectionError(error: unknown) {
+    if (stopped) return;
+    clearTimeout(initialConnectionTimer);
+    const message = error instanceof Error ? error.message : String(error);
+    log.error(`WSClient connection failed: ${message}`);
+    reportStatus("error", message);
+
+    // SDK 1.76.0 reports exhausted retries and terminal credential errors
+    // through the same untyped Error callback. Retry only the former.
+    if (!/^WebSocket reconnect exhausted after \d+ attempts$/.test(message)) {
+      clearRestartTimer();
+      return;
+    }
+    if (stopped || restartTimer) return;
+    restartTimer = setTimeout(() => {
+      restartTimer = undefined;
+      reportStatus("connecting");
+      startWsClient();
+    }, FEISHU_WS_RESTART_DELAY_MS);
+    restartTimer.unref?.();
+  }
+
   const wsClient = new lark.WSClient({
     appId,
     appSecret,
     domain: feishuDomain.sdkDomain,
     loggerLevel: lark.LoggerLevel.warn,
+    handshakeTimeoutMs: FEISHU_WS_HANDSHAKE_TIMEOUT_MS,
+    onReady: reportConnected,
+    onReconnecting: () => reportStatus("connecting"),
+    onReconnected: reportConnected,
+    onError: reportConnectionError,
   });
 
-  let stopped = false;
-  let startPromise = null;
-  let connectionPollTimer = null;
-  let healthTimer = null;
-  let lastReportedStatus = null;
-  let lastReportedError = null;
-
-  function isWsOpen() {
-    return (wsClient as any).wsConfig?.wsInstance?.readyState === FEISHU_WS_OPEN;
-  }
-
-  function clearConnectionPoll() {
-    if (connectionPollTimer) {
-      clearInterval(connectionPollTimer);
-      connectionPollTimer = null;
-    }
-  }
-
-  function clearHealthTimer() {
-    if (healthTimer) {
-      clearTimeout(healthTimer);
-      healthTimer = null;
-    }
-  }
-
-  function reportStatus(status: any, error?: any) {
-    const normalizedError = error || null;
-    if (lastReportedStatus === status && lastReportedError === normalizedError) return;
-    lastReportedStatus = status;
-    lastReportedError = normalizedError;
-    if (error === undefined) onStatus?.(status);
-    else onStatus?.(status, error);
-  }
-
-  function scheduleHealthCheck() {
-    if (stopped || healthTimer) return;
-    healthTimer = unrefTimer(setTimeout(() => {
-      healthTimer = null;
-      if (stopped) return;
-
-      if (isWsOpen()) {
-        reportStatus("connected");
-        scheduleHealthCheck();
-        return;
-      }
-
-      log.error("WSClient disconnected");
-      reportStatus("error", FEISHU_WS_DISCONNECTED_ERROR);
-      startWsClient();
-      scheduleHealthCheck();
-    }, FEISHU_WS_HEALTH_INTERVAL_MS));
-  }
-
-  function pollConnectionAfterStart() {
-    clearConnectionPoll();
-    let checks = 0;
-    connectionPollTimer = unrefTimer(setInterval(() => {
-      if (stopped) {
-        clearConnectionPoll();
-        return;
-      }
-      checks++;
-      if (isWsOpen()) {
-        clearConnectionPoll();
-        reportStatus("connected");
-        scheduleHealthCheck();
-      } else if (checks >= FEISHU_WS_INITIAL_MAX_CHECKS) {
-        clearConnectionPoll();
-        log.error("WSClient not connected after 10s");
-        reportStatus("error", "WebSocket connection failed");
-        scheduleHealthCheck();
-      }
-    }, FEISHU_WS_INITIAL_POLL_MS));
-  }
-
   function startWsClient() {
-    if (stopped) return Promise.resolve();
-    if (startPromise || connectionPollTimer) return startPromise || Promise.resolve();
-
-    // start() 调用 reConnect() 后立即 resolve，不等 WebSocket 连通。
-    // SDK 内部有自动重连机制，连接成功后 wsConfig.wsInstance 会被设置。
-    // 这里仅通过公开 start() 触发恢复，用 readyState 观察状态，避免依赖私有 reConnect()。
-    startPromise = wsClient.start({ eventDispatcher })
-      .then(() => {
-        if (!stopped) pollConnectionAfterStart();
-      })
-      .catch((err) => {
-        const message = err?.message || String(err);
-        log.error(`WSClient start failed: ${message}`);
-        debugLog()?.error("bridge", `feishu WSClient start failed: ${message}`);
-        reportStatus("error", message);
-        scheduleHealthCheck();
-      })
-      .finally(() => {
-        startPromise = null;
-      });
-    return startPromise;
+    if (stopped) return;
+    // start() returns before the handshake. Surface a stalled connection
+    // while leaving each reconnect cycle under the SDK's control.
+    initialConnectionTimer = setTimeout(() => {
+      reportStatus("error", "WebSocket connection failed");
+    }, FEISHU_WS_HANDSHAKE_TIMEOUT_MS);
+    initialConnectionTimer.unref?.();
+    void wsClient.start({ eventDispatcher }).catch(reportConnectionError);
   }
 
   startWsClient();
@@ -968,8 +924,8 @@ export function createFeishuAdapter({ appId, appSecret, region, agentId, onMessa
 
     stop() {
       stopped = true;
-      clearConnectionPoll();
-      clearHealthTimer();
+      clearTimeout(initialConnectionTimer);
+      clearRestartTimer();
       try { wsClient.close(); } catch {}
     },
   };
