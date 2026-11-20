@@ -8,11 +8,11 @@
 
 import { once } from "node:events";
 import http from "node:http";
-import https from "node:https";
 import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { getGlobalDispatcher } from "undici";
+import { Api } from "node-telegram-bot-api";
 import { installAssistantStreamGuard } from "../packages/engine/lib/pi-sdk/stream-guard.ts";
 import { createOutboundProxyRuntime, fetchDispatcherForUrl, telegramBotOptions, webSocketOptionsForUrl } from "../packages/engine/lib/net/outbound-proxy.ts";
 
@@ -152,39 +152,28 @@ describe("Node-backed Bridge clients honor the selected proxy", () => {
     vi.unstubAllEnvs();
   });
 
-  it("sends Telegram HTTPS requests through the manually configured HTTP CONNECT endpoint", async () => {
+  it("routes the same Telegram client through the current HTTP CONNECT proxy", async () => {
     const connectTargets: string[] = [];
-    const proxy = http.createServer();
-    proxy.on("connect", (request, socket) => {
-      connectTargets.push(request.url || "");
-      socket.end("HTTP/1.1 502 Test endpoint\r\nConnection: close\r\n\r\n");
-    });
-    proxy.listen(0, "127.0.0.1");
-    await once(proxy, "listening");
-    try {
-      const url = `http://127.0.0.1:${(proxy.address() as net.AddressInfo).port}`;
-      runtime.apply({ mode: "manual", httpsProxy: url, noProxy: "bridge-bypass.invalid" });
-      const options = telegramBotOptions().request;
-      await new Promise<void>(resolve => {
-        const request = https.get("https://api.telegram.org", {
-          ...options,
-          signal: AbortSignal.timeout(2000),
-          lookup: (_host, _options, callback) => callback(new Error("Direct DNS disabled by fixture"), "", 4),
-        }, response => {
-          response.resume();
-          resolve();
-        });
-        request.once("error", () => resolve());
+    const proxies = [http.createServer(), http.createServer()];
+    proxies.forEach((proxy, index) => {
+      proxy.on("connect", (request, socket) => {
+        connectTargets.push(`${index}:${request.url}`);
+        socket.end("HTTP/1.1 502 Test endpoint\r\nConnection: close\r\n\r\n");
       });
-      expect(connectTargets).toEqual(["api.telegram.org:443"]);
+      proxy.listen(0, "127.0.0.1");
+    });
+    await Promise.all(proxies.map(proxy => once(proxy, "listening")));
+    try {
+      const api = new Api("test-token", { ...telegramBotOptions(), timeoutMs: 2000 });
+      for (const proxy of proxies) {
+        const url = `http://127.0.0.1:${(proxy.address() as net.AddressInfo).port}`;
+        runtime.apply({ mode: "manual", httpsProxy: url, noProxy: "bridge-bypass.invalid" });
+        await expect(api.getMe()).rejects.toMatchObject({ code: "EFETCH" });
+      }
+      expect(connectTargets).toEqual(["0:api.telegram.org:443", "1:api.telegram.org:443"]);
       expect(webSocketOptionsForUrl("wss://bridge-bypass.invalid")).toEqual({});
-      runtime.apply({ mode: "manual", httpsProxy: "http://127.0.0.1:1" });
-      expect(options.agent.getProxyForUrl("https://api.telegram.org")).toBe("http://127.0.0.1:1");
-      runtime.apply({ mode: "direct" });
-      expect(options.agent.getProxyForUrl("https://api.telegram.org")).toBe("");
     } finally {
-      proxy.close();
-      await once(proxy, "close");
+      await Promise.all(proxies.map(proxy => new Promise<void>(resolve => proxy.close(() => resolve()))));
     }
   });
 

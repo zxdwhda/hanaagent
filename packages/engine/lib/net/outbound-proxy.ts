@@ -42,7 +42,6 @@ let currentConfig = normalizeNetworkProxyConfig(undefined);
 let currentDispatcher: any = null;
 let nodeProxyAgentCache: Map<string, any> = new Map();
 let undiciProxyDispatcherCache: Map<string, any> = new Map();
-let telegramRequestAgent: NodeProxyAgent | null = null;
 
 function proxyProtocol(proxyUrl: any) {
   try {
@@ -120,7 +119,6 @@ function resetNodeProxyAgentCache() {
     agent.destroy?.();
   }
   nodeProxyAgentCache = new Map();
-  telegramRequestAgent?.cache.clear();
 }
 
 function resetUndiciProxyDispatcherCache() {
@@ -222,15 +220,18 @@ export function webSocketOptionsForUrl(targetUrl: any) {
   return agent ? { agent } : {};
 }
 
-export function telegramBotOptions(baseOptions: any = {}) {
-  // The polling client keeps its initial options when network settings change.
-  telegramRequestAgent ??= new NodeProxyAgent({ getProxyForUrl: url => resolveProxyForUrl(url, currentConfig, process.env) });
+export function telegramBotOptions() {
+  // Resolve again on every call so a running poller follows network settings.
+  const fetchWithProxy: typeof fetch = (input, init) => {
+    const target = typeof input === "string" || input instanceof URL ? input : input.url;
+    const { dispatcher } = fetchDispatcherForUrl(target);
+    const options = dispatcher ? { ...init, dispatcher } : init;
+    return globalThis.fetch(input, options);
+  };
   return {
-    ...baseOptions,
-    request: {
-      ...(baseOptions.request || {}),
-      agent: telegramRequestAgent,
-    },
+    fetch: fetchWithProxy,
+    // A failed transport may already have delivered a non-idempotent send.
+    maxRetries: 0,
   };
 }
 

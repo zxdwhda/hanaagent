@@ -350,34 +350,46 @@ export function createDingTalkAdapter({
     return { endpoint, ticket };
   }
 
-  function acknowledge(envelope: Record<string, any>) {
+  function acknowledge(socket: any, envelope: Record<string, any>, afterSend?: () => void) {
     const messageId = envelope?.headers?.messageId;
-    const closedState = WebSocketImpl.CLOSED ?? 3;
-    if (!messageId || !ws) return;
-    if (typeof ws.readyState === "number" && ws.readyState === closedState) return;
-    ws.send(JSON.stringify({
-      code: 200,
-      headers: {
-        contentType: "application/json",
-        messageId,
-      },
-      message: "OK",
-      data: "{}",
-    }));
+    const openState = WebSocketImpl.OPEN ?? 1;
+    if (!messageId || (typeof socket.readyState === "number" && socket.readyState !== openState)) {
+      afterSend?.();
+      return;
+    }
+    const isSystem = envelope.type === "SYSTEM";
+    try {
+      socket.send(JSON.stringify({
+        code: 200,
+        headers: isSystem ? envelope.headers : { contentType: "application/json", messageId },
+        message: "OK",
+        data: isSystem ? envelope.data : "{}",
+      }), afterSend);
+    } catch {
+      debugLog()?.warn("bridge", "[dingtalk] could not acknowledge Stream frame");
+      afterSend?.();
+    }
   }
 
-  function handleStreamMessage(raw: any) {
+  function handleStreamMessage(socket: any, raw: any) {
+    if (stopped || ws !== socket) return;
     const envelope = safeJsonParse(raw);
     if (!envelope || typeof envelope !== "object") return;
     const topic = envelope.headers?.topic;
     const type = envelope.type;
+    if (type === "SYSTEM" && topic === "ping") {
+      acknowledge(socket, envelope);
+      return;
+    }
     if (type === "SYSTEM" && topic === "disconnect") {
-      try { ws?.close?.(); } catch {}
+      acknowledge(socket, envelope, () => {
+        try { socket.close(); } catch {}
+      });
       return;
     }
     if (type !== "CALLBACK" || topic !== DINGTALK_BOT_CALLBACK_TOPIC) return;
 
-    acknowledge(envelope);
+    acknowledge(socket, envelope);
     const payload = safeJsonParse(envelope.data);
     if (!payload || typeof payload !== "object") return;
     if (payload.robotCode && contract.robotCode && payload.robotCode !== contract.robotCode) return;
@@ -418,15 +430,18 @@ export function createDingTalkAdapter({
       if (stopped) return;
       const url = appendTicket(endpoint, ticket);
       streamUrl = url;
-      ws = new WebSocketImpl(url, webSocketOptionsForUrl(url));
-      ws.on("open", () => {
+      const socket = new WebSocketImpl(url, webSocketOptionsForUrl(url));
+      ws = socket;
+      socket.on("open", () => {
+        if (ws !== socket) return;
         streamConnected = true;
         log.log("stream connected");
         if (outboundError) onStatus?.("error", outboundError);
         else onStatus?.("connected");
       });
-      ws.on("message", handleStreamMessage);
-      ws.on("error", (err: any) => {
+      socket.on("message", (raw: any) => handleStreamMessage(socket, raw));
+      socket.on("error", (err: any) => {
+        if (ws !== socket) return;
         streamConnected = false;
         const message = redactSecretsFromText(
           err?.message || String(err),
@@ -435,7 +450,9 @@ export function createDingTalkAdapter({
         log.error(`stream error: ${message}`);
         onStatus?.("error", message);
       });
-      ws.on("close", () => {
+      socket.on("close", () => {
+        if (ws !== socket) return;
+        ws = null;
         streamConnected = false;
         if (stopped) return;
         log.warn("stream closed, reconnecting");

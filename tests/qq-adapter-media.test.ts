@@ -4,17 +4,38 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-const qqEvents = vi.hoisted(() => ({ message: null as ((data: string) => void) | null }));
+const qqEvents = vi.hoisted(() => ({
+  message: null as ((data: string) => void) | null,
+  sockets: [] as Array<{
+    close: (code?: number) => void;
+    emit: (event: string, data?: string | number) => void;
+    sent: Array<Record<string, any>>;
+  }>,
+}));
 
 vi.mock("ws", () => {
   class MockWebSocket {
     static OPEN = 1;
-    readyState = 0;
-    on(event: string, callback: (data: string) => void) {
-      if (event === "message") qqEvents.message = callback;
+    readyState = MockWebSocket.OPEN;
+    sent: Array<Record<string, any>> = [];
+    handlers = new Map<string, (data?: any) => void>();
+    constructor() {
+      qqEvents.sockets.push(this);
     }
-    send() {}
-    close() {}
+    on(event: string, callback: (data?: any) => void) {
+      if (event === "message") qqEvents.message = callback;
+      this.handlers.set(event, callback);
+    }
+    emit(event: string, data?: string | number) {
+      this.handlers.get(event)?.(data);
+    }
+    send(data: string) {
+      this.sent.push(JSON.parse(data));
+    }
+    close(code = 1000) {
+      this.readyState = 3;
+      this.emit("close", code);
+    }
   }
   return { default: MockWebSocket };
 });
@@ -70,6 +91,7 @@ describe("createQQAdapter media delivery", () => {
 
   beforeEach(() => {
     qqEvents.message = null;
+    qqEvents.sockets.length = 0;
     outboundCapture.platforms.length = 0;
     outboundCapture.requests.length = 0;
     vi.useFakeTimers();
@@ -126,6 +148,62 @@ describe("createQQAdapter media delivery", () => {
   function sha1Hex(value) {
     return crypto.createHash("sha1").update(value).digest("hex");
   }
+
+  it.each([true, false])("uses QQ's invalid-session recovery with resumable=%s", async (resumable) => {
+    const adapter = createQQAdapter({
+      appID: "fixture-app", appSecret: "fixture", agentId: "hana", onMessage: vi.fn(),
+    } as any);
+    const hello = JSON.stringify({ op: 10, d: { heartbeat_interval: 40_000 } });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = qqEvents.sockets[0];
+      first.emit("message", hello);
+      expect(first.sent[0]).toMatchObject({ op: 2 });
+      first.emit("message", JSON.stringify({ op: 0, t: "READY", s: 0, d: { session_id: "session-1" } }));
+      first.emit("message", JSON.stringify({ op: 9, d: resumable }));
+
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(qqEvents.sockets).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(qqEvents.sockets).toHaveLength(2);
+      const second = qqEvents.sockets[1];
+      second.emit("message", hello);
+      if (resumable) {
+        expect(second.sent[0]).toEqual({ op: 6, d: { token: "QQBot qq-token", session_id: "session-1", seq: 0 } });
+      } else {
+        expect(second.sent[0]).toMatchObject({ op: 2 });
+      }
+    } finally {
+      adapter.stop();
+    }
+  });
+
+  it("refreshes a rejected token, backs off on rate limiting and stops on fatal gateway close", async () => {
+    const onStatus = vi.fn();
+    const adapter = createQQAdapter({
+      appID: "fixture-app", appSecret: "fixture", agentId: "hana", onMessage: vi.fn(), onStatus,
+    } as any);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      qqEvents.sockets[0].close(4004);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(outboundCapture.requests.filter(({ stage }) => stage === "token")).toHaveLength(2);
+      expect(qqEvents.sockets).toHaveLength(2);
+
+      qqEvents.sockets[1].close(4008);
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(qqEvents.sockets).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(qqEvents.sockets).toHaveLength(3);
+
+      qqEvents.sockets[2].close(4914);
+      expect(onStatus).toHaveBeenLastCalledWith("error", expect.stringContaining("4914"));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(qqEvents.sockets).toHaveLength(3);
+    } finally {
+      adapter.stop();
+    }
+  });
 
   it("forwards a replayed QQ attachment once and allows the user to send the same file again", async () => {
     const onMessage = vi.fn();

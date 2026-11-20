@@ -13,6 +13,8 @@ class FakeWebSocket {
   url: string;
   options: any;
   sent: string[] = [];
+  lastWriteCallback?: () => void;
+  closed = false;
   handlers = new Map<string, FakeWebSocketHandler[]>();
 
   constructor(url: string, options?: any) {
@@ -34,11 +36,13 @@ class FakeWebSocket {
     }
   }
 
-  send(payload: string) {
+  send(payload: string, onWritten?: () => void) {
     this.sent.push(payload);
+    this.lastWriteCallback = onWritten;
   }
 
   close() {
+    this.closed = true;
     this.emit("close");
   }
 }
@@ -166,6 +170,49 @@ describe("DingTalk bridge adapter", () => {
     });
 
     adapter.stop();
+  });
+
+  it("echoes the DingTalk Stream ping and acknowledges disconnect before reconnecting with a fresh ticket", async () => {
+    FakeWebSocket.instances = [];
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ endpoint: "wss://api.dingtalk.com/connect", ticket: "ticket-1" }))
+      .mockResolvedValueOnce(jsonResponse({ endpoint: "wss://api.dingtalk.com/connect", ticket: "ticket-2" }));
+    const onMessage = vi.fn();
+    const adapter = makeAdapter(fetchMock, onMessage, vi.fn(), { reconnectDelayMs: 5 });
+
+    try {
+      await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+      const socket = FakeWebSocket.instances[0];
+      socket.emit("open");
+      const ping = {
+        type: "SYSTEM",
+        headers: { topic: "ping", messageId: "ping-1", contentType: "application/json", connectionId: "conn-1" },
+        data: '{"opaque":"keep-this"}',
+      };
+      socket.emit("message", Buffer.from(JSON.stringify(ping)));
+      expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+        { code: 200, headers: ping.headers, message: "OK", data: ping.data },
+      ]);
+      expect(socket.closed).toBe(false);
+      expect(onMessage).not.toHaveBeenCalled();
+
+      const disconnect = {
+        type: "SYSTEM",
+        headers: { ...ping.headers, topic: "disconnect", messageId: "disconnect-1" },
+        data: "{}",
+      };
+      socket.emit("message", JSON.stringify(disconnect));
+      expect(JSON.parse(socket.sent[1])).toEqual({
+        code: 200, headers: disconnect.headers, message: "OK", data: disconnect.data,
+      });
+      expect(socket.closed).toBe(false);
+      socket.lastWriteCallback?.();
+      expect(socket.closed).toBe(true);
+      await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(2));
+      expect(FakeWebSocket.instances[1].url).toBe("wss://api.dingtalk.com/connect?ticket=ticket-2");
+    } finally {
+      adapter.stop();
+    }
   });
 
   it("uses conversation-scoped session keys for group callbacks", async () => {

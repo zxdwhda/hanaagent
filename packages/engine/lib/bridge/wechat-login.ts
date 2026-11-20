@@ -1,114 +1,152 @@
 /**
- * wechat-login.js — 微信 iLink 扫码登录模块
- *
- * 独立于 adapter 生命周期，被 REST route 直接调用。
- * 参考 @tencent-weixin/openclaw-weixin v1.0.2 的 src/auth/login-qr.ts（MIT 协议）。
+ * WeChat iLink QR login. Protocol reference: Tencent openclaw-weixin 2.4.10 (MIT).
+ * Keep the provider nonce and current IDC on the server for the lifetime of the QR.
  */
-
+import { randomUUID } from "node:crypto";
 import QRCode from "qrcode";
+import {
+  resolveWechatIlinkOrigin,
+  WECHAT_ILINK_DEFAULT_URL,
+  WECHAT_ILINK_HEADERS,
+  wechatIlinkHeaders,
+} from "./wechat-ilink-api.ts";
 
-const BASE_URL = "https://ilinkai.weixin.qq.com";
-const BOT_TYPE = "3";
+const LOGIN_TTL_MS = 5 * 60_000;
 
-/**
- * 构造 iLink 请求头（登录阶段无需 Authorization）
- */
-function loginHeaders() {
-  return {
-    "iLink-App-ClientVersion": "1",
+type Confirmation = { status: "confirmed"; botToken: string; userId?: string; baseUrl: string };
+type QrLogin = {
+  id: string;
+  qrcode: string;
+  origin: string;
+  expiresAt: number;
+  hasExistingBinding: boolean;
+  needsVerification: boolean;
+  polling: boolean;
+  confirmation?: Confirmation;
+  completed?: boolean;
+};
+const logins = new Map<string, QrLogin>();
+
+export async function getWechatQrcode(agentId: string, existingToken?: string) {
+  for (const [key, login] of logins) {
+    if (login.expiresAt <= Date.now()) logins.delete(key);
+  }
+  const login: QrLogin = {
+    id: randomUUID(),
+    qrcode: "",
+    origin: WECHAT_ILINK_DEFAULT_URL,
+    expiresAt: Date.now() + LOGIN_TTL_MS,
+    hasExistingBinding: Boolean(existingToken),
+    needsVerification: false,
+    polling: false,
   };
-}
-
-/**
- * 获取微信扫码登录二维码
- * @returns {Promise<{ ok: boolean, qrcodeUrl?: string, qrcodeId?: string, error?: string }>}
- */
-export async function getWechatQrcode() {
+  logins.set(agentId, login);
+  const url = WECHAT_ILINK_DEFAULT_URL + "/ilink/bot/get_bot_qrcode?bot_type=3";
   try {
-    const url = `${BASE_URL}/ilink/bot/get_bot_qrcode?bot_type=${BOT_TYPE}`;
-    const res = await fetch(url, { headers: loginHeaders() });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return { ok: false, error: `HTTP ${res.status}: ${body}` };
-    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: wechatIlinkHeaders(),
+      body: JSON.stringify({ local_token_list: existingToken ? [existingToken] : [] }),
+      redirect: "error",
+      signal: AbortSignal.timeout(40_000),
+    });
+    if (!res.ok) return { ok: false, error: `WeChat QR code request failed (HTTP ${res.status})` };
     const data = await res.json();
-    if (!data.qrcode) {
-      return { ok: false, error: "服务器未返回二维码" };
+    if (typeof data.qrcode !== "string" || !data.qrcode) {
+      return { ok: false, error: "WeChat did not return a QR code" };
     }
-    // qrcode_img_content 是要被编码成二维码的 URL 文本，不是图片
-    // 用 qrcode 库转成 data URL（base64 PNG），前端直接 <img src> 显示
-    const qrText = data.qrcode_img_content || data.qrcode;
-    const qrcodeDataUrl = await QRCode.toDataURL(qrText, { width: 280, margin: 2 });
-    return {
-      ok: true,
-      qrcodeUrl: qrcodeDataUrl,
-      qrcodeId: data.qrcode,
-    };
-  } catch (err) {
-    return { ok: false, error: err.message };
+    const qrcodeUrl = await QRCode.toDataURL(data.qrcode_img_content || data.qrcode, { width: 280, margin: 2 });
+    if (login !== logins.get(agentId)) return { ok: false, error: "WeChat QR code request was replaced" };
+    login.qrcode = data.qrcode;
+    login.expiresAt = Date.now() + LOGIN_TTL_MS;
+    return { ok: true, qrcodeUrl, qrcodeId: login.id };
+  } catch {
+    return { ok: false, error: "WeChat QR code request failed" };
+  } finally {
+    if (!login.qrcode && logins.get(agentId) === login) logins.delete(agentId);
   }
 }
 
-/**
- * 轮询微信扫码状态
- *
- * iLink 服务器会 hold 连接最多 35 秒（长轮询），
- * 所以前端不需要高频调用，每次请求本身就会等待。
- *
- * @param {string} qrcodeId - 从 getWechatQrcode 获取的 qrcode 值
- * @returns {Promise<{ status: string, botToken?: string, botId?: string, userId?: string, baseUrl?: string, error?: string }>}
- */
-export async function pollWechatQrcodeStatus(qrcodeId) {
-  if (!qrcodeId) {
-    return { status: "error", error: "qrcodeId is required" };
+export async function pollWechatQrcodeStatus(agentId: string, qrcodeId: unknown, verifyCode?: unknown) {
+  const login = logins.get(agentId);
+  if (!login?.qrcode || login.id !== qrcodeId || login.expiresAt <= Date.now()) return { status: "expired" } as const;
+  if (login.completed) return { status: "completed" } as const;
+  if (login.confirmation) return login.confirmation;
+  if (login.needsVerification && (typeof verifyCode !== "string" || !/^\d{1,12}$/.test(verifyCode))) {
+    return { status: "verification_required", incorrect: false } as const;
   }
+  if (login.polling) return { status: "waiting" } as const;
 
+  login.polling = true;
   try {
-    const url = `${BASE_URL}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrcodeId)}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 40_000);
-
-    let res;
-    try {
-      res = await fetch(url, { headers: loginHeaders(), signal: controller.signal });
-      clearTimeout(timer);
-    } catch (err) {
-      clearTimeout(timer);
-      if (err.name === "AbortError") {
-        return { status: "waiting" };
-      }
-      throw err;
-    }
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return { status: "error", error: `HTTP ${res.status}: ${body}` };
-    }
-
+    const url = new URL("/ilink/bot/get_qrcode_status", login.origin);
+    url.searchParams.set("qrcode", login.qrcode);
+    if (login.needsVerification && typeof verifyCode === "string") url.searchParams.set("verify_code", verifyCode);
+    const res = await fetch(url.toString(), {
+      headers: WECHAT_ILINK_HEADERS,
+      redirect: "error",
+      signal: AbortSignal.timeout(35_000),
+    });
+    if (!res.ok) return { status: "waiting" } as const;
     const data = await res.json();
+    if (login !== logins.get(agentId) || login.expiresAt <= Date.now()) return { status: "expired" } as const;
 
     switch (data.status) {
-      case "wait":
-        return { status: "waiting" };
       case "scaned":
-        return { status: "scanned" };
-      case "confirmed":
-        if (!data.bot_token || !data.ilink_bot_id) {
-          return { status: "error", error: "登录成功但服务器未返回凭证" };
+        login.needsVerification = false;
+        return { status: "scanned" } as const;
+      case "need_verifycode": {
+        const incorrect = login.needsVerification;
+        login.needsVerification = true;
+        return { status: "verification_required", incorrect } as const;
+      }
+      case "scaned_but_redirect":
+        try {
+          if (typeof data.redirect_host !== "string" || !data.redirect_host) throw new Error();
+          login.origin = resolveWechatIlinkOrigin(`https://${data.redirect_host}`);
+          return { status: "redirected" } as const;
+        } catch {
+          logins.delete(agentId);
+          return { status: "invalid_endpoint" } as const;
         }
-        return {
-          status: "confirmed",
-          botToken: data.bot_token,
-          botId: data.ilink_bot_id,
-          userId: data.ilink_user_id,
-          baseUrl: data.baseurl,
-        };
+      case "binded_redirect":
+        logins.delete(agentId);
+        return { status: login.hasExistingBinding ? "already_bound" : "error" } as const;
       case "expired":
-        return { status: "expired" };
+      case "verify_code_blocked":
+        logins.delete(agentId);
+        return { status: data.status as "expired" | "verify_code_blocked" };
+      case "confirmed":
+        try {
+          if (typeof data.bot_token !== "string" || !data.bot_token
+            || typeof data.ilink_bot_id !== "string" || !data.ilink_bot_id) {
+            logins.delete(agentId);
+            return { status: "error" } as const;
+          }
+          login.confirmation = {
+            status: "confirmed",
+            botToken: data.bot_token,
+            userId: typeof data.ilink_user_id === "string" ? data.ilink_user_id : undefined,
+            baseUrl: resolveWechatIlinkOrigin(data.baseurl || login.origin),
+          };
+          return login.confirmation;
+        } catch {
+          logins.delete(agentId);
+          return { status: "invalid_endpoint" } as const;
+        }
       default:
-        return { status: data.status || "waiting" };
+        return { status: "waiting" } as const;
     }
-  } catch (err) {
-    return { status: "error", error: err.message };
+  } catch {
+    return { status: "waiting" } as const;
+  } finally {
+    login.polling = false;
   }
+}
+
+export function completeWechatQrcodeLogin(agentId: string, qrcodeId: unknown) {
+  const login = logins.get(agentId);
+  if (!login || login.id !== qrcodeId) return;
+  delete login.confirmation;
+  login.completed = true;
 }

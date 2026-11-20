@@ -18,7 +18,6 @@ const mockClientConstructorArgs: any[] = [];
 const mockWsConstructorArgs: any[] = [];
 
 let registeredHandlers: any = {};
-let mockWsInstances = [];
 
 vi.mock("@larksuiteoapi/node-sdk", () => {
   class MockEventDispatcher {
@@ -29,11 +28,8 @@ vi.mock("@larksuiteoapi/node-sdk", () => {
   }
 
   class MockWSClient {
-    declare wsConfig: any;
     constructor(args) {
       mockWsConstructorArgs.push(args);
-      this.wsConfig = { wsInstance: { readyState: 1 } };
-      mockWsInstances.push(this);
     }
 
     start(...args) {
@@ -121,19 +117,9 @@ function parseMessageContent(callIndex = 0) {
   return JSON.parse(mockMessageCreate.mock.calls[callIndex][0].data.content);
 }
 
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-function latestWsClient() {
-  return mockWsInstances[mockWsInstances.length - 1];
-}
-
 describe("createFeishuAdapter", () => {
   beforeEach(() => {
     registeredHandlers = {};
-    mockWsInstances = [];
     mockContactUserGet.mockReset();
     mockImageGet.mockReset();
     mockMessageResourceGet.mockReset();
@@ -217,7 +203,7 @@ describe("createFeishuAdapter", () => {
     expect(mockWsConstructorArgs).toHaveLength(0);
   });
 
-  it("keeps monitoring the Feishu websocket after the initial connection", async () => {
+  it("reports SDK readiness and recovery without starting a competing reconnect loop", async () => {
     vi.useFakeTimers();
     const onStatus = vi.fn();
     const adapter = createFeishuAdapter({
@@ -228,21 +214,21 @@ describe("createFeishuAdapter", () => {
       onStatus,
     });
 
-    await flushPromises();
-    await vi.advanceTimersByTimeAsync(500);
-    expect(onStatus).toHaveBeenCalledWith("connected");
-
-    const wsClient = latestWsClient();
-    wsClient.wsConfig.wsInstance.readyState = 3;
-    onStatus.mockClear();
-
-    await vi.advanceTimersByTimeAsync(30_000);
-
-    expect(onStatus).toHaveBeenCalledWith("error", "WebSocket disconnected");
-    adapter.stop();
+    try {
+      const { onReady, onReconnecting, onReconnected } = mockWsConstructorArgs[0];
+      expect(onStatus).not.toHaveBeenCalled();
+      onReady();
+      onReconnecting();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(mockWsStart).toHaveBeenCalledTimes(1);
+      onReconnected();
+      expect(onStatus.mock.calls).toEqual([["connected"], ["connecting"], ["connected"]]);
+    } finally {
+      adapter.stop();
+    }
   });
 
-  it("nudges the Feishu websocket client to restart when health check sees a closed socket", async () => {
+  it("reports a stalled initial connection and later readiness without restarting the SDK", async () => {
     vi.useFakeTimers();
     const onStatus = vi.fn();
     const adapter = createFeishuAdapter({
@@ -253,22 +239,92 @@ describe("createFeishuAdapter", () => {
       onStatus,
     });
 
-    await flushPromises();
-    await vi.advanceTimersByTimeAsync(500);
+    try {
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(onStatus).toHaveBeenCalledWith("error", "WebSocket connection failed");
+      mockWsConstructorArgs[0].onReady();
+      expect(onStatus).toHaveBeenLastCalledWith("connected");
+      expect(mockWsStart).toHaveBeenCalledTimes(1);
+    } finally {
+      adapter.stop();
+    }
+  });
+
+  it("keeps a terminal SDK error visible and ignores callbacks after stop", async () => {
+    vi.useFakeTimers();
+    const onStatus = vi.fn();
+    const adapter = createFeishuAdapter({
+      appId: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+      onStatus,
+    });
+
+    const { onError, onReconnected } = mockWsConstructorArgs[0];
+    onError(new Error("fixture application denied"));
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(onStatus.mock.calls).toEqual([["error", "fixture application denied"]]);
     expect(mockWsStart).toHaveBeenCalledTimes(1);
 
-    const wsClient = latestWsClient();
-    wsClient.wsConfig.wsInstance.readyState = 3;
-
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(mockWsStart).toHaveBeenCalledTimes(2);
-
-    await flushPromises();
-    wsClient.wsConfig.wsInstance.readyState = 1;
-    await vi.advanceTimersByTimeAsync(500);
-
-    expect(onStatus).toHaveBeenLastCalledWith("connected");
     adapter.stop();
+    onReconnected();
+    onError(new Error("late error"));
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(mockWsClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("restarts the SDK once after exhausted retries and reports recovery", async () => {
+    vi.useFakeTimers();
+    const onStatus = vi.fn();
+    const adapter = createFeishuAdapter({
+      appId: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+      onStatus,
+    });
+
+    try {
+      const { onReady, onReconnecting, onError } = mockWsConstructorArgs[0];
+      const exhausted = new Error("WebSocket reconnect exhausted after 2 attempts");
+      onReady();
+      onReconnecting();
+      onError(exhausted);
+      onError(exhausted);
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(mockWsStart).toHaveBeenCalledTimes(1);
+      expect(onStatus).toHaveBeenLastCalledWith("error", exhausted.message);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(mockWsStart).toHaveBeenCalledTimes(2);
+      expect(onStatus).toHaveBeenLastCalledWith("connecting");
+      onReady();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(onStatus).toHaveBeenLastCalledWith("connected");
+      expect(mockWsStart).toHaveBeenCalledTimes(2);
+    } finally {
+      adapter.stop();
+    }
+  });
+
+  it("cancels a scheduled restart when stopped", async () => {
+    vi.useFakeTimers();
+    const onStatus = vi.fn();
+    const adapter = createFeishuAdapter({
+      appId: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+      onStatus,
+    });
+
+    const { onError } = mockWsConstructorArgs[0];
+    onError(new Error("WebSocket reconnect exhausted after 2 attempts"));
+    adapter.stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(mockWsStart).toHaveBeenCalledTimes(1);
+    expect(mockWsClose).toHaveBeenCalledTimes(1);
+    expect(onStatus).toHaveBeenCalledTimes(1);
   });
 
   it("accepts a Feishu message ID once even while its sender lookup is pending", async () => {
